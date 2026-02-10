@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vega Mission Control — Directory</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+    <style>
+      @font-face { font-family:'Akzidenz'; src:local('Akzidenz-Grotesk'),local('AkzidenzGrotesk'),local('Helvetica Neue'),local('Helvetica'),local('Arial'); font-weight:300; }
+      @font-face { font-family:'Akzidenz'; src:local('Akzidenz-Grotesk'),local('AkzidenzGrotesk'),local('Helvetica Neue'),local('Helvetica'),local('Arial'); font-weight:400; }
+      @font-face { font-family:'Akzidenz'; src:local('Akzidenz-Grotesk Medium'),local('AkzidenzGrotesk-Medium'),local('Helvetica Neue Medium'),local('Helvetica Neue'),local('Helvetica'); font-weight:500; }
+      * { margin:0; padding:0; box-sizing:border-box; }
+      :root {
+        --bg0:#0a0f1a; --bg1:#0f172a; --bg2:#131c2e; --bgH:#1a2540; --bgI:rgba(30,41,59,0.5);
+        --bd:#1e293b; --bdH:#334155;
+        --t1:#f1f5f9; --t2:#e2e8f0; --t3:#b0bec9; --t4:#8a9bb5; --t5:#6b7fa0;
+        --grn:#34d399; --grnM:rgba(52,211,153,0.15); --grnB:rgba(52,211,153,0.5);
+        --ylw:#fbbf24; --ylwM:rgba(251,191,36,0.15);
+        --red:#f87171; --redM:rgba(248,113,113,0.15);
+        --blu:#60a5fa; --bluM:rgba(96,165,250,0.15);
+      }
+      body { font-family:'Akzidenz','Helvetica Neue',Helvetica,Arial,sans-serif; background:var(--bg0); color:var(--t2); min-height:100vh; line-height:1.5; }
+      .mono { font-family:'Space Mono',monospace; }
+      .gridbg { position:fixed;inset:0;background-image:linear-gradient(rgba(51,65,85,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(51,65,85,0.04) 1px,transparent 1px);background-size:50px 50px;pointer-events:none;z-index:0; }
+    </style>
+</head>
+<body>
+<div class="gridbg"></div>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useMemo } = React;
+
+/* ═══════════════════════════════════════════════
+   DATA — from Vega Master Sheet
+   ═══════════════════════════════════════════════ */
+
+const positions = [
+  {id:"P01",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund I",type:"Entity",cls:"B",amt:98000,status:"Approved",signed:"",funded:"Jul 31, 2025",advisor:"",custodian:""},
+  {id:"P02",invId:"I02",name:"Alex Smith",entity:"Monte Ridge LLC",fund:"Fund I",type:"Entity",cls:"B",amt:100000,status:"Approved",signed:"Jan 7, 2025",funded:"",advisor:"",custodian:""},
+  {id:"P03",invId:"I03",name:"Blake Seifers",entity:"Seifers Properties 4 LLC",fund:"Fund I",type:"Entity",cls:"B",amt:200000,status:"Approved",signed:"Dec 23, 2024",funded:"",advisor:"",custodian:""},
+  {id:"P04",invId:"I04",name:"Cameron Cope",entity:"Cope Enterprises LLC",fund:"Fund I",type:"Entity",cls:"B",amt:200000,status:"Approved",signed:"Dec 23, 2024",funded:"",advisor:"",custodian:""},
+  {id:"P05",invId:"I05",name:"John Sirrine",entity:"Janco Properties LLC",fund:"Fund I",type:"Entity",cls:"B",amt:100000,status:"Approved",signed:"Dec 23, 2024",funded:"",advisor:"",custodian:""},
+  {id:"P06",invId:"I06",name:"Sayer Leslie",entity:"Leslie Capital Investments LLC",fund:"Fund I",type:"Entity",cls:"B",amt:300000,status:"Approved",signed:"Jan 27, 2025",funded:"",advisor:"",custodian:""},
+  {id:"P07",invId:"I07",name:"Jeremiah Post",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Pending",signed:"Jan 28, 2026",funded:"",advisor:"",custodian:""},
+  {id:"P08",invId:"I08",name:"Chris Hermansen",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:1228071,status:"Approved",signed:"Nov 5, 2025",funded:"Nov 5, 2025",advisor:"",custodian:""},
+  {id:"P09",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund II",type:"Entity",cls:"A",amt:96000,status:"Approved",signed:"Sep 16, 2025",funded:"Sep 16, 2025",advisor:"",custodian:""},
+  {id:"P10",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund II",type:"Entity",cls:"A",amt:45000,status:"Approved",signed:"Sep 2, 2025",funded:"Sep 2, 2025",advisor:"",custodian:""},
+  {id:"P11",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund II",type:"Entity",cls:"A",amt:195000,status:"Approved",signed:"Oct 31, 2025",funded:"Oct 31, 2025",advisor:"",custodian:""},
+  {id:"P12",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund II",type:"Entity",cls:"A",amt:124980,status:"Approved",signed:"Oct 31, 2025",funded:"Oct 31, 2025",advisor:"",custodian:""},
+  {id:"P13",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund II",type:"Entity",cls:"A",amt:61500,status:"Approved",signed:"Sep 5, 2025",funded:"Sep 5, 2025",advisor:"",custodian:""},
+  {id:"P14",invId:"I09",name:"Kelly Buchanan",entity:"Buchanan Family Living Trust",fund:"Fund II",type:"Trust",cls:"A",amt:50000,status:"Approved",signed:"Dec 30, 2025",funded:"Dec 31, 2025",advisor:"John Crosier",custodian:"Inspira"},
+  {id:"P15",invId:"I10",name:"Elissa Oleole",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:50000,status:"Approved",signed:"Dec 30, 2025",funded:"Dec 31, 2025",advisor:"Chris Harris",custodian:"Charles Schwab"},
+  {id:"P16",invId:"I11",name:"Spencer Evans",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:300000,status:"Approved",signed:"Dec 31, 2025",funded:"Dec 31, 2025",advisor:"",custodian:""},
+  {id:"P17",invId:"I12",name:"Daniel Cerf",entity:"Daniel A & Nancy R Cerf Trust",fund:"Fund II",type:"Trust",cls:"A",amt:200000,status:"Approved",signed:"Dec 13, 2025",funded:"Dec 16, 2025",advisor:"Greg Van Wyk",custodian:""},
+  {id:"P18",invId:"I13",name:"Clark Evans",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:200000,status:"Approved",signed:"Dec 3, 2025",funded:"Dec 8, 2025",advisor:"",custodian:""},
+  {id:"P19",invId:"I14",name:"Jim Cook",entity:"The Jim & Melanie Cook Trust",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Nov 5, 2025",funded:"Nov 12, 2025",advisor:"",custodian:""},
+  {id:"P20",invId:"I15",name:"Chase Benson",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Oct 29, 2025",funded:"Oct 31, 2025",advisor:"Chris Harris",custodian:"Charles Schwab"},
+  {id:"P21",invId:"I16",name:"Dustin Jorgenson",entity:"Big D Investors LLC",fund:"Fund II",type:"Entity",cls:"A",amt:150000,status:"Approved",signed:"Oct 27, 2025",funded:"Oct 29, 2025",advisor:"",custodian:""},
+  {id:"P22",invId:"I17",name:"Benjamin Nelson",entity:"2245 Holdings LLC",fund:"Fund II",type:"Entity",cls:"A",amt:100000,status:"Approved",signed:"Oct 22, 2025",funded:"Oct 29, 2025",advisor:"",custodian:""},
+  {id:"P23",invId:"I05",name:"John Sirrine",entity:"Janco Properties LLC",fund:"Fund II",type:"Entity",cls:"A",amt:300000,status:"Approved",signed:"Oct 23, 2025",funded:"Oct 28, 2025",advisor:"",custodian:""},
+  {id:"P24",invId:"I06",name:"Sayer Leslie",entity:"Leslie Capital Investments",fund:"Fund II",type:"Individual",cls:"A",amt:50000,status:"Approved",signed:"",funded:"Nov 13, 2025",advisor:"",custodian:""},
+  {id:"P25",invId:"I18",name:"Bryan Griffith",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:50000,status:"Approved",signed:"Oct 21, 2025",funded:"Oct 21, 2025",advisor:"",custodian:""},
+  {id:"P26",invId:"I19",name:"David Child",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Oct 18, 2025",funded:"Oct 21, 2025",advisor:"",custodian:""},
+  {id:"P27",invId:"I20",name:"Lance Jorgenson",entity:"RLJ De Le Rosa LLC",fund:"Fund II",type:"Entity",cls:"A",amt:100000,status:"Approved",signed:"Oct 17, 2025",funded:"Oct 20, 2025",advisor:"",custodian:""},
+  {id:"P28",invId:"I21",name:"Curtis Larsen",entity:"Curtis & Courtney Larsen",fund:"Fund II",type:"Joint",cls:"A",amt:100000,status:"Approved",signed:"Oct 6, 2025",funded:"Oct 28, 2025",advisor:"",custodian:""},
+  {id:"P29",invId:"I22",name:"Woody Klemetson",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"",funded:"Nov 4, 2025",advisor:"",custodian:""},
+  {id:"P30",invId:"I23",name:"Stephen Collette",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Sep 23, 2025",funded:"Oct 3, 2025",advisor:"",custodian:""},
+  {id:"P31",invId:"I24",name:"Bridger Wilde",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:150000,status:"Approved",signed:"Sep 16, 2025",funded:"Sep 19, 2025",advisor:"",custodian:""},
+  {id:"P32",invId:"I25",name:"Bowen England",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Oct 1, 2025",funded:"Oct 28, 2025",advisor:"",custodian:""},
+  {id:"P33",invId:"I26",name:"Sam Ellis",entity:"Ellis Real Estate Investments LLC",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Sep 30, 2025",funded:"Sep 17, 2025",advisor:"",custodian:""},
+  {id:"P34",invId:"I27",name:"Connor Clissold",entity:"Mimi Adventure Trust",fund:"Fund II",type:"Trust",cls:"A",amt:100000,status:"Approved",signed:"Oct 2, 2025",funded:"Oct 8, 2025",advisor:"",custodian:""},
+  {id:"P35",invId:"I28",name:"Brian Jones",entity:"Brian W. Jones & Sandra M. Jones",fund:"Fund II",type:"Joint",cls:"A",amt:100000,status:"Approved",signed:"Aug 15, 2025",funded:"Aug 11, 2025",advisor:"",custodian:""},
+  {id:"P36",invId:"I29",name:"Joel Reichert",entity:"Reichart Ventures",fund:"Fund II",type:"Individual",cls:"A",amt:300000,status:"Approved",signed:"Aug 19, 2025",funded:"Aug 8, 2025",advisor:"",custodian:""},
+  {id:"P37",invId:"I30",name:"Chieh Chang",entity:"JC Capital Investments LLC",fund:"Fund II",type:"Entity",cls:"A",amt:150000,status:"Approved",signed:"Aug 22, 2025",funded:"Aug 11, 2025",advisor:"",custodian:""},
+  {id:"P38",invId:"I31",name:"Brady Simon",entity:"xBrady LLC",fund:"Fund II",type:"Entity",cls:"A",amt:200000,status:"Approved",signed:"Aug 22, 2025",funded:"Aug 7, 2025",advisor:"",custodian:""},
+  {id:"P39",invId:"I32",name:"Darrin Simon",entity:"Darrin LLC",fund:"Fund II",type:"Entity",cls:"A",amt:230000,status:"Approved",signed:"Aug 22, 2025",funded:"Aug 8, 2025",advisor:"",custodian:""},
+  {id:"P40",invId:"I33",name:"Matt Cragun",entity:"Cragun Revocable Living Trust",fund:"Fund II",type:"Trust",cls:"A",amt:200000,status:"Approved",signed:"Aug 8, 2025",funded:"Aug 8, 2025",advisor:"",custodian:""},
+  {id:"P41",invId:"I33",name:"Matt Cragun",entity:"MNC Investments TR",fund:"Fund II",type:"Trust",cls:"A",amt:100000,status:"Approved",signed:"Aug 8, 2025",funded:"Aug 8, 2025",advisor:"",custodian:""},
+];
+
+const complianceData = [
+  {invId:"I15",name:"Chase Benson",doc:"Investor Questionnaire",issue:"Needs to complete Part II",status:"Open"},
+  {invId:"I15",name:"Chase Benson",doc:"Schedule A",issue:"Need to complete Schedule A",status:"Open"},
+  {invId:"I14",name:"Jim Cook",doc:"Subscription Agreement",issue:"Jim needs to sign as trustee; Melanie may need separate page",status:"Open"},
+  {invId:"I14",name:"Jim Cook",doc:"Investor Questionnaire",issue:"Part III Q6: list Jim 50% and Melanie 50%",status:"Open"},
+  {invId:"I14",name:"Jim Cook",doc:"Partnership Agreement",issue:"Not signed",status:"Open"},
+  {invId:"I14",name:"Jim Cook",doc:"W-9",issue:"Need W-9 for both Jim and Melanie",status:"Open"},
+  {invId:"I14",name:"Jim Cook",doc:"General",issue:"Request Trust Certificate",status:"Open"},
+  {invId:"I16",name:"Dustin Jorgenson",doc:"Investor Questionnaire",issue:"Complete Part V only; confirm 2(a) vs 2(f)",status:"Open"},
+  {invId:"I16",name:"Dustin Jorgenson",doc:"Partnership Agreement",issue:"Fix entity signature block",status:"Open"},
+  {invId:"I16",name:"Dustin Jorgenson",doc:"W-9",issue:"Fix entity signature block",status:"Open"},
+  {invId:"I17",name:"Benjamin Nelson",doc:"Investor Questionnaire",issue:"Part V Q3-Q6 need checks",status:"Open"},
+  {invId:"I17",name:"Benjamin Nelson",doc:"Partnership Agreement",issue:"Needs signature",status:"Open"},
+  {invId:"I17",name:"Benjamin Nelson",doc:"W-9",issue:"Needs signature",status:"Open"},
+  {invId:"I05",name:"John Sirrine",doc:"Investor Questionnaire",issue:"Complete Part V; confirm 2(a) vs 2(f); check 3(a)",status:"Open"},
+  {invId:"I05",name:"John Sirrine",doc:"Partnership Agreement",issue:"Fix entity signature block",status:"Open"},
+  {invId:"I05",name:"John Sirrine",doc:"W-9",issue:"Fix entity signature block",status:"Open"},
+  {invId:"I29",name:"Joel Reichert",doc:"Investor Questionnaire",issue:"Complete Part II only",status:"Open"},
+  {invId:"I29",name:"Joel Reichert",doc:"Partnership Agreement",issue:"Sign as individual only",status:"Open"},
+  {invId:"I29",name:"Joel Reichert",doc:"W-9",issue:"Sign as individual only",status:"Open"},
+  {invId:"I26",name:"Sam Ellis",doc:"Investor Questionnaire",issue:"Leave Part II blank; complete Part V",status:"Open"},
+  {invId:"I23",name:"Stephen Collette",doc:"Investor Questionnaire",issue:"Confirm Individual vs Trust",status:"Open"},
+  {invId:"I20",name:"Lance Jorgenson",doc:"Investor Questionnaire",issue:"Complete Part V: Q3, Q5, Q6",status:"Open"},
+  {invId:"I20",name:"Lance Jorgenson",doc:"Partnership Agreement",issue:"Needs signature",status:"Open"},
+  {invId:"I21",name:"Curtis Larsen",doc:"Subscription Agreement",issue:"Need Courtney signature OR remove her",status:"Open"},
+  {invId:"I30",name:"Chieh Chang",doc:"Subscription Agreement",issue:"Add signor title to all signature pages",status:"Open"},
+  {invId:"I31",name:"Brady Simon",doc:"General",issue:"Clarify: individual or xBrady LLC",status:"Open"},
+  {invId:"I27",name:"Connor Clissold",doc:"Subscription Agreement",issue:"Need printed name and title",status:"Open"},
+  {invId:"I27",name:"Connor Clissold",doc:"General",issue:"Request Trust Certificate",status:"Open"},
+  {invId:"I25",name:"Bowen England",doc:"Partnership Agreement",issue:"Add printed name to signature block",status:"Open"},
+  {invId:"I28",name:"Brian Jones",doc:"Subscription Agreement",issue:"Need Sandra to sign; fix Schedule A to Community Property",status:"Open"},
+  {invId:"I33",name:"Matt Cragun",doc:"Subscription Agreement",issue:"May need Nicole signature as co-trustee",status:"Open"},
+  {invId:"I33",name:"Matt Cragun",doc:"General",issue:"Request Trust Certificate for both trusts",status:"Open"},
+];
+
+const distData = [
+  {invId:"I32",name:"Darrin Simon",entity:"Darrin LLC",fund:"Fund II",period:"Dec 2025",amt:1246,method:"ACH",date:"Dec 15"},
+  {invId:"I31",name:"Brady Simon",entity:"xBrady LLC",fund:"Fund II",period:"Dec 2025",amt:1083,method:"ACH",date:"Dec 15"},
+  {invId:"I33",name:"Matt Cragun",entity:"MNC Investments TR",fund:"Fund II",period:"Dec 2025",amt:1083,method:"ACH",date:"Dec 15"},
+  {invId:"I33",name:"Matt Cragun",entity:"Cragun Trust",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I30",name:"Chieh Chang",entity:"JC Capital",fund:"Fund II",period:"Dec 2025",amt:813,method:"ACH",date:"Dec 15"},
+  {invId:"I29",name:"Joel Reichert",entity:"Reichart Ventures",fund:"Fund II",period:"Dec 2025",amt:1625,method:"ACH",date:"Dec 15"},
+  {invId:"I28",name:"Brian Jones",entity:"Brian Jones",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I26",name:"Sam Ellis",entity:"Ellis REI",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I21",name:"Curtis Larsen",entity:"Curtis Larsen",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I23",name:"Stephen Collette",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I25",name:"Bowen England",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I24",name:"Bridger Wilde",entity:"",fund:"Fund II",period:"Dec 2025",amt:813,method:"ACH",date:"Dec 15"},
+  {invId:"I19",name:"David Child",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I05",name:"John Sirrine",entity:"Janco Properties",fund:"Fund II",period:"Dec 2025",amt:1625,method:"ACH",date:"Dec 15"},
+  {invId:"I27",name:"Connor Clissold",entity:"Mimi Adventure Trust",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I20",name:"Lance Jorgenson",entity:"De Le Rosa LLC",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I16",name:"Dustin Jorgenson",entity:"Big D Investors",fund:"Fund II",period:"Dec 2025",amt:813,method:"ACH",date:"Dec 15"},
+  {invId:"I18",name:"Bryan Griffith",entity:"",fund:"Fund II",period:"Dec 2025",amt:271,method:"ACH",date:"Dec 15"},
+  {invId:"I22",name:"Woody Klemetson",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"ACH",date:"Dec 15"},
+  {invId:"I06",name:"Sayer Leslie",entity:"Leslie Capital",fund:"Fund II",period:"Dec 2025",amt:271,method:"ACH",date:"Dec 15"},
+  {invId:"I15",name:"Chase Benson",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"Wire",date:"Dec 15"},
+  {invId:"I14",name:"Jim Cook",entity:"",fund:"Fund II",period:"Dec 2025",amt:542,method:"Wire",date:"Dec 15"},
+  {invId:"I17",name:"Benjamin Nelson",entity:"2245 Holdings",fund:"Fund II",period:"Dec 2025",amt:542,method:"Check",date:"Dec 3"},
+];
+
+// Build investor list from positions
+const investorMap = {};
+positions.forEach(p => {
+  if (!investorMap[p.invId]) investorMap[p.invId] = { id:p.invId, name:p.name, funds:new Set(), types:new Set(), entities:[], committed:0, positions:[], advisor:"", custodian:"" };
+  const inv = investorMap[p.invId];
+  inv.funds.add(p.fund);
+  inv.types.add(p.type);
+  inv.committed += p.amt;
+  inv.positions.push(p);
+  if (p.advisor) inv.advisor = p.advisor;
+  if (p.custodian) inv.custodian = p.custodian;
+  if (p.entity) inv.entities.push(p.entity);
+});
+const investorList = Object.values(investorMap).map(inv => ({
+  ...inv,
+  funds: Array.from(inv.funds),
+  types: Array.from(inv.types),
+  entities: [...new Set(inv.entities)],
+  compOpen: complianceData.filter(c => c.invId === inv.id && c.status === 'Open').length,
+  compliance: complianceData.filter(c => c.invId === inv.id),
+  distributions: distData.filter(d => d.invId === inv.id),
+  distTotal: distData.filter(d => d.invId === inv.id).reduce((s,d) => s+d.amt, 0),
+})).sort((a,b) => a.name.localeCompare(b.name));
+
+// Build advisor list
+const advisorMap = {};
+positions.filter(p => p.advisor).forEach(p => {
+  if (!advisorMap[p.advisor]) advisorMap[p.advisor] = { name:p.advisor, investors:[], totalAUM:0 };
+  const a = advisorMap[p.advisor];
+  if (!a.investors.find(i => i.id === p.invId)) a.investors.push({ id:p.invId, name:p.name });
+  a.totalAUM += p.amt;
+});
+const advisorList = Object.values(advisorMap);
+
+// Build custodian list
+const custodianMap = {};
+positions.filter(p => p.custodian).forEach(p => {
+  if (!custodianMap[p.custodian]) custodianMap[p.custodian] = { name:p.custodian, investors:[], totalAUM:0 };
+  const c = custodianMap[p.custodian];
+  if (!c.investors.find(i => i.id === p.invId)) c.investors.push({ id:p.invId, name:p.name, advisor:p.advisor });
+  c.totalAUM += p.amt;
+});
+const custodianList = Object.values(custodianMap);
+
+const fmt = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:0}).format(n);
+const fmtK = n => n>=1e6?`$${(n/1e6).toFixed(1)}M`:n>=1e3?`$${(n/1e3).toFixed(0)}K`:`$${n}`;
+
+function App() {
+  const [dirTab, setDirTab] = useState("investors");
+  const [sel, setSel] = useState(null);
+  const [search, setSearch] = useState("");
+  const [detailTab, setDetailTab] = useState("overview");
+  const [noteText, setNoteText] = useState("");
+  const [localNotes, setLocalNotes] = useState({});
+  const [resolvedItems, setResolvedItems] = useState(new Set());
+
+  const filtered = useMemo(() => {
+    if (!search) return investorList;
+    const q = search.toLowerCase();
+    return investorList.filter(i => i.name.toLowerCase().includes(q) || i.entities.some(e => e.toLowerCase().includes(q)));
+  }, [search]);
+
+  const si = sel ? investorList.find(i => i.id === sel) : null;
+  const totalCommitted = investorList.reduce((s,i) => s+i.committed, 0);
+  const openComp = investorList.reduce((s,i) => s+i.compOpen, 0);
+
+  const addNote = () => {
+    if (!noteText.trim() || !sel) return;
+    const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    const prev = localNotes[sel] || "";
+    setLocalNotes({...localNotes, [sel]: `[${ts}] ${noteText}\n${prev}`});
+    setNoteText("");
+  };
+
+  const resolveCompliance = (idx) => {
+    setResolvedItems(prev => new Set([...prev, idx]));
+  };
+
+  return (
+    <div>
+      {/* HEADER */}
+      <header style={{position:'relative',zIndex:10,borderBottom:'1px solid var(--bd)'}}>
+        <div style={{maxWidth:1280,margin:'0 auto',padding:'16px 32px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:20}}>
+            <span className="mono" style={{fontSize:12,color:'var(--t4)',cursor:'pointer'}}>← Mission Control</span>
+            <svg viewBox="0 0 1602 587" style={{height:24,fill:'var(--t1)'}}><polygon points="475 372 694 372 694 321 475 321 475 184 727 184 727 133 417 133 417 576 734 576 734 525 475 525 475 372"/><path d="M1442,133h-62l-169,443h63l51-135,18-51,67-184h1l64,184,18,51,47,135h63l-161-443Z"/><path d="M0,133h64l116,362h1l123-362h62l-157,443h-61L0,133Z"/><path d="M183,0c-9,62-28,110-51,133,24,23,42,71,51,133,9-62,28-110,51-133C210,110,192,62,183,0Z"/><path d="M966,382h138v129c-10,7-22,12-35,16-19,6-40,9-64,9-27,0-51-5-71-15-20-10-37-24-50-41-13-17-23-37-29-59-6-22-9-46-9-70s4-46,11-68c7-21,18-40,31-57,14-16,30-29,50-39,20-10,42-15,67-15,21,0,40,3,56,7,17,5,31,11,43,20,8,6,17,13,24,20l33-44c-9-9-21-17-29-22-18-11-38-18-59-24-22-6-44-8-68-8-36,0-67,7-95,20-28,13-51,31-70,53-19,22-33,47-43,75-10,28-15,56-15,85,0,34,5,66,15,94,10,29,25,53,44,74,19,21,43,36,70,48,28,11,59,17,93,17,31,0,65-3,93-13,2-1,5-2,8-3h0l1-1,0,0c17-7,36-19,52-36v-207h-193v55Z"/></svg>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:8,height:8,background:'var(--grn)',borderRadius:'50%'}}/><span className="mono" style={{fontSize:11,color:'var(--t4)'}}>Live</span></div>
+            <span style={{fontSize:13,color:'var(--t3)'}}>cory@vegacapital.com</span>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN */}
+      <div style={{position:'relative',zIndex:10,maxWidth:1280,margin:'0 auto',padding:'24px 32px'}}>
+
+        {/* PAGE HEADER */}
+        <div style={{marginBottom:24,paddingBottom:20,borderBottom:'1px solid var(--bd)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+            <div style={{width:8,height:8,background:'var(--grn)',borderRadius:'50%'}}/>
+            <span className="mono" style={{fontSize:11,textTransform:'uppercase',letterSpacing:'0.2em',color:'var(--t4)'}}>Active Module</span>
+          </div>
+          <h1 style={{fontSize:28,fontWeight:300,color:'var(--t1)',letterSpacing:'-0.02em',marginBottom:4}}>Directory</h1>
+          <p className="mono" style={{fontSize:12,color:'var(--t4)'}}>{investorList.length} investors · {advisorList.length} advisors · {custodianList.length} custodians</p>
+        </div>
+
+        {/* DIRECTORY TABS */}
+        <div style={{display:'flex',gap:0,marginBottom:24}}>
+          {[{id:'investors',l:`Investors (${investorList.length})`},{id:'advisors',l:`Advisors (${advisorList.length})`},{id:'custodians',l:`Custodians (${custodianList.length})`}].map(t => (
+            <button key={t.id} onClick={() => {setDirTab(t.id);setSel(null)}} className="mono" style={{
+              fontSize:12,fontWeight:700,padding:'10px 24px',border:'1px solid var(--bd)',background:dirTab===t.id?'var(--grnM)':'transparent',
+              color:dirTab===t.id?'var(--grn)':'var(--t4)',cursor:'pointer',borderRadius:t.id==='investors'?'4px 0 0 4px':t.id==='custodians'?'0 4px 4px 0':'0',
+              borderLeft:t.id!=='investors'?'none':undefined,borderColor:dirTab===t.id?'var(--grnB)':'var(--bd)',transition:'all .15s'
+            }}>{t.l}</button>
+          ))}
+        </div>
+
+        {/* ═══ INVESTORS TAB ═══ */}
+        {dirTab === 'investors' && <>
+          {/* STATS */}
+          <div style={{display:'flex',gap:12,marginBottom:20}}>
+            <div style={{flex:1,background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:'14px 18px'}}>
+              <div className="mono" style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>Total Committed</div>
+              <div style={{fontSize:22,fontWeight:300,color:'var(--t1)'}}>{fmtK(totalCommitted)}</div>
+            </div>
+            <div style={{flex:1,background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:'14px 18px'}}>
+              <div className="mono" style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>Investors</div>
+              <div style={{fontSize:22,fontWeight:300,color:'var(--t1)'}}>{investorList.length}</div>
+            </div>
+            <div style={{flex:1,background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:'14px 18px'}}>
+              <div className="mono" style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>Open Compliance</div>
+              <div style={{fontSize:22,fontWeight:300,color:openComp>0?'var(--red)':'var(--grn)'}}>{openComp}</div>
+            </div>
+            <div style={{flex:1,background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:'14px 18px'}}>
+              <div className="mono" style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>Avg Commitment</div>
+              <div style={{fontSize:22,fontWeight:300,color:'var(--t1)'}}>{fmtK(totalCommitted/investorList.length)}</div>
+            </div>
+          </div>
+
+          {/* SEARCH */}
+          <div style={{marginBottom:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--bg1)',border:'1px solid var(--bd)',borderRadius:4,padding:'8px 14px',maxWidth:360}}>
+              <span style={{color:'var(--t5)',fontSize:14}}>⌕</span>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or entity..." style={{background:'transparent',border:'none',outline:'none',fontSize:14,color:'var(--t1)',fontFamily:'inherit',width:'100%'}}/>
+            </div>
+          </div>
+
+          {/* SPLIT VIEW */}
+          <div style={{display:'grid',gridTemplateColumns:'400px 1fr',border:'1px solid var(--bd)',borderRadius:6,overflow:'hidden',minHeight:600,background:'var(--bg2)'}}>
+
+            {/* LIST */}
+            <div style={{borderRight:'1px solid var(--bd)',overflowY:'auto',maxHeight:700}}>
+              <div className="mono" style={{padding:'12px 16px',borderBottom:'1px solid var(--bd)',fontSize:10,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t5)',display:'flex',justifyContent:'space-between'}}>
+                <span>Name</span><span>Committed</span>
+              </div>
+              {filtered.map(i => (
+                <div key={i.id} onClick={() => {setSel(i.id);setDetailTab('overview')}} style={{
+                  display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',borderBottom:'1px solid rgba(30,41,59,0.3)',
+                  cursor:'pointer',transition:'background .1s',background:sel===i.id?'rgba(52,211,153,0.04)':'transparent',
+                  borderLeft:sel===i.id?'3px solid var(--grn)':'3px solid transparent'
+                }}>
+                  <div>
+                    <div style={{fontSize:14,color:'var(--t1)',fontWeight:500}}>{i.name}</div>
+                    <div className="mono" style={{fontSize:10,color:'var(--t3)',marginTop:2,display:'flex',alignItems:'center',gap:6}}>
+                      {i.types.join(' · ')}
+                      <span style={{color:'var(--t5)'}}>·</span>
+                      {i.funds.join(' & ')}
+                      {i.compOpen > 0 && <span className="mono" style={{background:'var(--redM)',color:'var(--red)',fontSize:9,fontWeight:700,padding:'1px 6px',borderRadius:8}}>{i.compOpen}</span>}
+                    </div>
+                  </div>
+                  <div className="mono" style={{fontSize:12,color:'var(--t2)',fontWeight:700,whiteSpace:'nowrap'}}>{fmtK(i.committed)}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* DETAIL */}
+            <div style={{padding:24,overflowY:'auto',maxHeight:700}}>
+              {si ? (
+                <div key={si.id} style={{animation:'fadeIn .2s ease'}}>
+                  {/* Header */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+                    <div>
+                      <div style={{fontSize:22,fontWeight:300,color:'var(--t1)',letterSpacing:'-0.01em'}}>{si.name}</div>
+                      <div className="mono" style={{fontSize:11,color:'var(--t4)',marginTop:2}}>
+                        {si.id} · {si.types.join(', ')}
+                        {si.advisor && <> · Advisor: {si.advisor}</>}
+                        {si.custodian && <> · Custodian: {si.custodian}</>}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:6}}>
+                      {si.funds.map(f => <span key={f} className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.03em',padding:'4px 10px',borderRadius:4,background:f==='Fund I'?'rgba(51,65,85,0.5)':'var(--grnM)',color:f==='Fund I'?'var(--t3)':'var(--grn)',whiteSpace:'nowrap'}}>{f}</span>)}
+                      {si.compOpen>0 && <span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'4px 10px',borderRadius:4,background:'var(--redM)',color:'var(--red)'}}>{si.compOpen} Issues</span>}
+                      {si.positions.some(p => p.status==='Pending') && <span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'4px 10px',borderRadius:4,background:'var(--ylwM)',color:'var(--ylw)'}}>Pending</span>}
+                    </div>
+                  </div>
+
+                  {/* Mini Stats */}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20}}>
+                    {[{l:'Committed',v:fmtK(si.committed)},{l:'Distributed',v:si.distTotal>0?fmt(si.distTotal):'—'},{l:'Positions',v:si.positions.length},{l:'Compliance',v:si.compOpen>0?`${si.compOpen} open`:'Clear',c:si.compOpen>0?'var(--red)':'var(--grn)'}].map(s => (
+                      <div key={s.l} style={{background:'var(--bgI)',borderRadius:5,padding:12}}>
+                        <div className="mono" style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>{s.l}</div>
+                        <div style={{fontSize:16,fontWeight:300,color:s.c||'var(--t1)'}}>{s.v}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Detail Tabs */}
+                  <div style={{display:'flex',borderBottom:'1px solid var(--bd)',marginBottom:16}}>
+                    {[{id:'overview',l:'Overview'},{id:'positions',l:`Positions (${si.positions.length})`},{id:'compliance',l:`Compliance (${si.compOpen})`,alert:si.compOpen>0},{id:'distributions',l:`Distributions (${si.distributions.length})`},{id:'notes',l:'Notes'}].map(t => (
+                      <button key={t.id} onClick={() => setDetailTab(t.id)} className="mono" style={{
+                        padding:'9px 16px',fontSize:11,fontWeight:700,color:detailTab===t.id?'var(--grn)':'var(--t4)',cursor:'pointer',
+                        border:'none',background:'none',borderBottom:detailTab===t.id?'2px solid var(--grn)':'2px solid transparent',transition:'all .12s',position:'relative'
+                      }}>
+                        {t.l}
+                        {t.alert && <span style={{position:'absolute',top:6,right:4,width:5,height:5,borderRadius:'50%',background:'var(--red)'}}/>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tab Content */}
+                  <div style={{animation:'fadeIn .15s ease'}}>
+                    {detailTab === 'overview' && (
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                        {[{l:'Investor Type',v:si.types.join(', ')},{l:'Funds',v:si.funds.join(', ')},{l:'Entities',v:si.entities.length>0?si.entities.join(', '):'—'},{l:'Advisor',v:si.advisor||'—'},{l:'Custodian',v:si.custodian||'—'},{l:'Total Committed',v:fmt(si.committed)}].map(f => (
+                          <div key={f.l}>
+                            <div className="mono" style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',marginBottom:4}}>{f.l}</div>
+                            <div style={{fontSize:14,color:f.v==='—'?'var(--t5)':f.v.includes('$')?'var(--t1)':'var(--t2)',padding:'8px 10px',borderRadius:4,background:'var(--bgI)',fontWeight:500}}>{f.v}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {detailTab === 'positions' && (
+                      <div style={{overflowX:'auto'}}>
+                        <table style={{width:'100%',borderCollapse:'collapse'}}>
+                          <thead><tr>
+                            {['Fund','Entity','Type','Class','Amount','Status','Funded'].map(h => (
+                              <th key={h} className="mono" style={{fontSize:9,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',padding:'8px 10px',textAlign:h==='Amount'?'right':'left',borderBottom:'1px solid var(--bd)',whiteSpace:'nowrap',fontWeight:700}}>{h}</th>
+                            ))}
+                          </tr></thead>
+                          <tbody>{si.positions.map((p,i) => (
+                            <tr key={i} style={{transition:'background .1s'}}>
+                              <td style={{fontSize:13,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t2)',fontWeight:700}}>{p.fund}</td>
+                              <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t3)'}}>{p.entity||'—'}</td>
+                              <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)'}}><span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'3px 8px',borderRadius:4,background:'rgba(51,65,85,0.5)',color:'var(--t2)'}}>{p.type}</span></td>
+                              <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)'}}><span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'3px 8px',borderRadius:4,background:'rgba(51,65,85,0.5)',color:'var(--t2)'}}>Class {p.cls}</span></td>
+                              <td style={{fontSize:13,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',textAlign:'right',color:'var(--t1)',fontWeight:700}}>{fmt(p.amt)}</td>
+                              <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)'}}><span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'3px 8px',borderRadius:4,background:p.status==='Approved'?'var(--grnM)':'var(--ylwM)',color:p.status==='Approved'?'var(--grn)':'var(--ylw)'}}>{p.status}</span></td>
+                              <td className="mono" style={{fontSize:11,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t3)'}}>{p.funded||'—'}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {detailTab === 'compliance' && (
+                      si.compliance.length > 0 ? (
+                        <div>{si.compliance.map((c,i) => {
+                          const key = `${si.id}-${i}`;
+                          const isResolved = resolvedItems.has(key);
+                          return (
+                            <div key={i} style={{padding:14,borderLeft:isResolved?'2px solid var(--t5)':'2px solid var(--ylw)',background:'var(--bgI)',borderRadius:'0 5px 5px 0',marginBottom:8,opacity:isResolved?0.4:1,transition:'opacity .2s'}}>
+                              <div className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--t4)',marginBottom:4}}>{c.doc}</div>
+                              <div style={{fontSize:14,color:'var(--t2)',lineHeight:1.5,marginBottom:8}}>{c.issue}</div>
+                              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                                <span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'3px 8px',borderRadius:4,background:isResolved?'var(--grnM)':'var(--ylwM)',color:isResolved?'var(--grn)':'var(--ylw)'}}>{isResolved?'Resolved':'Open'}</span>
+                                {!isResolved && <button onClick={() => resolveCompliance(key)} className="mono" style={{fontSize:10,fontWeight:700,padding:'4px 10px',borderRadius:4,border:'1px solid rgba(52,211,153,0.3)',background:'var(--grnM)',color:'var(--grn)',cursor:'pointer',transition:'all .15s'}}>Mark Resolved</button>}
+                              </div>
+                            </div>
+                          );
+                        })}</div>
+                      ) : <div style={{textAlign:'center',padding:32,color:'var(--t4)',fontSize:14}}>No compliance issues — all clear ✓</div>
+                    )}
+
+                    {detailTab === 'distributions' && (
+                      si.distributions.length > 0 ? (
+                        <div style={{overflowX:'auto'}}>
+                          <table style={{width:'100%',borderCollapse:'collapse'}}>
+                            <thead><tr>
+                              {['Period','Entity','Amount','Method','Sent'].map(h => (
+                                <th key={h} className="mono" style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.15em',color:'var(--t4)',padding:'8px 10px',textAlign:h==='Amount'?'right':'left',borderBottom:'1px solid var(--bd)',whiteSpace:'nowrap'}}>{h}</th>
+                              ))}
+                            </tr></thead>
+                            <tbody>{si.distributions.map((d,i) => (
+                              <tr key={i}>
+                                <td style={{fontSize:13,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t2)',fontWeight:500}}>{d.period}</td>
+                                <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t3)'}}>{d.entity||'—'}</td>
+                                <td style={{fontSize:13,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',textAlign:'right',color:'var(--t1)',fontWeight:700}}>{fmt(d.amt)}</td>
+                                <td style={{fontSize:12,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)'}}><span className="mono" style={{fontSize:10,fontWeight:700,textTransform:'uppercase',padding:'3px 8px',borderRadius:4,background:d.method==='ACH'?'rgba(51,65,85,0.5)':d.method==='Wire'?'var(--bluM)':'var(--ylwM)',color:d.method==='ACH'?'var(--t2)':d.method==='Wire'?'var(--blu)':'var(--ylw)'}}>{d.method}</span></td>
+                                <td className="mono" style={{fontSize:11,padding:'10px',borderBottom:'1px solid rgba(30,41,59,0.3)',color:'var(--t3)'}}>{d.date}</td>
+                              </tr>
+                            ))}</tbody>
+                          </table>
+                        </div>
+                      ) : <div style={{textAlign:'center',padding:32,color:'var(--t4)',fontSize:14}}>No distributions recorded</div>
+                    )}
+
+                    {detailTab === 'notes' && (
+                      <div>
+                        <textarea value={noteText} onChange={e => setNoteText(e.target.value)} placeholder="Add a note about this investor..." rows={3} style={{
+                          width:'100%',background:'var(--bg0)',border:'1px solid var(--bd)',borderRadius:4,padding:10,fontSize:14,color:'var(--t1)',fontFamily:'inherit',outline:'none',resize:'vertical'
+                        }}/>
+                        <div style={{marginTop:8,display:'flex',justifyContent:'flex-end'}}>
+                          <button onClick={addNote} disabled={!noteText.trim()} className="mono" style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:4,border:'1px solid var(--grn)',background:'var(--grn)',color:'var(--bg0)',cursor:'pointer',opacity:noteText.trim()?1:0.4}}>Add Note</button>
+                        </div>
+                        {localNotes[sel] && <div className="mono" style={{fontSize:11,color:'var(--t3)',lineHeight:1.8,whiteSpace:'pre-wrap',padding:12,background:'var(--bgI)',borderRadius:5,marginTop:12}}>{localNotes[sel]}</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:12,color:'var(--t5)',minHeight:400}}>
+                  <svg viewBox="0 0 187 294" width={36} height={57} fill="var(--t5)"><path d="M0,68h33l59,185h1l63-185h31l-80,226h-31L0,68Z"/><path d="M93,0c-4,31-14,56-26,68,12,12,22,36,26,68,5-32,14-56,26-68C107,56,98,31,93,0Z"/></svg>
+                  <p style={{fontSize:14}}>Select an investor to view details</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>}
+
+        {/* ═══ ADVISORS TAB ═══ */}
+        {dirTab === 'advisors' && (
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+              {advisorList.map(a => (
+                <div key={a.name} style={{background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:20,transition:'border-color .15s',cursor:'pointer'}}
+                  onMouseEnter={e => e.currentTarget.style.borderColor='var(--grnB)'} onMouseLeave={e => e.currentTarget.style.borderColor='var(--bd)'}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:'var(--grn)'}}/>
+                    <span className="mono" style={{fontSize:11,color:'var(--t5)'}}>Advisor</span>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:300,color:'var(--t1)',marginBottom:4}}>{a.name}</div>
+                  <div className="mono" style={{fontSize:12,color:'var(--t3)',marginBottom:12}}>{fmt(a.totalAUM)} AUM</div>
+                  <div className="mono" style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--t4)',marginBottom:8}}>Investors ({a.investors.length})</div>
+                  {a.investors.map(inv => (
+                    <div key={inv.id} style={{padding:'6px 0',fontSize:14,color:'var(--t2)',borderBottom:'1px solid rgba(30,41,59,0.3)'}}>{inv.name}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            {advisorList.length === 0 && <div style={{textAlign:'center',padding:48,color:'var(--t4)'}}>No advisors on file</div>}
+          </div>
+        )}
+
+        {/* ═══ CUSTODIANS TAB ═══ */}
+        {dirTab === 'custodians' && (
+          <div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16}}>
+              {custodianList.map(c => (
+                <div key={c.name} style={{background:'rgba(15,23,42,0.5)',border:'1px solid var(--bd)',borderRadius:6,padding:20,transition:'border-color .15s',cursor:'pointer'}}
+                  onMouseEnter={e => e.currentTarget.style.borderColor='var(--grnB)'} onMouseLeave={e => e.currentTarget.style.borderColor='var(--bd)'}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:'var(--blu)'}}/>
+                    <span className="mono" style={{fontSize:11,color:'var(--t5)'}}>Custodian</span>
+                  </div>
+                  <div style={{fontSize:20,fontWeight:300,color:'var(--t1)',marginBottom:4}}>{c.name}</div>
+                  <div className="mono" style={{fontSize:12,color:'var(--t3)',marginBottom:16}}>{fmt(c.totalAUM)} custodied · {c.investors.length} investors</div>
+                  <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr>
+                      <th className="mono" style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--t4)',padding:'6px 0',textAlign:'left',borderBottom:'1px solid var(--bd)'}}>Investor</th>
+                      <th className="mono" style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.1em',color:'var(--t4)',padding:'6px 0',textAlign:'left',borderBottom:'1px solid var(--bd)'}}>Advisor</th>
+                    </tr></thead>
+                    <tbody>{c.investors.map(inv => (
+                      <tr key={inv.id}>
+                        <td style={{fontSize:14,padding:'8px 0',color:'var(--t2)',fontWeight:500,borderBottom:'1px solid rgba(30,41,59,0.3)'}}>{inv.name}</td>
+                        <td style={{fontSize:13,padding:'8px 0',color:'var(--t3)',borderBottom:'1px solid rgba(30,41,59,0.3)'}}>{inv.advisor||'—'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--bd);border-radius:3px; }
+      `}</style>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>

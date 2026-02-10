@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vega - Private Equity [WIREFRAME v2]</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Akzidenz';
+            src: local('Akzidenz-Grotesk'), local('AkzidenzGrotesk'), local('Helvetica Neue'), local('Helvetica'), local('Arial');
+            font-weight: 300;
+        }
+        @font-face {
+            font-family: 'Akzidenz';
+            src: local('Akzidenz-Grotesk'), local('AkzidenzGrotesk'), local('Helvetica Neue'), local('Helvetica'), local('Arial');
+            font-weight: 400;
+        }
+        @font-face {
+            font-family: 'Akzidenz';
+            src: local('Akzidenz-Grotesk Medium'), local('AkzidenzGrotesk-Medium'), local('Helvetica Neue Medium'), local('Helvetica Neue'), local('Helvetica');
+            font-weight: 500;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-primary: #0a0f1a;
+            --bg-secondary: #0f172a;
+            --bg-card: #131c2e;
+            --bg-hover: #1a2540;
+            --bg-card-half: rgba(15, 23, 42, 0.5);
+            --bg-inner: rgba(30, 41, 59, 0.5);
+            --border-default: #1e293b;
+            --border-hover: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-faint: #64748b;
+            --text-ghost: #475569;
+            --green: #34d399;
+            --green-muted: rgba(52, 211, 153, 0.15);
+            --green-border: rgba(52, 211, 153, 0.5);
+            --yellow: #fbbf24;
+            --yellow-muted: rgba(251, 191, 36, 0.15);
+            --yellow-border: rgba(251, 191, 36, 0.3);
+            --red: #f87171;
+            --red-muted: rgba(248, 113, 113, 0.15);
+            --blue: #60a5fa;
+            --blue-muted: rgba(96, 165, 250, 0.15);
+        }
+        
+        body {
+            font-family: 'Akzidenz', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        
+        .mono { font-family: 'Space Mono', monospace; }
+        
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(51, 65, 85, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(51, 65, 85, 0.04) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 10;
+            border-bottom: 1px solid var(--border-default);
+        }
+        
+        .header-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        
+        .header-back {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        
+        .header-back:hover { color: var(--text-primary); }
+        .header-logo svg { height: 27px; fill: var(--text-primary); }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        
+        .live-dot {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .live-dot::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        .live-dot span {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        .header-email { font-size: 14px; color: var(--text-muted); }
+        
+        .header-signout {
+            font-size: 14px;
+            color: var(--text-faint);
+            cursor: pointer;
+            transition: color 0.15s;
+            background: none;
+            border: none;
+        }
+        
+        .header-signout:hover { color: var(--text-primary); }
+        
+        /* Main */
+        .main {
+            position: relative;
+            z-index: 10;
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+        
+        /* Page header */
+        .page-header {
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-default);
+        }
+        
+        .page-header-dot {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .page-header-dot::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+        }
+        
+        .page-header-dot span {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-faint);
+        }
+        
+        .page-title {
+            font-size: 30px;
+            font-weight: 300;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+        
+        .page-subtitle {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            color: var(--text-faint);
+        }
+        
+        .section-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-faint);
+        }
+        
+        /* Attention Needed */
+        .attention {
+            background: var(--bg-card-half);
+            border: 1px solid var(--yellow-border);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .attention-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .attention-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .attention-header::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--yellow);
+            border-radius: 50%;
+        }
+        
+        .attention-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .attention-counter {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        .attention-arrow {
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.15s;
+        }
+        
+        .attention-arrow:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+        
+        .attention-arrow:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+        
+        .attention-track {
+            display: flex;
+            transition: transform 0.3s ease;
+            gap: 16px;
+        }
+        
+        .attention-card {
+            background: var(--bg-inner);
+            border-radius: 6px;
+            padding: 16px;
+            border-left: 2px solid var(--yellow);
+            cursor: pointer;
+            transition: background 0.15s;
+            min-width: calc(33.333% - 11px);
+            flex-shrink: 0;
+        }
+        
+        .attention-card:hover { background: var(--bg-hover); }
+        
+        .attention-card-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+            margin-bottom: 4px;
+        }
+        
+        .attention-card-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .attention-card-link {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        
+        .attention-card-link:hover { color: var(--text-primary); }
+        
+        /* Upcoming */
+        .upcoming {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .upcoming-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .upcoming-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .upcoming-header::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--text-faint);
+            border-radius: 50%;
+        }
+        
+        .upcoming-edit-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+            background: none;
+            border: 1px solid var(--border-default);
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .upcoming-edit-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-muted);
+        }
+        
+        .upcoming-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        
+        .upcoming-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(30, 41, 59, 0.3);
+            border-radius: 6px;
+            padding: 12px 16px;
+        }
+        
+        .upcoming-item-title {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+        
+        .upcoming-item-date {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        
+        .badge-yellow { background: var(--yellow-muted); color: var(--yellow); }
+        .badge-muted { background: rgba(51, 65, 85, 0.5); color: var(--text-muted); }
+        .badge-green { background: var(--green-muted); color: var(--green); }
+        .badge-red { background: var(--red-muted); color: var(--red); }
+        .badge-blue { background: var(--blue-muted); color: var(--blue); }
+        .badge-closed { background: rgba(51, 65, 85, 0.5); color: var(--text-muted); }
+        .badge-open { background: var(--green-muted); color: var(--green); }
+        .badge-pending { background: var(--yellow-muted); color: var(--yellow); }
+        
+        /* Quick Nav */
+        .quick-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+        
+        .nav-card {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 18px;
+            text-decoration: none;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+        
+        .nav-card:hover { border-color: var(--green-border); }
+        .nav-card:hover .nav-card-enter { color: var(--green); }
+        
+        .nav-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .nav-card-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .nav-card-enter {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-ghost);
+            transition: color 0.15s;
+        }
+        
+        .nav-card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+        
+        .nav-card-desc {
+            font-size: 12px;
+            color: var(--text-faint);
+        }
+        
+        .nav-card.no-dot .nav-card-dot { display: none; }
+        
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+        
+        .content-left { display: flex; flex-direction: column; gap: 24px; }
+        .content-right { display: flex; flex-direction: column; gap: 24px; }
+        
+        /* Fund Selector */
+        .fund-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        
+        .fund-card {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .fund-card:hover { border-color: var(--green); }
+        
+        .fund-card.active {
+            border-color: var(--green);
+            background: rgba(52, 211, 153, 0.03);
+        }
+        
+        .fund-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .fund-card-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-ghost);
+        }
+        
+        .fund-card-name {
+            font-size: 16px;
+            font-weight: 300;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+        
+        .fund-card-amount {
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .fund-progress {
+            width: 100%;
+            height: 5px;
+            background: var(--border-default);
+            border-radius: 3px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        
+        .fund-progress-bar {
+            height: 100%;
+            background: var(--green);
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
+        
+        .fund-card-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        /* Documents */
+        .docs-section {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .docs-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-default);
+        }
+        
+        .docs-drive-link {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--green);
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.15s;
+        }
+        
+        .docs-drive-link:hover { color: #2dd4a0; }
+        
+        .docs-body { padding: 20px; }
+        
+        .docs-category { margin-bottom: 20px; }
+        .docs-category:last-child { margin-bottom: 0; }
+        
+        .docs-category-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .doc-item {
+            background: var(--bg-inner);
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        
+        .doc-item:hover { background: var(--bg-hover); }
+        
+        .doc-item-name {
+            font-size: 13px;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+        
+        .doc-item-meta {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        /* Sidebar */
+        .sidebar-box {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .sidebar-title {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-faint);
+            margin-bottom: 20px;
+        }
+        
+        .stat-row { margin-bottom: 16px; }
+        .stat-row:last-child { margin-bottom: 0; }
+        
+        .stat-row-label {
+            font-size: 12px;
+            color: var(--text-faint);
+            margin-bottom: 4px;
+        }
+        
+        .stat-row-value {
+            font-size: 24px;
+            font-weight: 300;
+            color: var(--text-primary);
+        }
+        
+        .stat-row-value.small {
+            font-size: 18px;
+            color: var(--text-muted);
+        }
+        
+        /* Activity */
+        .activity-item {
+            padding: 8px 0 8px 14px;
+            border-left: 2px solid var(--border-default);
+            margin-bottom: 12px;
+        }
+        
+        .activity-item:last-child { margin-bottom: 0; }
+        .activity-item.green { border-left-color: var(--green); }
+        
+        .activity-item-title {
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+        
+        .activity-item-meta {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-faint);
+        }
+        
+        .view-all-link {
+            display: block;
+            margin-top: 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--green);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        
+        .view-all-link:hover { color: #2dd4a0; }
+        
+        /* Quick Links */
+        .quicklinks-box {
+            background: var(--bg-card-half);
+            border: 1px solid var(--border-default);
+            border-radius: 6px;
+            padding: 20px;
+        }
+        
+        .quicklinks-list {
+            list-style: none;
+        }
+        
+        .quicklinks-list li {
+            margin-bottom: 10px;
+        }
+        
+        .quicklinks-list li:last-child { margin-bottom: 0; }
+        
+        .quicklinks-list a {
+            font-size: 13px;
+            color: var(--text-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.15s;
+        }
+        
+        .quicklinks-list a:hover { color: var(--green); }
+        
+        .quicklinks-list a::before {
+            content: '→';
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-ghost);
+        }
+        
+        .quicklinks-list a:hover::before { color: var(--green); }
+        
+        /* Footer */
+        .footer {
+            position: relative;
+            z-index: 10;
+            border-top: 1px solid var(--border-default);
+            margin-top: 40px;
+        }
+        
+        .footer-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 32px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .footer-text {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px;
+            color: var(--text-ghost);
+        }
+        
+        /* Upcoming Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-overlay.active { display: flex; }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 520px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-default);
+        }
+        
+        .modal-title { font-size: 18px; font-weight: 500; color: var(--text-primary); }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .modal-close:hover { color: var(--text-primary); }
+        
+        .modal-body { padding: 24px; }
+        
+        .form-group { margin-bottom: 16px; }
+        .form-group:last-child { margin-bottom: 0; }
+        
+        .form-label {
+            display: block;
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-default);
+            border-radius: 4px;
+            padding: 10px 12px;
+            font-size: 14px;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 20px 24px;
+            border-top: 1px solid var(--border-default);
+        }
+        
+        .btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-default);
+            color: var(--text-muted);
+        }
+        
+        .btn-secondary:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+        
+        .btn-primary {
+            background: var(--green);
+            border: 1px solid var(--green);
+            color: var(--bg-primary);
+        }
+        
+        .btn-primary:hover { background: #2dd4a0; }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 14px 20px;
+            background: var(--green-muted);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+            border-radius: 8px;
+            color: var(--green);
+            font-size: 14px;
+            z-index: 200;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show { transform: translateY(0); opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="grid-bg"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-left">
+                <a href="#" class="header-back">← Mission Control</a>
+                <div class="header-logo">
+                    <svg viewBox="0 0 1602.14 586.87" style="height:27px;fill:var(--text-primary)">
+                        <polygon points="474.94 371.81 694.38 371.81 694.38 320.83 474.94 320.83 474.94 184.06 727.34 184.06 727.34 133.09 416.51 133.09 416.51 575.71 733.55 575.71 733.55 524.74 474.94 524.74 474.94 371.81"/>
+                        <path d="M1441.79,133.12h-62.16l-169.15,442.55h62.82l51.03-135.47,18-51.03,67.08-183.39h1.3l63.46,183.39,18,51.03,47.27,135.47h62.69l-160.34-442.55Z"/>
+                        <path d="M0,133.09h64.04l115.63,361.8h1.24l123.09-361.8h61.54l-157.28,442.62h-60.3L0,133.09Z"/>
+                        <path d="M182.77,0c-8.8,61.66-27.56,110.27-51.34,133.09,23.79,22.82,42.54,71.43,51.34,133.09,8.8-61.66,27.56-110.27,51.34-133.09-23.79-22.82-42.54-71.43-51.34-133.09Z"/>
+                        <path d="M965.68,381.82h137.75v129.49c-10.38,6.49-21.85,11.63-34.51,15.59-19.29,6.09-40.54,9.07-63.72,9.07-27.33,0-51.03-5.05-71.23-15.28-20.07-10.1-36.65-23.7-49.73-40.67-12.95-16.97-22.66-36.78-28.88-59.06-6.22-22.41-9.33-45.85-9.33-70.33s3.63-46.11,10.88-67.74c7.25-21.5,17.74-40.41,31.47-56.6,13.6-16.19,30.3-29.01,49.99-38.85,19.69-9.71,41.96-14.63,66.82-14.63,21.12,0,39.89,2.46,56.21,7.25,16.45,4.79,30.56,11.27,42.61,19.56,8.28,5.7,16.7,12.56,23.96,20.08l33.41-43.52c-9.45-8.81-21.11-16.84-29.14-21.76-18-11.01-37.68-18.52-59.31-24.09-21.5-5.7-44.17-8.42-67.74-8.42-35.62,0-67.22,6.73-94.8,20.2-27.58,13.47-50.9,31.21-69.94,53.1-19.04,22.02-33.42,46.88-43.13,74.6-9.84,27.84-14.63,55.95-14.63,84.57,0,34.45,5.05,65.92,15.15,94.54,10.23,28.49,24.87,53.1,44.17,73.56,19.29,20.59,42.74,36.39,70.2,47.66,27.58,11.14,58.54,16.71,92.99,16.71,31.09,0,65.15-2.59,92.73-12.95,2.48-.88,5.08-1.96,7.76-3.17h0c.16-.07.32-.14.48-.22.19-.09.38-.17.58-.26,16.42-7.43,35.61-19.49,51.54-35.86v-207.45h-192.61v54.86Z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="live-dot"><span>Live</span></div>
+                <span class="header-email">j@vegarei.com</span>
+                <button class="header-signout">Sign Out</button>
+            </div>
+        </div>
+    </header>
+    
+    <div class="main">
+        
+        <!-- Page Header -->
+        <div class="page-header">
+            <div class="page-header-dot"><span>Active Module</span></div>
+            <h1 class="page-title">Private Equity</h1>
+            <p class="page-subtitle">Fund Management & Investor Relations</p>
+        </div>
+        
+        <!-- Attention Needed (carousel) -->
+        <div class="attention">
+            <div class="attention-top">
+                <div class="attention-header">
+                    <span class="section-label">Attention Needed</span>
+                </div>
+                <div class="attention-nav">
+                    <span class="attention-counter" id="attention-counter">1-3 of 5</span>
+                    <button class="attention-arrow" id="att-prev" onclick="slideAttention(-1)" disabled>&#8592;</button>
+                    <button class="attention-arrow" id="att-next" onclick="slideAttention(1)">&#8594;</button>
+                </div>
+            </div>
+            <div style="overflow: hidden;">
+                <div class="attention-track" id="attention-track">
+                    <div class="attention-card" onclick="alert('Opens Compliance page')">
+                        <div class="attention-card-label">Compliance</div>
+                        <div class="attention-card-text">20 open sub doc issues need resolution</div>
+                        <a href="#" class="attention-card-link">Review →</a>
+                    </div>
+                    <div class="attention-card" onclick="alert('Opens Investor Directory → Jeremiah Post')">
+                        <div class="attention-card-label">Pending Investor</div>
+                        <div class="attention-card-text">Jeremiah Post — $100K awaiting funding</div>
+                        <a href="#" class="attention-card-link">View →</a>
+                    </div>
+                    <div class="attention-card" onclick="alert('Opens Investor Directory filtered to missing accreditation')">
+                        <div class="attention-card-label">Accreditation</div>
+                        <div class="attention-card-text">5 investors missing verified accreditation</div>
+                        <a href="#" class="attention-card-link">Review →</a>
+                    </div>
+                    <div class="attention-card" onclick="alert('Opens Distributions → Feb 2026')">
+                        <div class="attention-card-label">Distribution Prep</div>
+                        <div class="attention-card-text">Feb 2026 distribution needs 2 new investors added</div>
+                        <a href="#" class="attention-card-link">Review →</a>
+                    </div>
+                    <div class="attention-card" onclick="alert('Opens Custodians page')">
+                        <div class="attention-card-label">DTCC Deadline</div>
+                        <div class="attention-card-text">Schwab Q4 Position/NAV due Feb 15</div>
+                        <a href="#" class="attention-card-link">View →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Team Upcoming -->
+        <div class="upcoming">
+            <div class="upcoming-top">
+                <div class="upcoming-header">
+                    <span class="section-label">Team Upcoming</span>
+                </div>
+                <button class="upcoming-edit-btn" onclick="openUpcomingModal()">Edit Dates</button>
+            </div>
+            <div class="upcoming-grid" id="upcoming-grid">
+                <div class="upcoming-item">
+                    <div>
+                        <div class="upcoming-item-title">Feb Distribution</div>
+                        <div class="upcoming-item-date">Mon, Feb 2</div>
+                    </div>
+                    <span class="badge badge-yellow">Prep</span>
+                </div>
+                <div class="upcoming-item">
+                    <div>
+                        <div class="upcoming-item-title">Inspira Statement</div>
+                        <div class="upcoming-item-date">Feb 5</div>
+                    </div>
+                    <span class="badge badge-muted">Due</span>
+                </div>
+                <div class="upcoming-item">
+                    <div>
+                        <div class="upcoming-item-title">Schwab DTCC</div>
+                        <div class="upcoming-item-date">Feb 15</div>
+                    </div>
+                    <span class="badge badge-muted">Due</span>
+                </div>
+                <div class="upcoming-item">
+                    <div>
+                        <div class="upcoming-item-title">K-1 Distribution</div>
+                        <div class="upcoming-item-date">Mar 15</div>
+                    </div>
+                    <span class="badge badge-muted">Due</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Nav (4 cards) -->
+        <div class="quick-nav">
+            <a class="nav-card" onclick="alert('Opens Directory page with tabs: Investors, Advisors, Custodians, Other')">
+                <div class="nav-card-top">
+                    <div class="nav-card-dot" style="background: var(--red);"></div>
+                    <span class="nav-card-enter">Enter →</span>
+                </div>
+                <div class="nav-card-title">Directory</div>
+                <div class="nav-card-desc">33 investors — 1 pending, 20 in review</div>
+            </a>
+            <a class="nav-card" onclick="alert('Opens Distributions page')">
+                <div class="nav-card-top">
+                    <div class="nav-card-dot" style="background: var(--green);"></div>
+                    <span class="nav-card-enter">Enter →</span>
+                </div>
+                <div class="nav-card-title">Distributions</div>
+                <div class="nav-card-desc">Feb 2026 — all sent</div>
+            </a>
+            <a class="nav-card" onclick="alert('Opens Compliance page with investor checklists')">
+                <div class="nav-card-top">
+                    <div class="nav-card-dot" style="background: var(--red);"></div>
+                    <span class="nav-card-enter">Enter →</span>
+                </div>
+                <div class="nav-card-title">Compliance</div>
+                <div class="nav-card-desc">22 open sub doc issues</div>
+            </a>
+            <a class="nav-card no-dot" onclick="alert('Opens Sales page — TBD')">
+                <div class="nav-card-top">
+                    <div class="nav-card-dot"></div>
+                    <span class="nav-card-enter">Enter →</span>
+                </div>
+                <div class="nav-card-title">Sales</div>
+                <div class="nav-card-desc">Coming soon</div>
+            </a>
+        </div>
+        
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            
+            <!-- LEFT -->
+            <div class="content-left">
+                
+                <!-- Fund Selector -->
+                <div>
+                    <div class="section-label" style="margin-bottom: 16px;">Select Fund</div>
+                    <div class="fund-grid">
+                        <div class="fund-card" onclick="selectFund(1)">
+                            <div class="fund-card-top">
+                                <span class="badge badge-closed">Closed</span>
+                                <span class="fund-card-label">Fund I</span>
+                            </div>
+                            <div class="fund-card-name">Vega Assisted Living Fund I</div>
+                            <div class="fund-card-amount">$998K of $1M raised</div>
+                            <div class="fund-progress">
+                                <div class="fund-progress-bar" style="width: 99.8%"></div>
+                            </div>
+                            <div class="fund-card-footer">
+                                <span>Closed Jul 31, 2025</span>
+                                <span>6 positions</span>
+                            </div>
+                        </div>
+                        
+                        <div class="fund-card active" onclick="selectFund(2)">
+                            <div class="fund-card-top">
+                                <span class="badge badge-open">Open</span>
+                                <span class="fund-card-label">Fund II</span>
+                            </div>
+                            <div class="fund-card-name">Vega Assisted Living Fund II</div>
+                            <div class="fund-card-amount">$5.73M of $10M raised</div>
+                            <div class="fund-progress">
+                                <div class="fund-progress-bar" style="width: 57.3%"></div>
+                            </div>
+                            <div class="fund-card-footer">
+                                <span>Aug 1, 2025 — Open</span>
+                                <span>35 positions</span>
+                            </div>
+                        </div>
+                        
+                        <div class="fund-card" onclick="selectFund(3)">
+                            <div class="fund-card-top">
+                                <span class="badge badge-pending">Pending</span>
+                                <span class="fund-card-label">Fund III</span>
+                            </div>
+                            <div class="fund-card-name">Vega Assisted Living Fund III</div>
+                            <div class="fund-card-amount">Target: TBD</div>
+                            <div class="fund-card-footer">
+                                <span>Launch: TBD</span>
+                                <span>Prospects only</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Documents (one-way from Google Drive) -->
+                <div class="docs-section">
+                    <div class="docs-header">
+                        <span class="section-label" id="docs-title">Fund II Documents</span>
+                        <a class="docs-drive-link" onclick="alert('Opens Google Drive folder for this fund')">Open In Drive →</a>
+                    </div>
+                    <div class="docs-body" id="docs-body">
+                        <div class="docs-category">
+                            <div class="docs-category-label">Marketing Materials</div>
+                            <div class="docs-grid">
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Pitch Deck</div>
+                                    <div class="doc-item-meta">Jan 2026</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">One Pager</div>
+                                    <div class="doc-item-meta">Jan 2026</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Pro Forma</div>
+                                    <div class="doc-item-meta">Dec 2025</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Fund Overview</div>
+                                    <div class="doc-item-meta">Jan 2026</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="docs-category">
+                            <div class="docs-category-label">Investor Legal Documents</div>
+                            <div class="docs-grid">
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Sub Agreement</div>
+                                    <div class="doc-item-meta">Template</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Accredited Form</div>
+                                    <div class="doc-item-meta">Template</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">W-9</div>
+                                    <div class="doc-item-meta">Template</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="docs-category">
+                            <div class="docs-category-label">Entity Legal Documents</div>
+                            <div class="docs-grid">
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">PPM</div>
+                                    <div class="doc-item-meta">Private Placement</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">LP Agreement</div>
+                                    <div class="doc-item-meta">Fund II LP</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">SEC Filings</div>
+                                    <div class="doc-item-meta">Form D</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="docs-category">
+                            <div class="docs-category-label">Subscription Documents</div>
+                            <div class="docs-grid">
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Subscription Packet</div>
+                                    <div class="doc-item-meta">Template</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="docs-category">
+                            <div class="docs-category-label">Investor Communications</div>
+                            <div class="docs-grid">
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Q4 2025 Update</div>
+                                    <div class="doc-item-meta">Jan 15, 2026</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Q3 2025 Update</div>
+                                    <div class="doc-item-meta">Oct 15, 2025</div>
+                                </div>
+                                <div class="doc-item" onclick="alert('Opens file in Drive')">
+                                    <div class="doc-item-name">Annual Letter</div>
+                                    <div class="doc-item-meta">Jan 2025</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- RIGHT SIDEBAR -->
+            <div class="content-right">
+                
+                <!-- Fund Overview -->
+                <div class="sidebar-box" id="fund-overview">
+                    <div class="sidebar-title" id="overview-title">Fund II Overview</div>
+                    <div class="stat-row">
+                        <div class="stat-row-label">Total Raised</div>
+                        <div class="stat-row-value" id="overview-raised">$5,730,551</div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-row-label">Target</div>
+                        <div class="stat-row-value small" id="overview-target">$10,000,000</div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-row-label">Active Investors</div>
+                        <div class="stat-row-value small" id="overview-investors">30</div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat-row-label">Avg Investment</div>
+                        <div class="stat-row-value small" id="overview-avg">$191,018</div>
+                    </div>
+                </div>
+                
+                <!-- Recent Activity -->
+                <div class="sidebar-box" id="activity-feed">
+                    <div class="sidebar-title">Recent Activity</div>
+                    <div class="activity-item green">
+                        <div class="activity-item-title">Jeremiah Post committed</div>
+                        <div class="activity-item-meta">$100K — Jan 28</div>
+                    </div>
+                    <div class="activity-item green">
+                        <div class="activity-item-title">Kelly Buchanan funded</div>
+                        <div class="activity-item-meta">$50K — Dec 31</div>
+                    </div>
+                    <div class="activity-item green">
+                        <div class="activity-item-title">Elissa Oleole funded</div>
+                        <div class="activity-item-meta">$50K — Dec 31</div>
+                    </div>
+                    <div class="activity-item">
+                        <div class="activity-item-title">Jan distributions sent</div>
+                        <div class="activity-item-meta">28 payments — Jan 2026</div>
+                    </div>
+                    <a href="#" class="view-all-link">View All Activity →</a>
+                </div>
+                
+                <!-- Quick Links -->
+                <div class="quicklinks-box">
+                    <div class="sidebar-title">Quick Links</div>
+                    <ul class="quicklinks-list">
+                        <li><a href="#" onclick="alert('Opens SOPs folder in Drive')">Standard Operating Procedures</a></li>
+                        <li><a href="#" onclick="alert('Opens W-9 template')">W-9 Template</a></li>
+                        <li><a href="#" onclick="alert('Opens Sub Agreement template')">Subscription Agreement</a></li>
+                        <li><a href="#" onclick="alert('Opens Inspira portal')">Inspira Portal</a></li>
+                        <li><a href="#" onclick="alert('Opens Schwab Advisor login')">Schwab Advisor Center</a></li>
+                        <li><a href="#" onclick="alert('Opens Salesforce')">Salesforce</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Upcoming Modal -->
+    <div class="modal-overlay" id="modal-upcoming">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Edit Team Dates</div>
+                <button class="modal-close" onclick="closeUpcomingModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Event</label>
+                            <input type="text" class="form-input" value="Feb Distribution">
+                        </div>
+                        <div>
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" value="2026-02-02">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Event</label>
+                            <input type="text" class="form-input" value="Inspira Statement">
+                        </div>
+                        <div>
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" value="2026-02-05">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Event</label>
+                            <input type="text" class="form-input" value="Schwab DTCC">
+                        </div>
+                        <div>
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" value="2026-02-15">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Event</label>
+                            <input type="text" class="form-input" value="K-1 Distribution">
+                        </div>
+                        <div>
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input" value="2026-03-15">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-row">
+                        <div>
+                            <label class="form-label">Event</label>
+                            <input type="text" class="form-input" placeholder="Add new event...">
+                        </div>
+                        <div>
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-input">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeUpcomingModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUpcoming()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        // === ATTENTION CAROUSEL ===
+        let attSlide = 0;
+        const attCards = document.querySelectorAll('.attention-card');
+        const totalCards = attCards.length;
+        const visibleCards = 3;
+        const maxSlide = totalCards - visibleCards;
+        
+        function slideAttention(dir) {
+            attSlide = Math.max(0, Math.min(maxSlide, attSlide + dir));
+            const track = document.getElementById('attention-track');
+            const cardWidth = attCards[0].offsetWidth + 16; // card + gap
+            track.style.transform = `translateX(-${attSlide * cardWidth}px)`;
+            
+            document.getElementById('att-prev').disabled = attSlide === 0;
+            document.getElementById('att-next').disabled = attSlide === maxSlide;
+            
+            const start = attSlide + 1;
+            const end = Math.min(attSlide + visibleCards, totalCards);
+            document.getElementById('attention-counter').textContent = `${start}-${end} of ${totalCards}`;
+        }
+        
+        // === FUND SELECTOR ===
+        const fundData = {
+            1: {
+                title: 'Fund I Overview',
+                docsTitle: 'Fund I Documents',
+                raised: '$998,000',
+                target: '$1,000,000',
+                investors: '6',
+                avg: '$166,333',
+                activity: [
+                    { text: 'Sayer Leslie funded', meta: '$300K — Jul 2025', green: true },
+                    { text: 'John Sirrine funded', meta: '$100K — Jul 2025', green: true },
+                    { text: 'Cameron Cope funded', meta: '$200K — Dec 2024', green: true },
+                    { text: 'Fund I closed', meta: 'Jul 31, 2025', green: false }
+                ],
+                docs: {
+                    'Marketing Materials': [
+                        { name: 'Fund I Overview', meta: 'Jul 2025' },
+                        { name: 'One Pager', meta: 'Jun 2025' }
+                    ],
+                    'Investor Legal Documents': [
+                        { name: 'Sub Agreement', meta: 'Template' },
+                        { name: 'W-9', meta: 'Template' }
+                    ],
+                    'Entity Legal Documents': [
+                        { name: 'PPM', meta: 'Private Placement' },
+                        { name: 'LP Agreement', meta: 'Fund I LP' }
+                    ],
+                    'Investor Communications': [
+                        { name: 'Q2 2025 Update', meta: 'Jul 15, 2025' }
+                    ]
+                }
+            },
+            2: {
+                title: 'Fund II Overview',
+                docsTitle: 'Fund II Documents',
+                raised: '$5,730,551',
+                target: '$10,000,000',
+                investors: '30',
+                avg: '$191,018',
+                activity: [
+                    { text: 'Jeremiah Post committed', meta: '$100K — Jan 28', green: true },
+                    { text: 'Kelly Buchanan funded', meta: '$50K — Dec 31', green: true },
+                    { text: 'Elissa Oleole funded', meta: '$50K — Dec 31', green: true },
+                    { text: 'Jan distributions sent', meta: '28 payments — Jan 2026', green: false }
+                ],
+                docs: {
+                    'Marketing Materials': [
+                        { name: 'Pitch Deck', meta: 'Jan 2026' },
+                        { name: 'One Pager', meta: 'Jan 2026' },
+                        { name: 'Pro Forma', meta: 'Dec 2025' },
+                        { name: 'Fund Overview', meta: 'Jan 2026' }
+                    ],
+                    'Investor Legal Documents': [
+                        { name: 'Sub Agreement', meta: 'Template' },
+                        { name: 'Accredited Form', meta: 'Template' },
+                        { name: 'W-9', meta: 'Template' }
+                    ],
+                    'Entity Legal Documents': [
+                        { name: 'PPM', meta: 'Private Placement' },
+                        { name: 'LP Agreement', meta: 'Fund II LP' },
+                        { name: 'SEC Filings', meta: 'Form D' }
+                    ],
+                    'Subscription Documents': [
+                        { name: 'Subscription Packet', meta: 'Template' }
+                    ],
+                    'Investor Communications': [
+                        { name: 'Q4 2025 Update', meta: 'Jan 15, 2026' },
+                        { name: 'Q3 2025 Update', meta: 'Oct 15, 2025' },
+                        { name: 'Annual Letter', meta: 'Jan 2025' }
+                    ]
+                }
+            },
+            3: {
+                title: 'Fund III Overview',
+                docsTitle: 'Fund III Documents',
+                raised: '$0',
+                target: 'TBD',
+                investors: '0',
+                avg: '--',
+                activity: [
+                    { text: 'Fund in planning', meta: 'Launch TBD', green: false }
+                ],
+                docs: {}
+            }
+        };
+        
+        function selectFund(num) {
+            document.querySelectorAll('.fund-card').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.fund-card')[num - 1].classList.add('active');
+            
+            const fund = fundData[num];
+            
+            // Sidebar overview
+            document.getElementById('overview-title').textContent = fund.title;
+            document.getElementById('overview-raised').textContent = fund.raised;
+            document.getElementById('overview-target').textContent = fund.target;
+            document.getElementById('overview-investors').textContent = fund.investors;
+            document.getElementById('overview-avg').textContent = fund.avg;
+            
+            // Activity
+            const feedEl = document.getElementById('activity-feed');
+            let actHtml = '<div class="sidebar-title">Recent Activity</div>';
+            fund.activity.forEach(a => {
+                actHtml += `<div class="activity-item ${a.green ? 'green' : ''}">
+                    <div class="activity-item-title">${a.text}</div>
+                    <div class="activity-item-meta">${a.meta}</div>
+                </div>`;
+            });
+            actHtml += '<a href="#" class="view-all-link">View All Activity →</a>';
+            feedEl.innerHTML = actHtml;
+            
+            // Docs title
+            document.getElementById('docs-title').textContent = fund.docsTitle;
+            
+            // Docs body
+            const docsBody = document.getElementById('docs-body');
+            if (Object.keys(fund.docs).length === 0) {
+                docsBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-faint);">No documents yet</div>';
+                return;
+            }
+            
+            let docsHtml = '';
+            for (const [category, files] of Object.entries(fund.docs)) {
+                docsHtml += `<div class="docs-category">
+                    <div class="docs-category-label">${category}</div>
+                    <div class="docs-grid">
+                        ${files.map(f => `<div class="doc-item" onclick="alert('Opens ${f.name} in Drive')">
+                            <div class="doc-item-name">${f.name}</div>
+                            <div class="doc-item-meta">${f.meta}</div>
+                        </div>`).join('')}
+                    </div>
+                </div>`;
+            }
+            docsBody.innerHTML = docsHtml;
+        }
+        
+        // === UPCOMING MODAL ===
+        function openUpcomingModal() {
+            document.getElementById('modal-upcoming').classList.add('active');
+        }
+        
+        function closeUpcomingModal() {
+            document.getElementById('modal-upcoming').classList.remove('active');
+        }
+        
+        function saveUpcoming() {
+            closeUpcomingModal();
+            showToast('Team dates updated');
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

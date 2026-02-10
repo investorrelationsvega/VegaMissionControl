@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(node:*)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Bash(mdfind:*)",
+      "Bash(curl:*)",
+      "Bash(export PATH=\"$HOME/.local/nodejs/bin:$PATH\")",
+      "Bash(npm:*)",
+      "Bash(npx vite:*)",
+      "Bash(./node_modules/.bin/vite build:*)",
+      "Bash(PATH=\"$HOME/.local/nodejs/bin:$PATH\" npm run build:*)",
+      "Bash(lsof:*)",
+      "Bash(PATH=\"$HOME/.local/nodejs/bin:$PATH\" npx vite:*)",
+      "Bash($HOME/.local/nodejs/bin/npx vite build)",
+      "Bash(xargs:*)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:developers.ringcentral.com)",
+      "Bash(ls:*)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
+      "Bash(export PATH=\"/Users/jjones/.local/nodejs/bin:$PATH\")",
+      "Bash(PATH=\"/Users/jjones/.local/nodejs/bin:$PATH\" npx vite build:*)",
+      "Bash(PATH=\"/usr/local/bin:/opt/homebrew/bin:$PATH\")",
+      "WebFetch(domain:invest.vegarei.com)",
+      "Bash(export PATH=\"/usr/local/bin:/opt/homebrew/bin:$PATH\")",
+      "Bash(export PATH=\"/Users/jjones/.local/nodejs/bin:/usr/bin:/bin:$PATH\")",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

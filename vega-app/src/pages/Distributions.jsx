@@ -1,0 +1,1353 @@
+// =============================================
+// VEGA MISSION CONTROL - Distributions Page
+// Payment management with period filtering,
+// CSV import/export, notes, and audit trail
+// =============================================
+
+import { useState, useMemo, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import useDistributionStore from '../stores/distributionStore'
+import useInvestorStore from '../stores/investorStore'
+import useFundStore from '../stores/fundStore'
+import useUiStore from '../stores/uiStore'
+import { fmt, fmtK } from '../utils/format'
+
+// ── Inline style helpers ─────────────────────────────────────────────────────
+const mono = { fontFamily: "'Space Mono', monospace" }
+
+// ── Badge components ─────────────────────────────────────────────────────────
+function MethodBadge({ method }) {
+  let bg, color
+  if (method === 'Wire') {
+    bg = 'var(--bluM)'
+    color = 'var(--blu)'
+  } else if (method === 'Check') {
+    bg = 'var(--ylwM)'
+    color = 'var(--ylw)'
+  } else {
+    bg = 'rgba(51,65,85,0.5)'
+    color = 'var(--t3)'
+  }
+  return (
+    <span
+      style={{
+        ...mono,
+        fontSize: 10,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        padding: '3px 8px',
+        borderRadius: 3,
+        background: bg,
+        color,
+      }}
+    >
+      {method}
+    </span>
+  )
+}
+
+function StatusBadge({ status }) {
+  let cls = 'badge badge-muted'
+  if (status === 'Sent') cls = 'badge badge-green'
+  else if (status === 'Prep') cls = 'badge badge-yellow'
+  return <span className={cls}>{status}</span>
+}
+
+function ReconciliationBadge({ value }) {
+  let cls = 'badge badge-yellow'
+  if (value === 'Matched') cls = 'badge badge-green'
+  else if (value === 'Unmatched') cls = 'badge badge-red'
+  return <span className={cls}>{value || 'Pending'}</span>
+}
+
+function PortalBadge({ value }) {
+  if (value === 'Yes') return <span className="badge badge-green">Yes</span>
+  if (value === 'No') return <span className="badge badge-red">No</span>
+  return <span className="badge badge-muted">{value || 'Pending'}</span>
+}
+
+// ── Date formatting for Syndication Pro ──────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function toSyndicationDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) {
+    const parts = dateStr.replace(',', '').split(' ')
+    if (parts.length >= 2) {
+      const monthIdx = MONTHS.findIndex(m => dateStr.startsWith(m))
+      if (monthIdx >= 0) {
+        const day = parts[1] ? parts[1].padStart(2, '0') : '01'
+        const year = parts[2] || '2025'
+        return `${MONTHS[monthIdx]}-${day}-${year}`
+      }
+    }
+    return dateStr
+  }
+  const month = MONTHS[d.getMonth()]
+  const day = String(d.getDate()).padStart(2, '0')
+  const year = d.getFullYear()
+  return `${month}-${day}-${year}`
+}
+
+// ── CSV Helper ───────────────────────────────────────────────────────────────
+function downloadCSV(filename, csvContent) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function escapeCSV(val) {
+  const str = String(val ?? '')
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`
+  }
+  return str
+}
+
+const formatTimestamp = (ts) => {
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+}
+
+// ═══════════════════════════════════════════════
+// DISTRIBUTIONS PAGE COMPONENT
+// ═══════════════════════════════════════════════
+export default function Distributions() {
+  const navigate = useNavigate()
+  const fileInputRef = useRef(null)
+
+  // ── Stores ──────────────────────────────────
+  const distributionStore = useDistributionStore()
+  const investorStore = useInvestorStore()
+  const fundStore = useFundStore()
+  const showToast = useUiStore((s) => s.showToast)
+
+  // ── State ───────────────────────────────────
+  const [selectedPeriod, setSelectedPeriod] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [editingPayment, setEditingPayment] = useState(null)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importMatches, setImportMatches] = useState([])
+  const [showAddPeriodModal, setShowAddPeriodModal] = useState(false)
+  const [newPeriodName, setNewPeriodName] = useState('')
+  const [showCalcModal, setShowCalcModal] = useState(false)
+  const [calcPercent, setCalcPercent] = useState('')
+  const [calcFund, setCalcFund] = useState('Fund II')
+
+  // Payment form state
+  const [formData, setFormData] = useState({
+    invId: '',
+    entity: '',
+    amt: '',
+    method: 'ACH',
+    status: 'Prep',
+    date: '',
+    trackingRef: '',
+    reportedInPortal: 'Pending',
+    reconciliation: 'Pending',
+    fund: 'Fund II',
+    period: '',
+    notes: '',
+  })
+
+  // ── Derived data ────────────────────────────
+  const periods = useMemo(() => distributionStore.getPeriods(), [distributionStore])
+  const activePeriod = selectedPeriod || (periods.length > 0 ? periods[0] : null)
+
+  const periodPayments = useMemo(
+    () => (activePeriod ? distributionStore.getByPeriod(activePeriod) : []),
+    [distributionStore, activePeriod]
+  )
+
+  const investors = useMemo(() => investorStore.getAll(), [investorStore])
+  const funds = useMemo(() => fundStore.getAllFunds(), [fundStore])
+  const positions = investorStore.positions
+
+  // New investor flags
+  const newInvestorFlags = distributionStore.newInvestorFlags || []
+  const pendingFlags = newInvestorFlags.filter((f) => f.status === 'Pending Review')
+
+  // Stats
+  const totalAmount = useMemo(
+    () => periodPayments.reduce((s, d) => s + d.amt, 0),
+    [periodPayments]
+  )
+  const paymentCount = periodPayments.length
+  const achCount = useMemo(
+    () => periodPayments.filter((d) => d.method === 'ACH').length,
+    [periodPayments]
+  )
+  const wireCount = useMemo(
+    () => periodPayments.filter((d) => d.method === 'Wire').length,
+    [periodPayments]
+  )
+  const checkCount = useMemo(
+    () => periodPayments.filter((d) => d.method === 'Check').length,
+    [periodPayments]
+  )
+
+  // ── Handlers ────────────────────────────────
+  const openAddPayment = () => {
+    setEditingPayment(null)
+    setFormData({
+      invId: '',
+      entity: '',
+      amt: '',
+      method: 'ACH',
+      status: 'Prep',
+      date: '',
+      trackingRef: '',
+      reportedInPortal: 'Pending',
+      reconciliation: 'Pending',
+      fund: 'Fund II',
+      period: activePeriod || '',
+      notes: '',
+    })
+    setShowPaymentModal(true)
+  }
+
+  const openEditPayment = (payment) => {
+    setEditingPayment(payment)
+    setFormData({
+      invId: payment.invId,
+      entity: payment.entity || '',
+      amt: String(payment.amt),
+      method: payment.method,
+      status: payment.status,
+      date: payment.date || '',
+      trackingRef: payment.trackingRef || '',
+      reportedInPortal: payment.reportedInPortal || 'Pending',
+      reconciliation: payment.reconciliation || 'Pending',
+      fund: payment.fund || 'Fund II',
+      period: payment.period,
+      notes: payment.notes || '',
+    })
+    setShowPaymentModal(true)
+  }
+
+  const handleSavePayment = () => {
+    const inv = investors.find((i) => i.id === formData.invId)
+    const payload = {
+      invId: formData.invId,
+      name: inv ? inv.name : '',
+      entity: formData.entity,
+      amt: parseFloat(formData.amt) || 0,
+      method: formData.method,
+      status: formData.status,
+      date: formData.date,
+      trackingRef: formData.trackingRef,
+      reportedInPortal: formData.reportedInPortal,
+      reconciliation: formData.reconciliation,
+      fund: formData.fund,
+      period: formData.period || activePeriod,
+      notes: formData.notes,
+    }
+
+    if (editingPayment) {
+      distributionStore.updatePayment(editingPayment.id, payload)
+      showToast('Payment updated')
+    } else {
+      distributionStore.addPayment(payload)
+      showToast('Payment added')
+    }
+    setShowPaymentModal(false)
+  }
+
+  const handleFormChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // ── Add Period ──────────────────────────────
+  const handleAddPeriod = () => {
+    if (!newPeriodName.trim()) return
+    setSelectedPeriod(newPeriodName.trim())
+    setShowAddPeriodModal(false)
+    setNewPeriodName('')
+    showToast(`Period "${newPeriodName.trim()}" created`)
+  }
+
+  // ── Export Syndication Pro CSV ──────────────
+  const handleExportSyndicationPro = () => {
+    const headers = [
+      'First Name', 'Last Name', 'Profile Name', 'Investor Class',
+      'Funded Amount', 'Committed Amount', 'Funded Date', 'Start Date',
+      'End Date', 'Payment Date', 'Memo', 'Amount', 'Distribution Type',
+      '% Funded', '% Ownership',
+    ]
+
+    const rows = periodPayments.map((payment) => {
+      const inv = investors.find((i) => i.id === payment.invId)
+      const pos = positions.find(
+        (p) => p.invId === payment.invId && p.fund === payment.fund
+      )
+
+      const nameParts = (inv?.name || payment.name || '').split(' ')
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
+
+      return [
+        firstName, lastName, payment.entity || inv?.name || '', pos?.cls || '',
+        pos?.amt || '', pos?.amt || '', toSyndicationDate(pos?.funded || ''), '',
+        '', toSyndicationDate(payment.date || ''), '', payment.amt || '', '',
+        '', '',
+      ].map(escapeCSV).join(',')
+    })
+
+    const csv = [headers.join(','), ...rows].join('\n')
+    const periodSlug = (activePeriod || 'export').replace(/\s+/g, '-')
+    downloadCSV(`syndication-pro-${periodSlug}.csv`, csv)
+    showToast('Syndication Pro CSV exported')
+  }
+
+  // ── Export Distribution Report ─────────────
+  const handleExportReport = () => {
+    const headers = [
+      'Investor', 'Entity', 'Fund', 'Amount', 'Method',
+      'Status', 'Sent Date', 'Tracking Ref', 'Reported In Portal', 'Reconciliation',
+    ]
+
+    const rows = periodPayments.map((d) =>
+      [
+        d.name, d.entity, d.fund, d.amt, d.method,
+        d.status, d.date, d.trackingRef, d.reportedInPortal, d.reconciliation,
+      ].map(escapeCSV).join(',')
+    )
+
+    const csv = [headers.join(','), ...rows].join('\n')
+    const periodSlug = (activePeriod || 'report').replace(/\s+/g, '-')
+    downloadCSV(`distribution-report-${periodSlug}.csv`, csv)
+    showToast('Distribution report exported')
+  }
+
+  // ── Import MACU CSV ────────────────────────
+  const handleImportMACV = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target.result
+      const lines = text.split('\n').filter((l) => l.trim())
+      if (lines.length < 2) {
+        showToast('CSV file is empty or invalid')
+        return
+      }
+
+      const headerLine = lines[0]
+      const headers = headerLine.split(',').map((h) => h.trim().toLowerCase())
+      const nameIdx = headers.findIndex((h) => h.includes('name') || h.includes('payee'))
+      const amtIdx = headers.findIndex((h) => h.includes('amount') || h.includes('amt'))
+      const refIdx = headers.findIndex((h) => h.includes('ref') || h.includes('confirmation') || h.includes('tracking'))
+
+      const matches = []
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
+        const csvName = nameIdx >= 0 ? cols[nameIdx] : ''
+        const csvAmt = amtIdx >= 0 ? parseFloat(cols[amtIdx]) || 0 : 0
+        const csvRef = refIdx >= 0 ? cols[refIdx] : ''
+
+        const matched = periodPayments.find((p) => {
+          const nameMatch =
+            csvName &&
+            (p.name.toLowerCase().includes(csvName.toLowerCase()) ||
+              csvName.toLowerCase().includes(p.name.toLowerCase()) ||
+              (p.entity && p.entity.toLowerCase().includes(csvName.toLowerCase())))
+          const amtMatch = csvAmt > 0 && Math.abs(p.amt - csvAmt) < 1
+          return nameMatch || amtMatch
+        })
+
+        matches.push({
+          csvRow: i,
+          csvName,
+          csvAmt,
+          csvRef,
+          matchedPayment: matched || null,
+          confirmed: !!matched,
+        })
+      }
+
+      setImportMatches(matches)
+      setShowImportModal(true)
+    }
+    reader.readAsText(file)
+
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleConfirmImport = () => {
+    let updated = 0
+    importMatches
+      .filter((m) => m.confirmed && m.matchedPayment)
+      .forEach((m) => {
+        const updates = {}
+        if (m.csvRef) updates.trackingRef = m.csvRef
+        if (Object.keys(updates).length > 0) {
+          distributionStore.updatePayment(m.matchedPayment.id, updates)
+          updated++
+        }
+      })
+    setShowImportModal(false)
+    showToast(`${updated} payment${updated !== 1 ? 's' : ''} updated from import`)
+  }
+
+  // ── Flag handlers ───────────────────────────
+  const handleDismissFlag = (flagId) => {
+    distributionStore.dismissFlag(flagId)
+    showToast('Flag dismissed')
+  }
+
+  // ═══════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════
+  return (
+    <div className="main">
+      {/* ── Page Header ───────────────────────── */}
+      <div className="page-header">
+        <div className="page-header-dot">
+          <span>Active Module</span>
+        </div>
+        <h1 className="page-title">Distributions</h1>
+        <p className="page-subtitle">Payment Management</p>
+      </div>
+
+      {/* ── New Investor Flags ─────────────────── */}
+      {pendingFlags.length > 0 && (
+        <div
+          style={{
+            background: 'rgba(251,191,36,0.06)',
+            border: '1px solid var(--ylwB)',
+            borderRadius: 6,
+            padding: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <span style={{ width: 8, height: 8, background: 'var(--ylw)', borderRadius: '50%', display: 'inline-block' }} />
+            <span className="section-label">
+              {pendingFlags.length} Investor{pendingFlags.length !== 1 ? 's' : ''} Need Distribution Review
+            </span>
+          </div>
+          {pendingFlags.map((flag) => {
+            const inv = investors.find((i) => i.id === flag.invId)
+            return (
+              <div
+                key={flag.id}
+                style={{
+                  background: 'var(--bgI)',
+                  borderRadius: 6,
+                  padding: '14px 16px',
+                  marginBottom: 8,
+                  borderLeft: '3px solid var(--ylw)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 15, color: 'var(--t1)', fontWeight: 500 }}>
+                      {flag.invName}
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 2 }}>
+                      Added to {flag.fundName}
+                      {inv ? ` \u2022 Committed: ${fmt(inv.totalCommitted)}` : ''}
+                      {inv?.advisor ? ` \u2022 Advisor: ${inv.advisor}` : ''}
+                    </div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginTop: 2 }}>
+                      Flagged {new Date(flag.flaggedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <span className="badge badge-yellow">Needs Review</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: 10, padding: '5px 12px' }}
+                    onClick={() => {
+                      distributionStore.resolveFlag(flag.id, 'Add to Current Period', 'Added to current period distribution')
+                      showToast(`${flag.invName} added to current period distribution`)
+                    }}
+                  >
+                    Add to Current Period
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 10, padding: '5px 12px' }}
+                    onClick={() => {
+                      distributionStore.resolveFlag(flag.id, 'Add to Next Period', 'Deferred to next period')
+                      showToast(`${flag.invName} deferred to next period`)
+                    }}
+                  >
+                    Add to Next Period
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 10, padding: '5px 12px', color: 'var(--ylw)', borderColor: 'var(--ylwB)' }}
+                    onClick={() => {
+                      distributionStore.resolveFlag(flag.id, 'Pay Back Distribution', 'Scheduled for back distribution payment')
+                      showToast(`${flag.invName} scheduled for back distribution`)
+                    }}
+                  >
+                    Pay Back Distribution
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ fontSize: 10, padding: '5px 12px', opacity: 0.6 }}
+                    onClick={() => {
+                      distributionStore.dismissFlag(flag.id)
+                      showToast(`${flag.invName} flag dismissed`)
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Period Selector ───────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginBottom: 24,
+          alignItems: 'center',
+        }}
+      >
+        {periods.map((period) => {
+          const isActive = period === activePeriod
+          return (
+            <button
+              key={period}
+              onClick={() => setSelectedPeriod(period)}
+              className="mono"
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '8px 20px',
+                border: '1px solid',
+                borderColor: isActive ? 'var(--grnB)' : 'var(--bd)',
+                borderRadius: 20,
+                background: isActive ? 'var(--grnM)' : 'transparent',
+                color: isActive ? 'var(--grn)' : 'var(--t4)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {period}
+            </button>
+          )
+        })}
+        <button
+          onClick={() => setShowAddPeriodModal(true)}
+          className="mono"
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            padding: '8px 20px',
+            border: '1px dashed var(--bd)',
+            borderRadius: 20,
+            background: 'transparent',
+            color: 'var(--t5)',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+          }}
+        >
+          + Add Period
+        </button>
+      </div>
+
+      {/* ── Summary Stats ─────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {[
+          { label: 'Total Amount', value: fmt(totalAmount) },
+          { label: 'Payment Count', value: paymentCount },
+          { label: 'ACH', value: achCount },
+          { label: 'Wire / Check', value: `${wireCount} / ${checkCount}` },
+        ].map((stat, i) => (
+          <div
+            key={i}
+            style={{
+              background: 'rgba(15,23,42,0.5)',
+              border: '1px solid var(--bd)',
+              borderRadius: 6,
+              padding: '14px 18px',
+            }}
+          >
+            <div
+              style={{
+                ...mono,
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.15em',
+                color: 'var(--t4)',
+                marginBottom: 4,
+              }}
+            >
+              {stat.label}
+            </div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 300,
+                color: 'var(--t1)',
+              }}
+            >
+              {stat.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Payment Table ─────────────────────── */}
+      <div
+        style={{
+          background: 'var(--bg-card-half)',
+          border: '1px solid var(--bd)',
+          borderRadius: 6,
+          overflow: 'hidden',
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th>Investor</th>
+                <th>Entity</th>
+                <th className="right">Amount</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Sent Date</th>
+                <th>Tracking Ref</th>
+                <th>Reported In Portal</th>
+                <th>Reconciliation</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {periodPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--t4)' }}>
+                    <span className="mono" style={{ fontSize: 13 }}>
+                      No payments for this period
+                    </span>
+                  </td>
+                </tr>
+              ) : (
+                periodPayments.map((d) => {
+                  const isSkipped = d.status === 'Skipped'
+                  return (
+                    <tr
+                      key={d.id}
+                      style={{
+                        transition: 'background 0.1s',
+                        opacity: isSkipped ? 0.45 : 1,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bgH)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td
+                        onClick={() => navigate('/directory')}
+                        style={{
+                          color: 'var(--grn)',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          fontWeight: 500,
+                          textDecoration: isSkipped ? 'line-through' : 'none',
+                        }}
+                      >
+                        {d.name}
+                      </td>
+                      <td style={{ color: 'var(--t3)', fontSize: 13 }}>{d.entity || '-'}</td>
+                      <td
+                        className="right"
+                        style={{ fontWeight: 700, color: isSkipped ? 'var(--t5)' : 'var(--t1)' }}
+                      >
+                        {fmt(d.amt)}
+                      </td>
+                      <td><MethodBadge method={d.method} /></td>
+                      <td>
+                        {isSkipped ? (
+                          <span className="badge badge-muted" style={{ textDecoration: 'line-through' }}>Skipped</span>
+                        ) : (
+                          <StatusBadge status={d.status} />
+                        )}
+                      </td>
+                      <td
+                        className="mono"
+                        style={{ fontSize: 12, color: 'var(--t3)' }}
+                      >
+                        {d.date || '-'}
+                      </td>
+                      <td
+                        className="mono"
+                        style={{ fontSize: 12, color: 'var(--t3)' }}
+                      >
+                        {d.trackingRef || '-'}
+                      </td>
+                      <td><PortalBadge value={d.reportedInPortal} /></td>
+                      <td><ReconciliationBadge value={d.reconciliation} /></td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button
+                            onClick={() => openEditPayment(d)}
+                            className="mono"
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              border: '1px solid var(--bd)',
+                              background: 'transparent',
+                              color: 'var(--t4)',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            Edit
+                          </button>
+                          {!isSkipped && d.status === 'Prep' && (
+                            <button
+                              onClick={() => {
+                                distributionStore.updatePayment(d.id, { status: 'Skipped' })
+                                showToast(`${d.name} skipped for this period`)
+                              }}
+                              className="mono"
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 700,
+                                padding: '4px 8px',
+                                border: '1px solid rgba(248,113,113,0.3)',
+                                background: 'transparent',
+                                color: 'var(--red)',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                              }}
+                              title="Skip this investor for this period"
+                            >
+                              Skip
+                            </button>
+                          )}
+                          {isSkipped && (
+                            <button
+                              onClick={() => {
+                                distributionStore.updatePayment(d.id, { status: 'Prep' })
+                                showToast(`${d.name} restored to prep`)
+                              }}
+                              className="mono"
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 700,
+                                padding: '4px 8px',
+                                border: '1px solid var(--grnB)',
+                                background: 'transparent',
+                                color: 'var(--grn)',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                              }}
+                              title="Restore this payment"
+                            >
+                              Restore
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Actions Row ───────────────────────── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 40 }}>
+        <button className="btn btn-primary" onClick={openAddPayment}>
+          Add Payment
+        </button>
+        <button
+          className="btn btn-primary"
+          style={{ background: 'var(--blu)', borderColor: 'var(--blu)' }}
+          onClick={() => setShowCalcModal(true)}
+        >
+          Calculate from %
+        </button>
+        <button className="btn btn-secondary" onClick={handleExportSyndicationPro}>
+          Export Syndication Pro CSV
+        </button>
+        <button className="btn btn-secondary" onClick={handleExportReport}>
+          Export Distribution Report
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Import MACU CSV
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          style={{ display: 'none' }}
+          onChange={handleImportMACV}
+        />
+      </div>
+
+      {/* ── Add/Edit Payment Modal ────────────── */}
+      {showPaymentModal && (
+        <div
+          className="modal-overlay active"
+          style={{ display: 'flex' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowPaymentModal(false)
+          }}
+        >
+          <div className="modal" style={{ maxWidth: 600 }}>
+            <div className="modal-header">
+              <div className="modal-title">
+                {editingPayment ? 'Edit Payment' : 'Add Payment'}
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              {/* Investor select */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label">Investor</label>
+                <select
+                  className="form-select"
+                  value={formData.invId}
+                  onChange={(e) => {
+                    const inv = investors.find((i) => i.id === e.target.value)
+                    handleFormChange('invId', e.target.value)
+                    if (inv && inv.entities.length > 0) {
+                      handleFormChange('entity', inv.entities[0])
+                    }
+                  }}
+                >
+                  <option value="">Select investor...</option>
+                  {investors.map((inv) => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Entity / Amount row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Entity</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.entity}
+                    onChange={(e) => handleFormChange('entity', e.target.value)}
+                    placeholder="Entity name"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Amount</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={formData.amt}
+                    onChange={(e) => handleFormChange('amt', e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Method / Status row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Method</label>
+                  <select
+                    className="form-select"
+                    value={formData.method}
+                    onChange={(e) => handleFormChange('method', e.target.value)}
+                  >
+                    <option value="ACH">ACH</option>
+                    <option value="Wire">Wire</option>
+                    <option value="Check">Check</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    value={formData.status}
+                    onChange={(e) => handleFormChange('status', e.target.value)}
+                  >
+                    <option value="Prep">Prep</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Logged">Logged</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Sent Date */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label">Sent Date</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.date}
+                  onChange={(e) => handleFormChange('date', e.target.value)}
+                  placeholder="e.g. Jan 15"
+                />
+              </div>
+
+              {/* Tracking Ref / Reported In Portal */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Tracking Ref</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={formData.trackingRef}
+                    onChange={(e) => handleFormChange('trackingRef', e.target.value)}
+                    placeholder="Reference #"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Reported In Investor Portal</label>
+                  <select
+                    className="form-select"
+                    value={formData.reportedInPortal}
+                    onChange={(e) => handleFormChange('reportedInPortal', e.target.value)}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Reconciliation */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label">Reconciliation</label>
+                <select
+                  className="form-select"
+                  value={formData.reconciliation}
+                  onChange={(e) => handleFormChange('reconciliation', e.target.value)}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Matched">Matched</option>
+                  <option value="Unmatched">Unmatched</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label">Notes</label>
+                <textarea
+                  className="form-textarea"
+                  value={formData.notes}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  placeholder="Add notes about this payment, investor issues, or attach email references..."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    resize: 'vertical',
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+
+              {/* Audit Log (edit only) */}
+              {editingPayment && editingPayment.auditLog && editingPayment.auditLog.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 14 }}>
+                  <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 10 }}>
+                    Audit Log
+                  </div>
+                  <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                    {[...(editingPayment.auditLog || [])].reverse().map((entry) => (
+                      <div
+                        key={entry.id}
+                        style={{
+                          display: 'flex',
+                          gap: 12,
+                          padding: '6px 0',
+                          borderBottom: '1px solid rgba(30,41,59,0.2)',
+                          fontSize: 12,
+                        }}
+                      >
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', width: 130, flexShrink: 0 }}>
+                          {formatTimestamp(entry.timestamp)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 600, color: 'var(--t3)' }}>{entry.action}</span>
+                          {entry.detail && <span style={{ color: 'var(--t4)', marginLeft: 8 }}>{entry.detail}</span>}
+                        </div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', flexShrink: 0 }}>
+                          {entry.user}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleSavePayment}>
+                {editingPayment ? 'Save Changes' : 'Add Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Period Modal ──────────────────── */}
+      {showAddPeriodModal && (
+        <div
+          className="modal-overlay active"
+          style={{ display: 'flex' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddPeriodModal(false)
+          }}
+        >
+          <div className="modal">
+            <div className="modal-header">
+              <div className="modal-title">Add Period</div>
+              <button
+                className="modal-close"
+                onClick={() => setShowAddPeriodModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div>
+                <label className="form-label">Period Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newPeriodName}
+                  onChange={(e) => setNewPeriodName(e.target.value)}
+                  placeholder='e.g. "Feb 2026"'
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowAddPeriodModal(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleAddPeriod}>
+                Create Period
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import MACU Modal ─────────────────── */}
+      {showImportModal && (
+        <div
+          className="modal-overlay active"
+          style={{ display: 'flex' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowImportModal(false)
+          }}
+        >
+          <div className="modal" style={{ maxWidth: 700 }}>
+            <div className="modal-header">
+              <div className="modal-title">Import MACU CSV</div>
+              <button
+                className="modal-close"
+                onClick={() => setShowImportModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginBottom: 16 }}>
+                {importMatches.filter((m) => m.matchedPayment).length} matched,{' '}
+                {importMatches.filter((m) => !m.matchedPayment).length} unmatched of{' '}
+                {importMatches.length} transactions
+              </div>
+
+              <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                {importMatches.map((match, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      background: match.matchedPayment ? 'rgba(52,211,153,0.04)' : 'rgba(248,113,113,0.04)',
+                      borderLeft: `2px solid ${match.matchedPayment ? 'var(--grn)' : 'var(--red)'}`,
+                      borderRadius: '0 4px 4px 0',
+                      marginBottom: 6,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, color: 'var(--t1)' }}>
+                        {match.csvName || `Row ${match.csvRow}`}
+                      </div>
+                      <div className="mono" style={{ fontSize: 11, color: 'var(--t4)' }}>
+                        {match.csvAmt > 0 ? fmt(match.csvAmt) : 'No amount'}
+                        {match.csvRef ? ` -- Ref: ${match.csvRef}` : ''}
+                      </div>
+                      {match.matchedPayment && (
+                        <div className="mono" style={{ fontSize: 11, color: 'var(--grn)', marginTop: 2 }}>
+                          Matched: {match.matchedPayment.name} ({fmt(match.matchedPayment.amt)})
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {match.matchedPayment ? (
+                        <>
+                          <span className="badge badge-green">Matched</span>
+                          <input
+                            type="checkbox"
+                            checked={match.confirmed}
+                            onChange={() => {
+                              setImportMatches((prev) =>
+                                prev.map((m, i) =>
+                                  i === idx ? { ...m, confirmed: !m.confirmed } : m
+                                )
+                              )
+                            }}
+                            style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          />
+                        </>
+                      ) : (
+                        <span className="badge badge-red">Unmatched</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowImportModal(false)}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleConfirmImport}>
+                Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Distribution Calculator Modal ──────── */}
+      {showCalcModal && (
+        <div
+          className="modal-overlay active"
+          style={{ display: 'flex' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCalcModal(false)
+          }}
+        >
+          <div className="modal" style={{ maxWidth: 680 }}>
+            <div className="modal-header">
+              <div className="modal-title">Distribution Calculator</div>
+              <button
+                className="modal-close"
+                onClick={() => setShowCalcModal(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label className="form-label">Annual Distribution %</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={calcPercent}
+                      onChange={(e) => setCalcPercent(e.target.value)}
+                      placeholder="e.g. 8"
+                      step="0.01"
+                      min="0"
+                      style={{ flex: 1 }}
+                    />
+                    <span style={{ fontSize: 18, color: 'var(--t3)', fontWeight: 500 }}>%</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label">Fund</label>
+                  <select
+                    className="form-select"
+                    value={calcFund}
+                    onChange={(e) => setCalcFund(e.target.value)}
+                  >
+                    {funds.map((f) => (
+                      <option key={f.id} value={f.shortName}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Monthly explanation */}
+              {parseFloat(calcPercent) > 0 && (
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'rgba(52,211,153,0.04)',
+                  border: '1px solid var(--grnB)',
+                  borderRadius: 6,
+                  marginBottom: 16,
+                }}>
+                  <div className="mono" style={{ fontSize: 11, color: 'var(--grn)' }}>
+                    {calcPercent}% annual &divide; 12 months = {(parseFloat(calcPercent) / 12).toFixed(4)}% monthly per investor
+                  </div>
+                  <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginTop: 2 }}>
+                    Each payment below is the monthly amount (annual distribution spread over 12 months)
+                  </div>
+                </div>
+              )}
+
+              {/* Preview table */}
+              {parseFloat(calcPercent) > 0 && (
+                <>
+                  <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 10 }}>
+                    Monthly Amounts ({calcPercent}% annual &divide; 12)
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Investor</th>
+                        <th>Entity</th>
+                        <th className="right">Committed</th>
+                        <th className="right">Annual ({calcPercent}%)</th>
+                        <th className="right">Monthly</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const pct = parseFloat(calcPercent) / 100
+                        const fundInvestors = investors.filter((inv) => inv.funds.includes(calcFund))
+                        let grandTotalAnnual = 0
+                        let grandTotalMonthly = 0
+
+                        const rows = fundInvestors.map((inv) => {
+                          const fundPositions = inv.positions.filter((p) => p.fund === calcFund)
+                          const committed = fundPositions.reduce((s, p) => s + p.amt, 0)
+                          const annualAmt = Math.round(committed * pct)
+                          const monthlyAmt = Math.round(annualAmt / 12)
+                          grandTotalAnnual += annualAmt
+                          grandTotalMonthly += monthlyAmt
+
+                          return (
+                            <tr key={inv.id}>
+                              <td style={{ fontSize: 13, fontWeight: 500 }}>{inv.name}</td>
+                              <td style={{ fontSize: 12, color: 'var(--t4)' }}>
+                                {inv.entities[0] || '-'}
+                              </td>
+                              <td className="right" style={{ fontSize: 13, color: 'var(--t3)' }}>{fmt(committed)}</td>
+                              <td className="right" style={{ fontSize: 12, color: 'var(--t5)' }}>{fmt(annualAmt)}</td>
+                              <td className="right" style={{ fontSize: 14, fontWeight: 700, color: 'var(--grn)' }}>{fmt(monthlyAmt)}</td>
+                            </tr>
+                          )
+                        })
+
+                        return (
+                          <>
+                            {rows}
+                            <tr style={{ borderTop: '2px solid var(--bd)' }}>
+                              <td colSpan={3} style={{ fontWeight: 700, fontSize: 13 }}>Total</td>
+                              <td className="right" style={{ fontSize: 13, fontWeight: 600, color: 'var(--t4)' }}>
+                                {fmt(grandTotalAnnual)}/yr
+                              </td>
+                              <td className="right" style={{ fontSize: 16, fontWeight: 700, color: 'var(--grn)' }}>
+                                {fmt(grandTotalMonthly)}/mo
+                              </td>
+                            </tr>
+                          </>
+                        )
+                      })()}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowCalcModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  const pct = parseFloat(calcPercent) / 100
+                  if (!pct || pct <= 0) {
+                    showToast('Enter a valid percentage')
+                    return
+                  }
+                  const fundInvestors = investors.filter((inv) => inv.funds.includes(calcFund))
+                  let created = 0
+                  fundInvestors.forEach((inv) => {
+                    const fundPositions = inv.positions.filter((p) => p.fund === calcFund)
+                    const committed = fundPositions.reduce((s, p) => s + p.amt, 0)
+                    const annualAmt = Math.round(committed * pct)
+                    const monthlyAmt = Math.round(annualAmt / 12)
+                    if (monthlyAmt > 0) {
+                      // Check if payment already exists for this investor in this period
+                      const existing = periodPayments.find((p) => p.invId === inv.id)
+                      if (!existing) {
+                        distributionStore.addPayment({
+                          invId: inv.id,
+                          name: inv.name,
+                          entity: inv.entities[0] || '',
+                          amt: monthlyAmt,
+                          method: 'ACH',
+                          status: 'Prep',
+                          date: '',
+                          trackingRef: '',
+                          reportedInPortal: 'Pending',
+                          reconciliation: 'Pending',
+                          fund: calcFund,
+                          period: activePeriod || 'New Period',
+                          notes: `Monthly: ${calcPercent}% annual \u00F7 12 = ${fmt(monthlyAmt)}/mo (${fmt(annualAmt)}/yr on ${fmt(committed)})`,
+                        })
+                        created++
+                      }
+                    }
+                  })
+                  setShowCalcModal(false)
+                  setCalcPercent('')
+                  showToast(`${created} monthly payment${created !== 1 ? 's' : ''} created (${calcPercent}% annual \u00F7 12)`)
+                }}
+              >
+                Create Monthly Payments
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
