@@ -9,6 +9,7 @@ const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
   'https://mail.google.com/',
   'https://www.googleapis.com/auth/chat.messages',
+  'https://www.googleapis.com/auth/calendar.readonly',
 ].join(' ');
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;

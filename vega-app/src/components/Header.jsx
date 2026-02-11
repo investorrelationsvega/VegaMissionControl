@@ -1,21 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useUiStore from '../stores/uiStore';
 import useGoogleStore from '../stores/googleStore';
 import useRingCentralStore from '../stores/ringcentralStore';
+import useBlueskyStore from '../stores/blueskyStore';
 import { requestAccessTokenWithConsent, revokeToken } from '../services/googleAuth';
 import { startAuthFlow } from '../services/ringcentralAuth';
+import BlueskyFilingModal from './BlueskyFilingModal';
 
 const NOTIF_TYPE_COLORS = {
   assignment: 'var(--blu)',
   urgent: 'var(--red)',
   tag: 'var(--ylw)',
+  bluesky: '#c084fc',
 };
 
 const NOTIF_TYPE_LABELS = {
   assignment: 'Assignment',
   urgent: 'Urgent',
   tag: 'Mention',
+  bluesky: 'Bluesky Filing',
 };
 
 function timeAgo(ts) {
@@ -126,16 +130,37 @@ function ConnectionIndicators() {
   );
 }
 
+const UNIT_LABELS = {
+  pe: 'Private Equity',
+  alm: 'Assisted Living',
+  builders: 'Builders',
+  'capital-markets': 'Capital Markets',
+  development: 'Development',
+  hospice: 'Hospice',
+  pmre: 'Property Management',
+  valuations: 'Valuations',
+};
+
 export default function Header({ currentPage }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [blueskyModalFilingId, setBlueskyModalFilingId] = useState(null);
   const dropdownRef = useRef(null);
+
+  // Derive back link: sub-pages go to their unit root, unit roots go to Mission Control
+  const segments = pathname.split('/').filter(Boolean); // e.g. ['pe','distributions']
+  const unitSlug = segments[0]; // e.g. 'pe'
+  const isSubPage = segments.length > 1;
+  const backTo = isSubPage ? `/${unitSlug}` : '/';
+  const backLabel = isSubPage ? (UNIT_LABELS[unitSlug] || 'Back') : 'Mission Control';
 
   const notifications = useUiStore((s) => s.notifications);
   const markNotificationRead = useUiStore((s) => s.markNotificationRead);
   const markAllNotificationsRead = useUiStore((s) => s.markAllNotificationsRead);
   const dismissNotification = useUiStore((s) => s.dismissNotification);
   const unreadCount = useUiStore((s) => s.getUnreadCount());
+  const filings = useBlueskyStore((s) => s.filings);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -158,8 +183,8 @@ export default function Header({ currentPage }) {
     <header className="header">
       <div className="header-inner">
         <div className="header-left">
-          <Link to="/" className="header-back">
-            &larr; Mission Control
+          <Link to={backTo} className="header-back">
+            &larr; {backLabel}
           </Link>
           <div className="header-logo">
             <svg viewBox="0 0 1602.14 586.87" style={{ height: 27, fill: 'var(--t1)' }}>
@@ -308,16 +333,39 @@ export default function Header({ currentPage }) {
                     No notifications
                   </div>
                 ) : (
-                  notifications.map((notif) => (
+                  notifications.map((notif) => {
+                    // For bluesky notifications, compute deadline info
+                    let deadlineInfo = null;
+                    if (notif.type === 'bluesky' && notif.filingId) {
+                      const filing = filings.find((f) => f.id === notif.filingId);
+                      if (filing && filing.status === 'Pending') {
+                        const daysLeft = Math.ceil(
+                          (new Date(filing.deadlineDate) - new Date()) / (1000 * 60 * 60 * 24),
+                        );
+                        const color =
+                          daysLeft < 0 ? 'var(--red)' : daysLeft <= 7 ? 'var(--ylw)' : 'var(--t4)';
+                        deadlineInfo = {
+                          text:
+                            daysLeft < 0
+                              ? `${Math.abs(daysLeft)}d overdue`
+                              : `${daysLeft}d remaining`,
+                          color,
+                        };
+                      }
+                    }
+
+                    return (
                     <div
                       key={notif.id}
-                      onClick={() => handleNotifClick(notif)}
+                      onClick={() => {
+                        if (notif.type !== 'bluesky') handleNotifClick(notif);
+                      }}
                       style={{
                         display: 'flex',
                         gap: 12,
                         padding: '12px 16px',
                         borderBottom: '1px solid rgba(30,41,59,0.3)',
-                        cursor: 'pointer',
+                        cursor: notif.type === 'bluesky' ? 'default' : 'pointer',
                         background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)',
                         transition: 'background 0.1s',
                       }}
@@ -368,6 +416,45 @@ export default function Header({ currentPage }) {
                         <div style={{ fontSize: 12, color: 'var(--t4)', lineHeight: 1.4 }}>
                           {notif.detail}
                         </div>
+                        {/* Deadline countdown for bluesky */}
+                        {deadlineInfo && (
+                          <div
+                            className="mono"
+                            style={{
+                              fontSize: 10,
+                              color: deadlineInfo.color,
+                              marginTop: 4,
+                            }}
+                          >
+                            {deadlineInfo.text}
+                          </div>
+                        )}
+                        {/* Review button for bluesky */}
+                        {notif.type === 'bluesky' && notif.filingId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markNotificationRead(notif.id);
+                              setBlueskyModalFilingId(notif.filingId);
+                              setShowDropdown(false);
+                            }}
+                            className="mono"
+                            style={{
+                              marginTop: 6,
+                              fontSize: 9,
+                              fontWeight: 700,
+                              padding: '4px 12px',
+                              border: '1px solid rgba(192,132,252,0.3)',
+                              borderRadius: 3,
+                              background: 'rgba(192,132,252,0.1)',
+                              color: '#c084fc',
+                              cursor: 'pointer',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            Review
+                          </button>
+                        )}
                       </div>
                       {/* Dismiss */}
                       <button
@@ -392,7 +479,8 @@ export default function Header({ currentPage }) {
                         &times;
                       </button>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               </>
@@ -403,6 +491,14 @@ export default function Header({ currentPage }) {
           <button className="header-signout">Sign Out</button>
         </div>
       </div>
+
+      {/* Bluesky Filing Modal */}
+      {blueskyModalFilingId && (
+        <BlueskyFilingModal
+          filingId={blueskyModalFilingId}
+          onClose={() => setBlueskyModalFilingId(null)}
+        />
+      )}
     </header>
   );
 }

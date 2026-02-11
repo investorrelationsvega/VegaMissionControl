@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Header from './components/Header';
 import Toast from './components/Toast';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Directory from './pages/Directory';
 import Compliance from './pages/Compliance';
@@ -9,22 +10,26 @@ import Tasks from './pages/Tasks';
 import Distributions from './pages/Distributions';
 import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
+import UnitPlaceholder from './pages/UnitPlaceholder';
 import { exchangeCodeForToken, getReturnPath } from './services/ringcentralAuth';
 import useRingCentralStore from './stores/ringcentralStore';
 import useGoogleStore from './stores/googleStore';
+import useInvestorStore from './stores/investorStore';
+import useBlueskyStore from './stores/blueskyStore';
+import useUiStore from './stores/uiStore';
 import { initGapi, initTokenClient, isTokenValid } from './services/googleAuth';
 import { refreshAccessToken } from './services/ringcentralAuth';
 
 // Map pathname to a friendly page name for the Header
 function getPageName(pathname) {
   const map = {
-    '/': 'dashboard',
-    '/directory': 'directory',
-    '/compliance': 'compliance',
-    '/tasks': 'tasks',
-    '/distributions': 'distributions',
-    '/funds': 'funds',
-    '/reports': 'reports',
+    '/pe': 'dashboard',
+    '/pe/directory': 'directory',
+    '/pe/compliance': 'compliance',
+    '/pe/tasks': 'tasks',
+    '/pe/distributions': 'distributions',
+    '/pe/funds': 'funds',
+    '/pe/reports': 'reports',
   };
   return map[pathname] || 'dashboard';
 }
@@ -75,6 +80,7 @@ function RCCallback() {
 export default function App() {
   const location = useLocation();
   const currentPage = getPageName(location.pathname);
+  const isHomePage = location.pathname === '/';
 
   // ── Token Lifecycle: Google ─────────────────────────────────────────────
   const googleToken = useGoogleStore((s) => s.accessToken);
@@ -128,18 +134,63 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [rcRefreshToken, rcTokenExpiry, rcSetTokens, rcClearAuth]);
 
+  // ── Bluesky Filing Scan on Mount ───────────────────────────────────────────
+  useEffect(() => {
+    const positions = useInvestorStore.getState().positions;
+    const bluesky = useBlueskyStore.getState();
+    const ui = useUiStore.getState();
+
+    // Track which investors we've already created filings for (one per investor)
+    const processed = new Set();
+
+    positions.forEach((pos) => {
+      // Skip if: no webform completion, is Utah, or already has a filing
+      if (!pos.pipeline?.webformCompleteDate) return;
+      if (!pos.state || pos.state === 'UT') return;
+      if (processed.has(pos.invId)) return;
+      if (bluesky.hasFiling(pos.invId)) return;
+
+      processed.add(pos.invId);
+      const filing = bluesky.addFiling(pos);
+      if (filing) {
+        ui.addNotification({
+          type: 'bluesky',
+          title: 'Blue Sky Filing Required',
+          detail: `${pos.name} (${pos.state}) — ${pos.fund}. File within 30 days.`,
+          link: '/pe/compliance',
+          filingId: filing.id,
+        });
+      }
+    });
+  }, []); // run once on mount
+
   return (
     <>
       <div className="grid-bg" />
-      <Header currentPage={currentPage} />
+      {!isHomePage && <Header currentPage={currentPage} />}
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/directory" element={<Directory />} />
-        <Route path="/compliance" element={<Compliance />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/distributions" element={<Distributions />} />
-        <Route path="/funds" element={<FundOverview />} />
-        <Route path="/reports" element={<Reports />} />
+        {/* Landing page */}
+        <Route path="/" element={<Home />} />
+
+        {/* Private Equity */}
+        <Route path="/pe" element={<Dashboard />} />
+        <Route path="/pe/directory" element={<Directory />} />
+        <Route path="/pe/compliance" element={<Compliance />} />
+        <Route path="/pe/tasks" element={<Tasks />} />
+        <Route path="/pe/distributions" element={<Distributions />} />
+        <Route path="/pe/funds" element={<FundOverview />} />
+        <Route path="/pe/reports" element={<Reports />} />
+
+        {/* Other business units (placeholder dashboards) */}
+        <Route path="/alm" element={<UnitPlaceholder name="Assisted Living Management" subtitle="Management & Operations" />} />
+        <Route path="/builders" element={<UnitPlaceholder name="Builders" subtitle="Construction" />} />
+        <Route path="/capital-markets" element={<UnitPlaceholder name="Capital Markets" subtitle="Debt & Equity Financing" />} />
+        <Route path="/development" element={<UnitPlaceholder name="Development" subtitle="Land Development" />} />
+        <Route path="/hospice" element={<UnitPlaceholder name="Hospice" subtitle="End-of-Life Care" />} />
+        <Route path="/pmre" element={<UnitPlaceholder name="Property Management & Real Estate" subtitle="Operations & Holdings" />} />
+        <Route path="/valuations" element={<UnitPlaceholder name="Valuations" subtitle="Appraisal & Advisory" />} />
+
+        {/* Auth callback */}
         <Route path="/auth/rc/callback" element={<RCCallback />} />
       </Routes>
       <Toast />

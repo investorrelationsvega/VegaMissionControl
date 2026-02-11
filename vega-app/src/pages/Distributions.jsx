@@ -654,7 +654,7 @@ export default function Distributions() {
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       <td
-                        onClick={() => navigate('/directory')}
+                        onClick={() => navigate('/pe/directory')}
                         style={{
                           color: 'var(--grn)',
                           cursor: 'pointer',

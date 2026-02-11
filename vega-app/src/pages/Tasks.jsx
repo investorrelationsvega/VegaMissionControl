@@ -381,7 +381,7 @@ export default function Tasks() {
                           color: 'var(--grn)',
                           cursor: 'pointer',
                         }}
-                        onClick={() => navigate('/directory')}
+                        onClick={() => navigate('/pe/directory')}
                         onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
                         onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
                       >

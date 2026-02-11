@@ -8,6 +8,8 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useComplianceStore from '../stores/complianceStore'
 import useUiStore from '../stores/uiStore'
+import useBlueskyStore from '../stores/blueskyStore'
+import BlueskyFilingModal from '../components/BlueskyFilingModal'
 
 // ── Document type list ──────────────────────────────────────────────────────
 const DOC_TYPES = [
@@ -45,6 +47,13 @@ export default function Compliance() {
   const updateNotes = useComplianceStore((s) => s.updateNotes)
   const auditLog = useComplianceStore((s) => s.auditLog)
   const showToast = useUiStore((s) => s.showToast)
+
+  // ── Bluesky Filings ──────────────────────────
+  const blueskyFilings = useBlueskyStore((s) => s.filings)
+  const pendingFilings = useMemo(() => blueskyFilings.filter((f) => f.status === 'Pending'), [blueskyFilings])
+  const filedFilings = useMemo(() => blueskyFilings.filter((f) => f.status === 'Filed'), [blueskyFilings])
+  const [blueskyModalFilingId, setBlueskyModalFilingId] = useState(null)
+  const [expandedFilings, setExpandedFilings] = useState({})
 
   // ── Local state ─────────────────────────────
   const [search, setSearch] = useState('')
@@ -237,6 +246,244 @@ export default function Compliance() {
           </div>
         ))}
       </div>
+
+      {/* ── Bluesky Filings Section ──────────── */}
+      {blueskyFilings.length > 0 && (
+        <div
+          style={{
+            background: 'var(--bg-card-half)',
+            border: '1px solid rgba(192,132,252,0.2)',
+            borderRadius: 6,
+            padding: 20,
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                background: '#c084fc',
+                borderRadius: '50%',
+                display: 'inline-block',
+                flexShrink: 0,
+              }}
+            />
+            <span className="section-label">Blue Sky Filings</span>
+            <span className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginLeft: 'auto' }}>
+              {pendingFilings.length} pending &middot; {filedFilings.length} filed
+            </span>
+          </div>
+
+          {/* Pending filings */}
+          {pendingFilings.length > 0 && (
+            <div style={{ marginBottom: filedFilings.length > 0 ? 16 : 0 }}>
+              <div className="mono" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--t4)', marginBottom: 8 }}>
+                Pending
+              </div>
+              {pendingFilings.map((filing) => {
+                const daysLeft = Math.ceil((new Date(filing.deadlineDate) - new Date()) / (1000 * 60 * 60 * 24))
+                const urgencyColor = daysLeft < 0 ? 'var(--red)' : daysLeft <= 7 ? 'var(--ylw)' : 'var(--t4)'
+                const isExpanded = expandedFilings[filing.id]
+
+                return (
+                  <div
+                    key={filing.id}
+                    style={{
+                      background: 'rgba(15,23,42,0.5)',
+                      border: `1px solid ${daysLeft < 0 ? 'var(--red)' : daysLeft <= 7 ? 'var(--ylwB)' : 'var(--bd)'}`,
+                      borderRadius: 4,
+                      marginBottom: 8,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setExpandedFilings((prev) => ({ ...prev, [filing.id]: !prev[filing.id] }))}
+                    >
+                      <span style={{ fontSize: 10, color: 'var(--t5)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)' }}>
+                        &#9654;
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--t1)' }}>
+                          {filing.name}
+                          <span className="mono" style={{ fontSize: 10, color: 'var(--t4)', marginLeft: 8 }}>
+                            {filing.state} &middot; {filing.fund}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="mono" style={{ fontSize: 10, fontWeight: 700, color: urgencyColor }}>
+                        {daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d remaining`}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBlueskyModalFilingId(filing.id)
+                        }}
+                        className="mono"
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: '4px 12px',
+                          border: '1px solid rgba(192,132,252,0.3)',
+                          borderRadius: 3,
+                          background: 'rgba(192,132,252,0.1)',
+                          color: '#c084fc',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Review
+                      </button>
+                    </div>
+
+                    {/* Expanded: audit trail */}
+                    {isExpanded && (
+                      <div style={{ padding: '8px 14px 12px', borderTop: '1px solid var(--bd)' }}>
+                        <div className="mono" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--t5)', marginBottom: 6 }}>
+                          Trigger: {new Date(filing.triggerDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {' '}&middot; Deadline: {new Date(filing.deadlineDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        {filing.auditLog.map((entry) => (
+                          <div key={entry.id} style={{ padding: '4px 0', fontSize: 11, color: 'var(--t4)' }}>
+                            <span className="mono" style={{ fontSize: 9, color: 'var(--t5)' }}>
+                              {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {' '}<span style={{ color: '#c084fc', fontWeight: 600 }}>{entry.action}</span> — {entry.detail}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Filed filings */}
+          {filedFilings.length > 0 && (
+            <div>
+              <div className="mono" style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--t4)', marginBottom: 8 }}>
+                Filed
+              </div>
+              {filedFilings.map((filing) => {
+                const isExpanded = expandedFilings[filing.id]
+
+                return (
+                  <div
+                    key={filing.id}
+                    style={{
+                      background: 'rgba(15,23,42,0.5)',
+                      border: '1px solid var(--bd)',
+                      borderRadius: 4,
+                      marginBottom: 8,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '10px 14px',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setExpandedFilings((prev) => ({ ...prev, [filing.id]: !prev[filing.id] }))}
+                    >
+                      <span style={{ fontSize: 10, color: 'var(--t5)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)' }}>
+                        &#9654;
+                      </span>
+                      <span style={{ color: 'var(--grn)', fontSize: 14, fontWeight: 700 }}>&#10003;</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--t3)' }}>
+                          {filing.name}
+                          <span className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginLeft: 8 }}>
+                            {filing.state} &middot; {filing.fund}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--grn)' }}>
+                        Filed {new Date(filing.filedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBlueskyModalFilingId(filing.id)
+                        }}
+                        className="mono"
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: '4px 12px',
+                          border: '1px solid var(--bd)',
+                          borderRadius: 3,
+                          background: 'transparent',
+                          color: 'var(--t4)',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+
+                    {/* Expanded: resolution + audit trail */}
+                    {isExpanded && (
+                      <div style={{ padding: '8px 14px 12px', borderTop: '1px solid var(--bd)' }}>
+                        {filing.notes && (
+                          <div style={{
+                            padding: '6px 10px',
+                            background: 'rgba(52,211,153,0.04)',
+                            borderLeft: '2px solid var(--grn)',
+                            borderRadius: '0 4px 4px 0',
+                            fontSize: 12,
+                            color: 'var(--t4)',
+                            fontStyle: 'italic',
+                            marginBottom: 8,
+                          }}>
+                            {filing.notes}
+                          </div>
+                        )}
+                        {filing.attachedEmails.length > 0 && (
+                          <div style={{ marginBottom: 8 }}>
+                            <div className="mono" style={{ fontSize: 9, color: 'var(--t5)', marginBottom: 4 }}>
+                              ATTACHED EMAILS ({filing.attachedEmails.length})
+                            </div>
+                            {filing.attachedEmails.map((email) => (
+                              <div key={email.messageId} style={{ fontSize: 11, color: 'var(--t4)', padding: '2px 0' }}>
+                                {email.subject} — <span className="mono" style={{ fontSize: 9 }}>{email.from}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {filing.auditLog.map((entry) => (
+                          <div key={entry.id} style={{ padding: '4px 0', fontSize: 11, color: 'var(--t4)' }}>
+                            <span className="mono" style={{ fontSize: 9, color: 'var(--t5)' }}>
+                              {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {' '}<span style={{ color: entry.action === 'Filing Resolved' ? 'var(--grn)' : '#c084fc', fontWeight: 600 }}>{entry.action}</span> — {entry.detail}
+                            {entry.notes && (
+                              <div style={{ marginLeft: 16, fontSize: 10, color: 'var(--t5)', fontStyle: 'italic' }}>
+                                {entry.notes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Document Type Breakdown ───────────── */}
       <div
@@ -762,7 +1009,7 @@ export default function Compliance() {
                     <button
                       className="btn btn-secondary"
                       style={{ fontSize: 10, padding: '5px 14px' }}
-                      onClick={() => navigate('/directory')}
+                      onClick={() => navigate('/pe/directory')}
                     >
                       View in Directory &rarr;
                     </button>
@@ -832,6 +1079,14 @@ export default function Compliance() {
             </div>
           )
         })
+      )}
+
+      {/* Bluesky Filing Modal */}
+      {blueskyModalFilingId && (
+        <BlueskyFilingModal
+          filingId={blueskyModalFilingId}
+          onClose={() => setBlueskyModalFilingId(null)}
+        />
       )}
     </div>
   )

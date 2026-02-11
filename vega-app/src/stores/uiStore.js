@@ -28,7 +28,9 @@ const useUiStore = create((set, get) => ({
       detail: 'You are primary on Feb Distribution prep',
       timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
       read: false,
-      link: '/',
+      link: '/pe',
+      unit: 'pe',
+      assignee: 'jjones@vegarei.com',
     },
     {
       id: 'N02',
@@ -37,7 +39,9 @@ const useUiStore = create((set, get) => ({
       detail: 'Cory Waddoups needs to sign Fund II LP Agreement',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
       read: false,
-      link: '/compliance',
+      link: '/pe/compliance',
+      unit: 'pe',
+      assignee: 'jjones@vegarei.com',
     },
     {
       id: 'N03',
@@ -46,7 +50,9 @@ const useUiStore = create((set, get) => ({
       detail: 'Jim Cook compliance — "Need Melanie to co-sign"',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
       read: false,
-      link: '/directory',
+      link: '/pe/directory',
+      unit: 'pe',
+      assignee: 'jjones@vegarei.com',
     },
     {
       id: 'N04',
@@ -55,7 +61,9 @@ const useUiStore = create((set, get) => ({
       detail: 'You are secondary on Q4 DTCC position/NAV report',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
       read: true,
-      link: '/',
+      link: '/pe',
+      unit: 'pe',
+      assignee: 'jjones@vegarei.com',
     },
   ],
 
@@ -83,6 +91,36 @@ const useUiStore = create((set, get) => ({
       upcomingDates: state.upcomingDates.filter((d) => d.id !== id),
     })),
 
+  // ── Calendar Sync ─────────────────────────────────────────────────────
+  calendarEvents: [],
+  calendarSyncStatus: 'idle', // 'idle' | 'syncing' | 'synced' | 'error'
+  calendarLastSyncAt: null,
+
+  setCalendarEvents: (events) =>
+    set({
+      calendarEvents: events,
+      calendarSyncStatus: 'synced',
+      calendarLastSyncAt: Date.now(),
+    }),
+
+  setCalendarSyncStatus: (status) =>
+    set({ calendarSyncStatus: status }),
+
+  clearCalendarEvents: () =>
+    set({
+      calendarEvents: [],
+      calendarSyncStatus: 'idle',
+      calendarLastSyncAt: null,
+    }),
+
+  getMergedUpcoming: () => {
+    const { calendarEvents, calendarSyncStatus, upcomingDates } = get();
+    if (calendarSyncStatus === 'synced' && calendarEvents.length > 0) {
+      return calendarEvents;
+    }
+    return upcomingDates;
+  },
+
   // ── Attention Items ─────────────────────────────────────────────────────
   getAttentionItems: () => get().attentionItems,
 
@@ -96,6 +134,8 @@ const useUiStore = create((set, get) => ({
     set((state) => ({
       notifications: [
         {
+          unit: 'pe',
+          assignee: 'jjones@vegarei.com',
           ...notification,
           id: `N-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           timestamp: new Date().toISOString(),
@@ -122,8 +162,18 @@ const useUiStore = create((set, get) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
 
-  getUnreadCount: () =>
-    get().notifications.filter((n) => !n.read).length,
+  getUnreadCount: (filter) => {
+    let list = get().notifications;
+    if (filter?.unit) list = list.filter((n) => n.unit === filter.unit);
+    if (filter?.assignee) list = list.filter((n) => n.assignee === filter.assignee);
+    return list.filter((n) => !n.read).length;
+  },
+
+  getNotificationsForUser: (email) =>
+    get().notifications.filter((n) => n.assignee === email),
+
+  getNotificationsForUnit: (unit) =>
+    get().notifications.filter((n) => n.unit === unit),
 
   // ── Sidebar ─────────────────────────────────────────────────────────────
   toggleSidebar: () =>

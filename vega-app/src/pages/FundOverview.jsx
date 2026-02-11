@@ -423,7 +423,7 @@ export default function FundOverview() {
                         fundPositions.map((p) => (
                           <tr key={p.id}>
                             <td
-                              onClick={() => navigate('/directory')}
+                              onClick={() => navigate('/pe/directory')}
                               style={{
                                 color: 'var(--grn)',
                                 cursor: 'pointer',
@@ -951,7 +951,7 @@ export default function FundOverview() {
                       <td
                         onClick={() => {
                           setShowCommittedModal(false)
-                          navigate('/directory')
+                          navigate('/pe/directory')
                         }}
                         style={{
                           color: 'var(--grn)',

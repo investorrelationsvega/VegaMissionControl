@@ -9,6 +9,8 @@ import useUiStore from '../stores/uiStore';
 import useFundStore from '../stores/fundStore';
 import useInvestorStore from '../stores/investorStore';
 import useComplianceStore from '../stores/complianceStore';
+import useGoogleStore from '../stores/googleStore';
+import { fetchUpcomingEvents } from '../services/calendarService';
 import { fmt, fmtK } from '../utils/format';
 import DriveDocuments from '../components/DriveDocuments';
 
@@ -59,6 +61,15 @@ export default function Dashboard() {
 
   const openCompliance = useComplianceStore((s) => s.getOpen);
 
+  // Google / Calendar
+  const isGoogleAuth = useGoogleStore((s) => s.isAuthenticated);
+  const accessToken = useGoogleStore((s) => s.accessToken);
+  const calendarSyncStatus = useUiStore((s) => s.calendarSyncStatus);
+  const calendarLastSyncAt = useUiStore((s) => s.calendarLastSyncAt);
+  const setCalendarEvents = useUiStore((s) => s.setCalendarEvents);
+  const setCalendarSyncStatus = useUiStore((s) => s.setCalendarSyncStatus);
+  const getMergedUpcoming = useUiStore((s) => s.getMergedUpcoming);
+
   // Local state
   const [attSlide, setAttSlide] = useState(0);
   const [selectedFundIdx, setSelectedFundIdx] = useState(1); // default Fund II
@@ -88,6 +99,36 @@ export default function Dashboard() {
       setCardWidth(firstCard.offsetWidth + 16); // card width + gap
     }
   }, [attentionItems]);
+
+  // ── Calendar sync ───────────────────────────────────────────────────────
+  const syncCalendar = async () => {
+    if (!accessToken) return;
+    setCalendarSyncStatus('syncing');
+    try {
+      const events = await fetchUpcomingEvents(accessToken);
+      setCalendarEvents(events);
+      showToast('Calendar synced');
+    } catch (err) {
+      console.error('Calendar sync failed:', err);
+      setCalendarSyncStatus('error');
+      showToast('Calendar sync failed');
+    }
+  };
+
+  // Auto-sync on mount when authenticated (5-min cache)
+  useEffect(() => {
+    if (!isGoogleAuth || !accessToken) return;
+    const cacheAge = calendarLastSyncAt ? Date.now() - calendarLastSyncAt : Infinity;
+    if (cacheAge > 5 * 60 * 1000) {
+      syncCalendar();
+    }
+  }, [isGoogleAuth, accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Merged display dates — calendar events when synced, seed data otherwise
+  const allDisplayDates = getMergedUpcoming();
+  const maxCards = 8;
+  const displayDates = allDisplayDates.slice(0, maxCards);
+  const overflowCount = Math.max(0, allDisplayDates.length - maxCards);
 
   // Fund amount display
   const getFundAmountText = (fund) => {
@@ -142,19 +183,19 @@ export default function Dashboard() {
       title: 'Directory',
       desc: '33 investors \u2014 1 pending, 20 in review',
       dotColor: 'var(--red)',
-      route: '/directory',
+      route: '/pe/directory',
     },
     {
       title: 'Distributions',
       desc: 'Feb 2026 \u2014 all sent',
       dotColor: 'var(--grn)',
-      route: '/distributions',
+      route: '/pe/distributions',
     },
     {
       title: 'Compliance',
       desc: '22 open sub doc issues',
       dotColor: 'var(--red)',
-      route: '/compliance',
+      route: '/pe/compliance',
     },
     {
       title: 'Sales',
@@ -171,7 +212,7 @@ export default function Dashboard() {
       <div className="page-header">
         <div className="page-header-dot"><span>Active Module</span></div>
         <h1 className="page-title">Private Equity</h1>
-        <p className="page-subtitle">Fund Management &amp; Investor Relations</p>
+        <p className="page-subtitle">Sales &amp; Fund Administration</p>
       </div>
 
       {/* ── Attention Needed Carousel ────────────────────────────── */}
@@ -297,26 +338,54 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 8, height: 8, background: 'var(--t5)', borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />
             <span className="section-label">Team Upcoming</span>
+            {calendarSyncStatus === 'syncing' && (
+              <span className="mono" style={{ fontSize: 10, color: 'var(--t5)' }}>Syncing...</span>
+            )}
+            {calendarSyncStatus === 'synced' && (
+              <span className="mono" style={{ fontSize: 10, color: 'var(--grn)' }}>Synced</span>
+            )}
           </div>
-          <button
-            onClick={openEditModal}
-            className="mono"
-            style={{
-              fontSize: 11,
-              color: 'var(--t5)',
-              background: 'none',
-              border: '1px solid var(--bd)',
-              padding: '4px 12px',
-              borderRadius: 4,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-          >
-            Edit Dates
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {isGoogleAuth && (
+              <button
+                onClick={syncCalendar}
+                disabled={calendarSyncStatus === 'syncing'}
+                className="mono"
+                style={{
+                  fontSize: 11,
+                  color: 'var(--t5)',
+                  background: 'none',
+                  border: '1px solid var(--bd)',
+                  padding: '4px 12px',
+                  borderRadius: 4,
+                  cursor: calendarSyncStatus === 'syncing' ? 'default' : 'pointer',
+                  opacity: calendarSyncStatus === 'syncing' ? 0.5 : 1,
+                  transition: 'all 0.15s',
+                }}
+              >
+                Sync Calendar
+              </button>
+            )}
+            <button
+              onClick={openEditModal}
+              className="mono"
+              style={{
+                fontSize: 11,
+                color: 'var(--t5)',
+                background: 'none',
+                border: '1px solid var(--bd)',
+                padding: '4px 12px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              Edit Dates
+            </button>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          {upcomingDates.map((item) => (
+          {displayDates.map((item) => (
             <div
               key={item.id}
               style={{
@@ -362,6 +431,22 @@ export default function Dashboard() {
               )}
             </div>
           ))}
+          {overflowCount > 0 && (
+            <div
+              style={{
+                background: 'rgba(30,41,59,0.3)',
+                borderRadius: 6,
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <span className="mono" style={{ fontSize: 13, color: 'var(--t4)' }}>
+                +{overflowCount} more
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

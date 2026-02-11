@@ -6,6 +6,8 @@
 
 import { create } from 'zustand';
 import { positions, activityFeed as seedActivityFeed } from '../data/seedData';
+import useBlueskyStore from './blueskyStore';
+import useUiStore from './uiStore';
 
 // Pipeline stage order for display and validation
 export const PIPELINE_STAGES = [
@@ -55,6 +57,7 @@ function buildInvestors(positionList) {
         custodian: p.custodian || '',
         phone: '',
         email: '',
+        state: '',
         pipeline: null,
         signers: null,
         docRouting: null,
@@ -84,6 +87,7 @@ function buildInvestors(positionList) {
     if (p.custodian) inv.custodian = p.custodian;
     if (p.phone) inv.phone = p.phone;
     if (p.email) inv.email = p.email;
+    if (p.state) inv.state = p.state;
 
     // Carry forward status — if any position is Pending, mark investor Pending
     if (p.status === 'Pending') inv.status = 'Pending';
@@ -200,6 +204,7 @@ const useInvestorStore = create((set, get) => ({
             custodian: p.custodian || '',
             phone: '',
             email: '',
+            state: '',
           };
         }
         const inv = newInvestors[p.invId];
@@ -210,6 +215,7 @@ const useInvestorStore = create((set, get) => ({
         if (p.custodian) inv.custodian = p.custodian;
         if (p.phone) inv.phone = p.phone;
         if (p.email) inv.email = p.email;
+        if (p.state) inv.state = p.state;
         if (p.status === 'Pending') inv.status = 'Pending';
         inv.totalCommitted += p.amt;
         inv.positions.push(p);
@@ -322,63 +328,81 @@ const useInvestorStore = create((set, get) => ({
     }),
 
   // ── Pipeline Management ─────────────────────────────────────────────────
-  advancePipelineStage: (positionId, newStage, user = 'System') =>
-    set((state) => {
-      const pos = state.positions.find((p) => p.id === positionId);
-      if (!pos) return state;
+  advancePipelineStage: (positionId, newStage, user = 'System') => {
+    const state = get();
+    const pos = state.positions.find((p) => p.id === positionId);
+    if (!pos) return;
 
-      const oldStage = pos.pipeline?.stage || 'New';
-      const now = new Date().toISOString();
-      const dateKey = {
-        'Pending': 'pendingDate',
-        'Webform Sent': 'webformSentDate',
-        'Webform Complete': 'webformCompleteDate',
-        'DocuSign Out': 'docusignSentDate',
-        'Fully Executed': 'fullyExecutedDate',
-        'GP Countersign': 'gpCountersignDate',
-        'Funded': 'fundedDate',
-        'Accepted': 'acceptedDate',
-      }[newStage];
+    const oldStage = pos.pipeline?.stage || 'New';
+    const now = new Date().toISOString();
+    const dateKey = {
+      'Pending': 'pendingDate',
+      'Webform Sent': 'webformSentDate',
+      'Webform Complete': 'webformCompleteDate',
+      'DocuSign Out': 'docusignSentDate',
+      'Fully Executed': 'fullyExecutedDate',
+      'GP Countersign': 'gpCountersignDate',
+      'Funded': 'fundedDate',
+      'Accepted': 'acceptedDate',
+    }[newStage];
 
-      const updatedPipeline = {
-        ...(pos.pipeline || {}),
-        stage: newStage,
-        ...(dateKey ? { [dateKey]: now } : {}),
-      };
+    const updatedPipeline = {
+      ...(pos.pipeline || {}),
+      stage: newStage,
+      ...(dateKey ? { [dateKey]: now } : {}),
+    };
 
-      const updatedPositions = state.positions.map((p) =>
-        p.id === positionId ? { ...p, pipeline: updatedPipeline } : p,
-      );
-      const newInvestors = buildInvestors(updatedPositions);
+    const updatedPositions = state.positions.map((p) =>
+      p.id === positionId ? { ...p, pipeline: updatedPipeline } : p,
+    );
+    const newInvestors = buildInvestors(updatedPositions);
 
-      // Add activity feed entry
-      const newActivity = {
-        id: `AF-${Date.now()}`,
-        type: 'status_change',
-        invId: pos.invId,
-        fund: pos.fund,
-        message: `${pos.name} moved from ${oldStage} to ${newStage}`,
-        date: now,
-        read: false,
-      };
+    // Add activity feed entry
+    const newActivity = {
+      id: `AF-${Date.now()}`,
+      type: 'status_change',
+      invId: pos.invId,
+      fund: pos.fund,
+      message: `${pos.name} moved from ${oldStage} to ${newStage}`,
+      date: now,
+      read: false,
+    };
 
-      return {
-        positions: updatedPositions,
-        investors: newInvestors,
-        activityFeed: [newActivity, ...state.activityFeed],
-        auditLog: [
-          ...state.auditLog,
-          {
-            id: `AL-${Date.now()}`,
-            invId: pos.invId,
-            action: 'Pipeline Stage Changed',
-            detail: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${newStage}`,
-            user,
-            timestamp: now,
-          },
-        ],
-      };
-    }),
+    set({
+      positions: updatedPositions,
+      investors: newInvestors,
+      activityFeed: [newActivity, ...state.activityFeed],
+      auditLog: [
+        ...state.auditLog,
+        {
+          id: `AL-${Date.now()}`,
+          invId: pos.invId,
+          action: 'Pipeline Stage Changed',
+          detail: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${newStage}`,
+          user,
+          timestamp: now,
+        },
+      ],
+    });
+
+    // Bluesky filing trigger: out-of-state investor reaches Webform Complete
+    if (newStage === 'Webform Complete' && pos.state && pos.state !== 'UT') {
+      const bluesky = useBlueskyStore.getState();
+      if (!bluesky.hasFiling(pos.invId)) {
+        const updatedPos = { ...pos, pipeline: updatedPipeline };
+        const filing = bluesky.addFiling(updatedPos);
+        if (filing) {
+          useUiStore.getState().addNotification({
+            type: 'bluesky',
+            title: `Blue Sky Filing Required`,
+            detail: `${pos.name} (${pos.state}) — ${pos.fund}. File within 30 days.`,
+            link: '/pe/compliance',
+            filingId: filing.id,
+          });
+        }
+      }
+    }
+  },
 
   declineInvestor: (positionId, reason, user = 'System') =>
     set((state) => {
