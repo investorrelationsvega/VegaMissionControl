@@ -13,6 +13,7 @@ const NOTIF_TYPE_COLORS = {
   urgent: 'var(--red)',
   tag: 'var(--ylw)',
   bluesky: '#c084fc',
+  email: 'var(--ylw)',
 };
 
 const NOTIF_TYPE_LABELS = {
@@ -20,6 +21,7 @@ const NOTIF_TYPE_LABELS = {
   urgent: 'Urgent',
   tag: 'Mention',
   bluesky: 'Bluesky Filing',
+  email: 'Email Follow-up',
 };
 
 function timeAgo(ts) {
@@ -111,21 +113,23 @@ function ConnectionIndicators() {
         </span>
       </button>
 
-      {/* RingCentral */}
-      <button
-        onClick={handleRCClick}
-        style={{ ...indicatorStyle(rcAuth), background: 'none', }}
-        title={rcAuth ? 'RingCentral connected — click to disconnect' : 'Connect RingCentral'}
-      >
-        <span style={dotStyle(rcAuth)} />
-        <span style={labelStyle}>
-          {/* Phone icon */}
-          <svg viewBox="0 0 24 24" style={{ width: 11, height: 11, fill: rcAuth ? 'var(--grn)' : 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
-            <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-          </svg>
-          RC
-        </span>
-      </button>
+      {/* RingCentral — only show when disconnected (auto-connects with Google) */}
+      {!rcAuth && (
+        <button
+          onClick={handleRCClick}
+          style={{ ...indicatorStyle(false), background: 'none', }}
+          title="Connect RingCentral"
+        >
+          <span style={dotStyle(false)} />
+          <span style={labelStyle}>
+            {/* Phone icon */}
+            <svg viewBox="0 0 24 24" style={{ width: 11, height: 11, fill: 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
+              <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+            </svg>
+            RC
+          </span>
+        </button>
+      )}
     </div>
   );
 }

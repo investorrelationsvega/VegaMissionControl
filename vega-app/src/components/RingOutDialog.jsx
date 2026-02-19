@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import useRingCentralStore from '../stores/ringcentralStore';
+import useInvestorStore from '../stores/investorStore';
 import { initiateRingOut, getRingOutStatus, cancelRingOut, formatPhoneForDisplay } from '../services/ringcentralService';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
@@ -29,15 +30,18 @@ const STATUS_COLORS = {
   Error: 'var(--red)',
 };
 
-export default function RingOutDialog({ to, toName, onClose }) {
+export default function RingOutDialog({ to, toName, invId, onClose }) {
   const accessToken = useRingCentralStore((s) => s.accessToken);
   const userPhoneNumber = useRingCentralStore((s) => s.userPhoneNumber);
   const setActiveCall = useRingCentralStore((s) => s.setActiveCall);
+  const addNote = useInvestorStore((s) => s.addNote);
 
   const [status, setStatus] = useState('initiating'); // initiating | InProgress | Success | error
   const [ringOutId, setRingOutId] = useState(null);
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
+  const [callNotes, setCallNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -81,10 +85,9 @@ export default function RingOutDialog({ to, toName, onClose }) {
           clearInterval(pollRef.current);
           pollRef.current = null;
 
-          // Clear active call after a delay
-          setTimeout(() => {
-            setActiveCall(null);
-          }, 3000);
+          // Show notes prompt after call ends
+          setShowNotes(true);
+          setActiveCall(null);
         }
       } catch {
         // Silently handle poll errors
@@ -119,6 +122,16 @@ export default function RingOutDialog({ to, toName, onClose }) {
       }
     }
     setActiveCall(null);
+    onClose();
+  };
+
+  const handleSaveNotes = () => {
+    if (callNotes.trim() && invId) {
+      const duration = formatTime(elapsed);
+      const statusLabel = STATUS_LABELS[status] || status;
+      const prefix = `[Call to ${toName || formatPhoneForDisplay(to)} — ${duration}, ${statusLabel}]`;
+      addNote(invId, `${prefix}\n${callNotes.trim()}`, 'j@vegarei.com');
+    }
     onClose();
   };
 
@@ -315,8 +328,32 @@ export default function RingOutDialog({ to, toName, onClose }) {
             </div>
           )}
 
+          {/* Call Notes (post-call) */}
+          {showNotes && isTerminal && (
+            <div style={{ marginTop: 12, textAlign: 'left' }}>
+              <label style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', display: 'block', marginBottom: 6 }}>
+                Call Notes
+              </label>
+              <textarea
+                value={callNotes}
+                onChange={(e) => setCallNotes(e.target.value)}
+                placeholder="What was discussed?"
+                rows={3}
+                style={{
+                  width: '100%', boxSizing: 'border-box', ...mono, fontSize: 12,
+                  background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+                  padding: '8px 10px', color: 'var(--t1)', outline: 'none', resize: 'vertical',
+                  minHeight: 60, lineHeight: 1.5,
+                }}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--grn)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')}
+                autoFocus
+              />
+            </div>
+          )}
+
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 12 }}>
             {!isTerminal && (
               <button
                 onClick={handleCancel}
@@ -336,23 +373,28 @@ export default function RingOutDialog({ to, toName, onClose }) {
                 {status === 'initiating' ? 'Cancel' : 'End Call'}
               </button>
             )}
-            {isTerminal && (
-              <button
-                onClick={onClose}
-                style={{
-                  ...mono,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '10px 24px',
-                  border: '1px solid var(--bd)',
-                  background: 'transparent',
-                  color: 'var(--t3)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
+            {isTerminal && showNotes && (
+              <>
+                <button
+                  onClick={onClose}
+                  style={{
+                    ...mono, fontSize: 10, color: 'var(--t5)',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '10px 16px',
+                  }}
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleSaveNotes}
+                  style={{
+                    ...mono, fontSize: 11, fontWeight: 700, padding: '10px 24px',
+                    border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)',
+                    color: 'var(--grn)', borderRadius: 6, cursor: 'pointer',
+                  }}
+                >
+                  {callNotes.trim() ? 'Save & Close' : 'Close'}
+                </button>
+              </>
             )}
           </div>
         </div>

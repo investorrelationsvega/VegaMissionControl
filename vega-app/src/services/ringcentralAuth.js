@@ -59,7 +59,7 @@ export async function startAuthFlow(returnPath = '/') {
     state: crypto.randomUUID(),
   });
 
-  return `${RC_BASE}/restapi/oauth/authorize?${params.toString()}`;
+  window.location.href = `${RC_BASE}/restapi/oauth/authorize?${params.toString()}`;
 }
 
 /**

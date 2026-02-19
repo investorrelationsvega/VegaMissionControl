@@ -11,7 +11,7 @@ import Distributions from './pages/Distributions';
 import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
 import UnitPlaceholder from './pages/UnitPlaceholder';
-import { exchangeCodeForToken, getReturnPath } from './services/ringcentralAuth';
+import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
 import useRingCentralStore from './stores/ringcentralStore';
 import useGoogleStore from './stores/googleStore';
 import useInvestorStore from './stores/investorStore';
@@ -19,6 +19,7 @@ import useBlueskyStore from './stores/blueskyStore';
 import useUiStore from './stores/uiStore';
 import { initGapi, initTokenClient, isTokenValid } from './services/googleAuth';
 import { refreshAccessToken } from './services/ringcentralAuth';
+import { checkUnansweredEmails } from './services/gmailService';
 
 // Map pathname to a friendly page name for the Header
 function getPageName(pathname) {
@@ -133,6 +134,62 @@ export default function App() {
     }, refreshIn);
     return () => clearTimeout(timer);
   }, [rcRefreshToken, rcTokenExpiry, rcSetTokens, rcClearAuth]);
+
+  // ── Auto-connect RingCentral after Google auth ────────────────────────────
+  const googleAuth = useGoogleStore((s) => s.isAuthenticated);
+  const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    // If Google is connected but RC is not (and no refresh token to auto-refresh),
+    // kick off the RC OAuth flow automatically
+    if (googleAuth && !rcAuth && !rcRefreshToken) {
+      startAuthFlow(window.location.pathname);
+    }
+  }, [googleAuth, rcAuth, rcRefreshToken]);
+
+  // ── 48h Unanswered Email Check ─────────────────────────────────────────────
+  const googleTokenForCheck = useGoogleStore((s) => s.accessToken);
+
+  useEffect(() => {
+    if (!googleAuth || !googleTokenForCheck) return;
+
+    const investors = useInvestorStore.getState().getAll();
+    const contactEmails = investors
+      .map((inv) => inv.email)
+      .filter(Boolean)
+      .filter((e, i, arr) => arr.indexOf(e) === i); // dedupe
+
+    if (contactEmails.length === 0) return;
+
+    const ui = useUiStore.getState();
+    const existingNotifs = ui.notifications;
+
+    checkUnansweredEmails(googleTokenForCheck, contactEmails, 48)
+      .then((unanswered) => {
+        unanswered.forEach((item) => {
+          // Skip if we already have a notification for this thread
+          const alreadyNotified = existingNotifs.some(
+            (n) => n.type === 'email' && n.threadId === item.threadId
+          );
+          if (alreadyNotified) return;
+
+          // Find the investor name for the notification
+          const inv = investors.find((i) => i.email === item.contactEmail);
+          const name = inv?.name || item.contactEmail;
+
+          ui.addNotification({
+            type: 'email',
+            title: `Unanswered: ${item.subject}`,
+            detail: `${name} — no reply in ${Math.round(item.hoursAgo / 24)}d. Last message from ${item.from.split('<')[0].trim()}.`,
+            link: '/pe/directory',
+            threadId: item.threadId,
+          });
+        });
+      })
+      .catch((err) => {
+        console.error('Unanswered email check failed:', err);
+      });
+  }, [googleAuth, googleTokenForCheck]);
 
   // ── Bluesky Filing Scan on Mount ───────────────────────────────────────────
   useEffect(() => {

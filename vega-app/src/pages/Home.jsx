@@ -30,6 +30,7 @@ const NOTIF_TYPE_COLORS = {
   urgent: 'var(--red)',
   tag: 'var(--ylw)',
   bluesky: '#c084fc',
+  email: 'var(--ylw)',
 };
 
 const NOTIF_TYPE_LABELS = {
@@ -37,6 +38,7 @@ const NOTIF_TYPE_LABELS = {
   urgent: 'Urgent',
   tag: 'Mention',
   bluesky: 'Bluesky Filing',
+  email: 'Email Follow-up',
 };
 
 function timeAgo(ts) {

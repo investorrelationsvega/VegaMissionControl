@@ -12,9 +12,13 @@ import useComplianceStore from '../stores/complianceStore'
 import useDistributionStore from '../stores/distributionStore'
 import useFundStore from '../stores/fundStore'
 import useRingCentralStore from '../stores/ringcentralStore'
+import useGoogleStore from '../stores/googleStore'
 import { fmt, fmtK } from '../utils/format'
-import { getCallLog, sendSMS, formatPhoneForRC, formatPhoneForDisplay, formatDuration } from '../services/ringcentralService'
+import { getCallLog, getMessageStore, sendSMS, formatPhoneForRC, formatPhoneForDisplay, formatDuration } from '../services/ringcentralService'
+import { getThreadsForContact, getThreadDetails, sendReply } from '../services/gmailService'
+import { requestAccessToken } from '../services/googleAuth'
 import RingOutDialog from '../components/RingOutDialog'
+import ContactActionDialog from '../components/ContactActionDialog'
 import EmailComposeDialog from '../components/EmailComposeDialog'
 import { PipelineBadge, NewBadge } from '../components/PipelineTracker'
 import PipelineTracker from '../components/PipelineTracker'
@@ -166,10 +170,13 @@ export default function Directory() {
   const [noteText, setNoteText] = useState('')
   const [editField, setEditField] = useState(null)
   const [fundFilter, setFundFilter] = useState('All')
-  const [showRingOut, setShowRingOut] = useState(null) // { phone, name }
+  const [showContactAction, setShowContactAction] = useState(null) // { phone, name, invId }
+  const [showRingOut, setShowRingOut] = useState(null) // { phone, name, invId }
   const [showEmailCompose, setShowEmailCompose] = useState(null) // { email, name }
   const [smsText, setSmsText] = useState('')
   const [smsSending, setSmsSending] = useState(false)
+  const [smsApiMessages, setSmsApiMessages] = useState([])
+  const [smsApiLoading, setSmsApiLoading] = useState(false)
   const [callLogData, setCallLogData] = useState([])
   const [callLogLoading, setCallLogLoading] = useState(false)
   const [showDeclineDialog, setShowDeclineDialog] = useState(null) // { positionId, name }
@@ -182,6 +189,19 @@ export default function Directory() {
   const rcUserPhone = useRingCentralStore((s) => s.userPhoneNumber)
   const rcSmsHistory = useRingCentralStore((s) => s.smsHistory)
   const rcAddSms = useRingCentralStore((s) => s.addSmsToHistory)
+
+  // ── Google / Email Store ────────────────────────
+  const googleAuth = useGoogleStore((s) => s.isAuthenticated)
+  const googleToken = useGoogleStore((s) => s.accessToken)
+  const setGoogleToken = useGoogleStore((s) => s.setToken)
+
+  // ── Email thread state ──────────────────────────
+  const [emailThreads, setEmailThreads] = useState([])
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [expandedThread, setExpandedThread] = useState(null) // { threadId, subject, messages }
+  const [threadLoading, setThreadLoading] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replySending, setReplySending] = useState(false)
 
   // ── Derived data ────────────────────────────
   const investors = useMemo(() => investorStore.getAll(), [investorStore])
@@ -352,6 +372,13 @@ export default function Directory() {
         text: smsText.trim(),
         timestamp: new Date().toISOString(),
       })
+      // Optimistic UI: add to API messages list immediately
+      setSmsApiMessages((prev) => [{
+        id: `local-${Date.now()}`,
+        direction: 'outbound',
+        text: smsText.trim(),
+        timestamp: new Date().toISOString(),
+      }, ...prev])
       setSmsText('')
     } catch (err) {
       console.error('SMS failed:', err)
@@ -374,6 +401,111 @@ export default function Directory() {
     }
     setCallLogLoading(false)
   }
+
+  // ── Email handlers ─────────────────────────────
+  const handleFetchEmailThreads = async () => {
+    if (!selectedInvestor?.email) return
+    setEmailLoading(true)
+    setEmailThreads([])
+    setExpandedThread(null)
+    try {
+      let token = googleToken
+      if (!token) {
+        const tokenResp = await requestAccessToken()
+        setGoogleToken(tokenResp)
+        token = tokenResp.access_token
+      }
+      const threads = await getThreadsForContact(token, selectedInvestor.email, 20)
+      setEmailThreads(threads)
+    } catch (err) {
+      console.error('Email thread fetch failed:', err)
+    }
+    setEmailLoading(false)
+  }
+
+  const handleExpandThread = async (threadSummary) => {
+    if (expandedThread?.threadId === threadSummary.threadId) {
+      setExpandedThread(null)
+      return
+    }
+    setThreadLoading(true)
+    setReplyText('')
+    try {
+      let token = googleToken
+      if (!token) {
+        const tokenResp = await requestAccessToken()
+        setGoogleToken(tokenResp)
+        token = tokenResp.access_token
+      }
+      const details = await getThreadDetails(token, threadSummary.threadId)
+      setExpandedThread(details)
+    } catch (err) {
+      console.error('Thread detail fetch failed:', err)
+      setExpandedThread(null)
+    }
+    setThreadLoading(false)
+  }
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !expandedThread) return
+    setReplySending(true)
+    try {
+      let token = googleToken
+      if (!token) {
+        const tokenResp = await requestAccessToken()
+        setGoogleToken(tokenResp)
+        token = tokenResp.access_token
+      }
+      const lastMsg = expandedThread.messages[expandedThread.messages.length - 1]
+      // Determine reply-to address: if last message was from us, reply to investor; otherwise reply to sender
+      const replyTo = lastMsg.from.toLowerCase().includes('vegarei.com')
+        ? selectedInvestor.email
+        : lastMsg.from
+      await sendReply(token, {
+        threadId: expandedThread.threadId,
+        inReplyTo: lastMsg.messageIdHeader,
+        to: replyTo,
+        subject: expandedThread.subject,
+        body: replyText.trim(),
+      })
+      setReplyText('')
+      // Refresh the thread to show the new message
+      const updated = await getThreadDetails(token, expandedThread.threadId)
+      setExpandedThread(updated)
+    } catch (err) {
+      console.error('Reply failed:', err)
+    }
+    setReplySending(false)
+  }
+
+  // Fetch email threads when switching to communications tab
+  useEffect(() => {
+    if (detailTab === 'communications' && selectedInvestor?.email && googleAuth) {
+      handleFetchEmailThreads()
+    }
+  }, [detailTab, sel, googleAuth])
+
+  // ── SMS API fetch handler ─────────────────────────
+  const handleFetchSmsApi = async () => {
+    if (!rcAccessToken || !selectedInvestor?.phone) return
+    setSmsApiLoading(true)
+    try {
+      const messages = await getMessageStore(rcAccessToken, selectedInvestor.phone, 50)
+      setSmsApiMessages(messages)
+    } catch (err) {
+      console.error('SMS API fetch failed:', err)
+      setSmsApiMessages([])
+    }
+    setSmsApiLoading(false)
+  }
+
+  // Auto-fetch SMS and call log when opening Communications tab
+  useEffect(() => {
+    if (detailTab === 'communications' && rcAuth && selectedInvestor?.phone) {
+      handleFetchSmsApi()
+      handleFetchCallLog()
+    }
+  }, [detailTab, sel, rcAuth])
 
   // Distributed total for selected investor
   const totalDistributed = useMemo(
@@ -828,7 +960,7 @@ export default function Directory() {
                       <div style={{ display: 'flex', gap: 4, marginLeft: 8 }}>
                         {selectedInvestor.phone && (
                           <button
-                            onClick={() => setShowRingOut({ phone: selectedInvestor.phone, name: selectedInvestor.name })}
+                            onClick={() => setShowContactAction({ phone: selectedInvestor.phone, name: selectedInvestor.name, invId: selectedInvestor.id })}
                             title={rcAuth ? 'Call via RingCentral' : 'Call'}
                             style={{
                               ...mono,
@@ -1095,7 +1227,7 @@ export default function Directory() {
                                 <a href={`tel:${field.value}`} style={{ color: 'var(--grn)', textDecoration: 'none' }}>{field.value}</a>
                                 {rcAuth && (
                                   <button
-                                    onClick={() => setShowRingOut({ phone: field.value, name: selectedInvestor.name })}
+                                    onClick={() => setShowContactAction({ phone: field.value, name: selectedInvestor.name, invId: selectedInvestor.id })}
                                     title="Call via RingCentral"
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
                                   >
@@ -1397,27 +1529,188 @@ export default function Directory() {
                   {/* ── Tab 5: Communications ────── */}
                   {detailTab === 'communications' && (
                     <div>
-                      {!rcAuth ? (
-                        <div
-                          style={{
-                            textAlign: 'center',
-                            padding: '40px 0',
-                            color: 'var(--t4)',
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" style={{ width: 32, height: 32, fill: 'var(--t5)', marginBottom: 12 }}>
-                            <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-                          </svg>
-                          <div style={{ ...mono, fontSize: 13, marginBottom: 8 }}>
-                            Connect RingCentral to view communications
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--t5)' }}>
-                            Click the RC indicator in the header to connect your account
+                      {/* ── Email Section ──────────────────────────── */}
+                      <div style={{ marginBottom: 28 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <span style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)' }}>
+                            Email
+                          </span>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={handleFetchEmailThreads}
+                              disabled={emailLoading}
+                              style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: emailLoading ? 'not-allowed' : 'pointer' }}
+                            >
+                              {emailLoading ? 'Loading...' : 'Refresh'}
+                            </button>
+                            {selectedInvestor.email && (
+                              <button
+                                onClick={() => setShowEmailCompose({ email: selectedInvestor.email, name: selectedInvestor.name })}
+                                style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                              >
+                                + Compose
+                              </button>
+                            )}
                           </div>
                         </div>
-                      ) : (
+
+                        {!googleAuth ? (
+                          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--t4)' }}>
+                            <svg viewBox="0 0 24 24" style={{ width: 28, height: 28, fill: 'var(--t5)', marginBottom: 10 }}>
+                              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+                            </svg>
+                            <div style={{ ...mono, fontSize: 12 }}>Connect Google to view email history</div>
+                          </div>
+                        ) : !selectedInvestor.email ? (
+                          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t5)', ...mono, fontSize: 12 }}>
+                            No email address on file
+                          </div>
+                        ) : emailLoading ? (
+                          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t5)', ...mono, fontSize: 12 }}>
+                            Loading email threads...
+                          </div>
+                        ) : emailThreads.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--t5)', ...mono, fontSize: 12 }}>
+                            No email conversations found with {selectedInvestor.email}
+                          </div>
+                        ) : (
+                          <div>
+                            {emailThreads.map((thread) => {
+                              const isExpanded = expandedThread?.threadId === thread.threadId
+                              const isOutbound = thread.lastFrom.toLowerCase().includes('vegarei.com')
+                              return (
+                                <div key={thread.threadId} style={{ marginBottom: 4 }}>
+                                  {/* Thread summary row */}
+                                  <div
+                                    onClick={() => handleExpandThread(thread)}
+                                    style={{
+                                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                                      background: isExpanded ? 'var(--bgH)' : 'transparent',
+                                      borderLeft: `2px solid ${isOutbound ? 'var(--grn)' : 'var(--blu)'}`,
+                                      borderRadius: '0 5px 5px 0', cursor: 'pointer',
+                                      transition: 'background 0.1s',
+                                    }}
+                                    onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = 'var(--bgH)' }}
+                                    onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
+                                  >
+                                    <span style={{ ...mono, fontSize: 10, color: 'var(--t5)', flexShrink: 0 }}>
+                                      {isExpanded ? '\u25BE' : '\u25B8'}
+                                    </span>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: 13, color: 'var(--t1)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {thread.subject}
+                                      </div>
+                                      <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {thread.snippet}
+                                      </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                                      <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>
+                                        {thread.messageCount} msg{thread.messageCount !== 1 ? 's' : ''}
+                                      </span>
+                                      <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>
+                                        {new Date(thread.lastDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded thread messages */}
+                                  {isExpanded && (
+                                    <div style={{ marginLeft: 14, borderLeft: '1px solid var(--bd)', paddingLeft: 12, marginTop: 4, marginBottom: 8 }}>
+                                      {threadLoading ? (
+                                        <div style={{ padding: '16px 0', ...mono, fontSize: 11, color: 'var(--t5)' }}>Loading thread...</div>
+                                      ) : (
+                                        <>
+                                          {expandedThread.messages.map((msg, idx) => {
+                                            const isSent = msg.from.toLowerCase().includes('vegarei.com')
+                                            return (
+                                              <div
+                                                key={msg.messageId}
+                                                style={{
+                                                  padding: '10px 12px', marginBottom: 6,
+                                                  background: isSent ? 'rgba(52,211,153,0.04)' : 'var(--bgI)',
+                                                  borderRadius: 5,
+                                                  borderLeft: `2px solid ${isSent ? 'var(--grn)' : 'var(--blu)'}`,
+                                                }}
+                                              >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                  <span style={{ ...mono, fontSize: 10, color: isSent ? 'var(--grn)' : 'var(--blu)', fontWeight: 700 }}>
+                                                    {msg.from.split('<')[0].trim() || msg.from}
+                                                  </span>
+                                                  <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>
+                                                    {new Date(msg.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                  </span>
+                                                </div>
+                                                {msg.to && (
+                                                  <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginBottom: 6 }}>
+                                                    To: {msg.to.split('<')[0].trim() || msg.to}
+                                                  </div>
+                                                )}
+                                                <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                                  {msg.body || msg.snippet}
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+
+                                          {/* Inline reply */}
+                                          <div style={{ marginTop: 8 }}>
+                                            <textarea
+                                              value={replyText}
+                                              onChange={(e) => setReplyText(e.target.value)}
+                                              placeholder="Write a reply..."
+                                              rows={3}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                                  e.preventDefault()
+                                                  handleSendReply()
+                                                }
+                                              }}
+                                              style={{
+                                                width: '100%', boxSizing: 'border-box', ...mono, fontSize: 12,
+                                                background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+                                                padding: '8px 10px', color: 'var(--t1)', outline: 'none', resize: 'vertical',
+                                                minHeight: 60, lineHeight: 1.5,
+                                              }}
+                                              onFocus={(e) => (e.target.style.borderColor = 'var(--grn)')}
+                                              onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')}
+                                            />
+                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
+                                              <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', alignSelf: 'center' }}>
+                                                {navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}+Enter to send
+                                              </span>
+                                              <button
+                                                onClick={handleSendReply}
+                                                disabled={replySending || !replyText.trim()}
+                                                style={{
+                                                  ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px',
+                                                  border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)',
+                                                  color: 'var(--grn)', borderRadius: 4,
+                                                  cursor: replySending || !replyText.trim() ? 'not-allowed' : 'pointer',
+                                                  opacity: replySending || !replyText.trim() ? 0.5 : 1,
+                                                }}
+                                              >
+                                                {replySending ? 'Sending...' : 'Reply'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Divider ──────────────────────────────── */}
+                      <div style={{ height: 1, background: 'var(--bd)', margin: '20px 0' }} />
+
+                      {/* ── SMS Section (RC auth required) ─────── */}
+                      {rcAuth ? (
                         <>
-                          {/* SMS Compose */}
                           {selectedInvestor.phone && (
                             <div style={{ marginBottom: 20 }}>
                               <div style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 8 }}>
@@ -1436,29 +1729,17 @@ export default function Directory() {
                                     }
                                   }}
                                   style={{
-                                    flex: 1,
-                                    background: 'var(--bg0)',
-                                    border: '1px solid var(--bd)',
-                                    borderRadius: 4,
-                                    padding: '8px 12px',
-                                    fontSize: 14,
-                                    color: 'var(--t1)',
-                                    fontFamily: 'inherit',
-                                    outline: 'none',
+                                    flex: 1, background: 'var(--bg0)', border: '1px solid var(--bd)',
+                                    borderRadius: 4, padding: '8px 12px', fontSize: 14,
+                                    color: 'var(--t1)', fontFamily: 'inherit', outline: 'none',
                                   }}
                                 />
                                 <button
                                   onClick={handleSendSms}
                                   disabled={smsSending || !smsText.trim()}
                                   style={{
-                                    ...mono,
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    background: 'var(--grn)',
-                                    color: 'var(--bg0)',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    padding: '8px 16px',
+                                    ...mono, fontSize: 11, fontWeight: 700, background: 'var(--grn)',
+                                    color: 'var(--bg0)', border: 'none', borderRadius: 4, padding: '8px 16px',
                                     cursor: smsSending || !smsText.trim() ? 'not-allowed' : 'pointer',
                                     opacity: smsSending || !smsText.trim() ? 0.5 : 1,
                                   }}
@@ -1469,38 +1750,54 @@ export default function Directory() {
                             </div>
                           )}
 
-                          {/* SMS History */}
-                          {selectedInvestor.phone && (rcSmsHistory[formatPhoneForRC(selectedInvestor.phone)] || []).length > 0 && (
+                          {/* SMS History (from RC API — includes phone app messages) */}
+                          {selectedInvestor.phone && (
                             <div style={{ marginBottom: 24 }}>
-                              <div style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 8 }}>
-                                SMS History
-                              </div>
-                              {(rcSmsHistory[formatPhoneForRC(selectedInvestor.phone)] || []).map((msg, idx) => (
-                                <div
-                                  key={idx}
-                                  style={{
-                                    background: msg.direction === 'outbound' ? 'rgba(52,211,153,0.06)' : 'var(--bgI)',
-                                    borderLeft: `2px solid ${msg.direction === 'outbound' ? 'var(--grn)' : 'var(--blu)'}`,
-                                    borderRadius: '0 5px 5px 0',
-                                    padding: '10px 12px',
-                                    marginBottom: 6,
-                                  }}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <span style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)' }}>
+                                  SMS History
+                                </span>
+                                <button
+                                  onClick={handleFetchSmsApi}
+                                  disabled={smsApiLoading}
+                                  style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: smsApiLoading ? 'not-allowed' : 'pointer' }}
                                 >
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: msg.direction === 'outbound' ? 'var(--grn)' : 'var(--blu)' }}>
-                                      {msg.direction === 'outbound' ? 'Sent' : 'Received'}
-                                    </span>
-                                    <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>
-                                      {new Date(msg.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </div>
-                                  <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.5 }}>
-                                    {msg.text}
-                                  </div>
+                                  {smsApiLoading ? 'Loading...' : 'Refresh'}
+                                </button>
+                              </div>
+                              {smsApiMessages.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--t5)', ...mono, fontSize: 11 }}>
+                                  {smsApiLoading ? 'Loading SMS...' : 'No SMS history'}
                                 </div>
-                              ))}
+                              ) : (
+                                smsApiMessages.map((msg) => (
+                                  <div
+                                    key={msg.id}
+                                    style={{
+                                      background: msg.direction === 'outbound' ? 'rgba(52,211,153,0.06)' : 'var(--bgI)',
+                                      borderLeft: `2px solid ${msg.direction === 'outbound' ? 'var(--grn)' : 'var(--blu)'}`,
+                                      borderRadius: '0 5px 5px 0', padding: '10px 12px', marginBottom: 6,
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                      <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: msg.direction === 'outbound' ? 'var(--grn)' : 'var(--blu)' }}>
+                                        {msg.direction === 'outbound' ? 'Sent' : 'Received'}
+                                      </span>
+                                      <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>
+                                        {new Date(msg.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: 13, color: 'var(--t2)', lineHeight: 1.5 }}>
+                                      {msg.text}
+                                    </div>
+                                  </div>
+                                ))
+                              )}
                             </div>
                           )}
+
+                          {/* Divider before call log */}
+                          <div style={{ height: 1, background: 'var(--bd)', margin: '20px 0' }} />
 
                           {/* Call Log */}
                           <div>
@@ -1512,14 +1809,9 @@ export default function Directory() {
                                 onClick={handleFetchCallLog}
                                 disabled={callLogLoading}
                                 style={{
-                                  ...mono,
-                                  fontSize: 9,
-                                  fontWeight: 700,
-                                  padding: '4px 10px',
-                                  border: '1px solid var(--bd)',
-                                  background: 'transparent',
-                                  color: 'var(--t4)',
-                                  borderRadius: 4,
+                                  ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px',
+                                  border: '1px solid var(--bd)', background: 'transparent',
+                                  color: 'var(--t4)', borderRadius: 4,
                                   cursor: callLogLoading ? 'not-allowed' : 'pointer',
                                 }}
                               >
@@ -1547,12 +1839,8 @@ export default function Directory() {
                                     <tr key={call.id}>
                                       <td>
                                         <span style={{
-                                          ...mono,
-                                          fontSize: 10,
-                                          fontWeight: 700,
-                                          textTransform: 'uppercase',
-                                          padding: '3px 8px',
-                                          borderRadius: 3,
+                                          ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                                          padding: '3px 8px', borderRadius: 3,
                                           background: call.direction === 'Outbound' ? 'var(--grnM)' : 'var(--bluM)',
                                           color: call.direction === 'Outbound' ? 'var(--grn)' : 'var(--blu)',
                                         }}>
@@ -1569,10 +1857,7 @@ export default function Directory() {
                                       </td>
                                       <td>
                                         <span style={{
-                                          ...mono,
-                                          fontSize: 10,
-                                          fontWeight: 700,
-                                          textTransform: 'uppercase',
+                                          ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                                           color: call.result === 'Call connected' ? 'var(--grn)' : 'var(--ylw)',
                                         }}>
                                           {call.result || '-'}
@@ -1588,6 +1873,10 @@ export default function Directory() {
                             )}
                           </div>
                         </>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--t5)', ...mono, fontSize: 11 }}>
+                          Connect RingCentral to view SMS and call history
+                        </div>
                       )}
                     </div>
                   )}
@@ -1770,7 +2059,7 @@ export default function Directory() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        setShowRingOut({ phone: adv.phone, name: adv.name })
+                        setShowContactAction({ phone: adv.phone, name: adv.name })
                       }}
                       title="Call via RingCentral"
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
@@ -1995,12 +2284,31 @@ export default function Directory() {
         </div>
       )}
 
+      {/* ── Contact Action Dialog (Call or Text choice) ── */}
+      {showContactAction && (
+        <ContactActionDialog
+          phone={showContactAction.phone}
+          name={showContactAction.name}
+          onCall={() => {
+            const action = showContactAction
+            setShowContactAction(null)
+            setShowRingOut(action)
+          }}
+          onText={() => {
+            setShowContactAction(null)
+            setDetailTab('communications')
+          }}
+          onClose={() => setShowContactAction(null)}
+        />
+      )}
+
       {/* ── RingOut Call Dialog ──────────────────── */}
       {showRingOut && (
         rcAuth ? (
           <RingOutDialog
             to={showRingOut.phone}
             toName={showRingOut.name}
+            invId={showRingOut.invId}
             onClose={() => setShowRingOut(null)}
           />
         ) : (

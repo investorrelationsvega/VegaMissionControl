@@ -120,6 +120,44 @@ export async function sendSMS(accessToken, { to, from, text }) {
 }
 
 // ---------------------------------------------------------------------------
+// Message Store (SMS history from RC API — includes phone app messages)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch SMS message history for a phone number from RC message store.
+ * Returns all sent/received SMS — including those from the RC mobile app.
+ */
+export async function getMessageStore(accessToken, phoneNumber, perPage = 50) {
+  const query = new URLSearchParams({
+    messageType: 'SMS',
+    perPage: String(perPage),
+    direction: 'Inbound,Outbound',
+  });
+
+  // Filter by phone number if provided
+  if (phoneNumber) {
+    query.set('phoneNumber', formatPhoneForRC(phoneNumber));
+  }
+
+  const data = await rcFetch(
+    `/account/~/extension/~/message-store?${query.toString()}`,
+    { method: 'GET' },
+    accessToken,
+  );
+
+  // Normalize into a simpler format
+  return (data.records || []).map((msg) => ({
+    id: msg.id,
+    direction: msg.direction === 'Inbound' ? 'inbound' : 'outbound',
+    text: msg.subject || '',
+    from: msg.from?.phoneNumber || '',
+    to: (msg.to || []).map((t) => t.phoneNumber).join(', '),
+    timestamp: msg.creationTime || msg.lastModifiedTime,
+    status: msg.messageStatus,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Extension Info
 // ---------------------------------------------------------------------------
 
