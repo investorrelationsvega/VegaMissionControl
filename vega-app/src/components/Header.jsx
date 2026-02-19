@@ -4,8 +4,10 @@ import useUiStore from '../stores/uiStore';
 import useGoogleStore from '../stores/googleStore';
 import useRingCentralStore from '../stores/ringcentralStore';
 import useBlueskyStore from '../stores/blueskyStore';
+import useSalesforceStore from '../stores/salesforceStore';
 import { requestAccessTokenWithConsent, revokeToken } from '../services/googleAuth';
 import { startAuthFlow } from '../services/ringcentralAuth';
+import { startSalesforceAuth } from '../services/salesforceAuth';
 import BlueskyFilingModal from './BlueskyFilingModal';
 
 const NOTIF_TYPE_COLORS = {
@@ -42,6 +44,8 @@ function ConnectionIndicators() {
   const googleClear = useGoogleStore((s) => s.clearAuth);
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
   const rcClear = useRingCentralStore((s) => s.clearAuth);
+  const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
+  const sfClear = useSalesforceStore((s) => s.clearAuth);
 
   const handleGoogleClick = async () => {
     if (googleAuth) {
@@ -62,6 +66,14 @@ function ConnectionIndicators() {
       rcClear();
     } else {
       startAuthFlow(window.location.pathname);
+    }
+  };
+
+  const handleSFClick = () => {
+    if (sfAuth) {
+      sfClear();
+    } else {
+      startSalesforceAuth(window.location.pathname);
     }
   };
 
@@ -130,6 +142,22 @@ function ConnectionIndicators() {
           </span>
         </button>
       )}
+
+      {/* Salesforce */}
+      <button
+        onClick={handleSFClick}
+        style={{ ...indicatorStyle(sfAuth), background: 'none', }}
+        title={sfAuth ? 'Salesforce connected — click to disconnect' : 'Connect Salesforce'}
+      >
+        <span style={dotStyle(sfAuth)} />
+        <span style={labelStyle}>
+          {/* Cloud icon for Salesforce */}
+          <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: sfAuth ? 'var(--grn)' : 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
+            <path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+          </svg>
+          SF
+        </span>
+      </button>
     </div>
   );
 }

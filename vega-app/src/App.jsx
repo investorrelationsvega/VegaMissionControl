@@ -10,9 +10,12 @@ import Tasks from './pages/Tasks';
 import Distributions from './pages/Distributions';
 import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
+import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
 import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
+import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken } from './services/salesforceAuth';
 import useRingCentralStore from './stores/ringcentralStore';
+import useSalesforceStore from './stores/salesforceStore';
 import useGoogleStore from './stores/googleStore';
 import useInvestorStore from './stores/investorStore';
 import useBlueskyStore from './stores/blueskyStore';
@@ -31,6 +34,7 @@ function getPageName(pathname) {
     '/pe/distributions': 'distributions',
     '/pe/funds': 'funds',
     '/pe/reports': 'reports',
+    '/pe/sales': 'sales',
   };
   return map[pathname] || 'dashboard';
 }
@@ -74,6 +78,49 @@ function RCCallback() {
       }}
     >
       Connecting RingCentral...
+    </div>
+  );
+}
+
+// ── Salesforce OAuth Callback ────────────────────────────────────────────────
+function SFCallback() {
+  const navigate = useNavigate();
+  const setTokens = useSalesforceStore((s) => s.setTokens);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (!code) {
+      navigate('/pe/sales');
+      return;
+    }
+
+    exchangeSalesforceCode(code)
+      .then((tokenData) => {
+        setTokens(tokenData);
+        const returnPath = getSalesforceReturnPath();
+        navigate(returnPath, { replace: true });
+      })
+      .catch((err) => {
+        console.error('Salesforce auth failed:', err);
+        navigate('/pe/sales', { replace: true });
+      });
+  }, [navigate, setTokens]);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        color: 'var(--t3)',
+        fontFamily: "'Space Mono', monospace",
+        fontSize: 13,
+      }}
+    >
+      Connecting Salesforce...
     </div>
   );
 }
@@ -134,6 +181,20 @@ export default function App() {
     }, refreshIn);
     return () => clearTimeout(timer);
   }, [rcRefreshToken, rcTokenExpiry, rcSetTokens, rcClearAuth]);
+
+  // ── Token Lifecycle: Salesforce ───────────────────────────────────────────
+  const sfRefreshToken = useSalesforceStore((s) => s.refreshToken);
+  const sfSetTokens = useSalesforceStore((s) => s.setTokens);
+  const sfClearAuth = useSalesforceStore((s) => s.clearAuth);
+
+  useEffect(() => {
+    // On mount, if we have a SF refresh token, try to get a new access token
+    if (sfRefreshToken) {
+      refreshSalesforceToken(sfRefreshToken)
+        .then((tokenData) => sfSetTokens(tokenData))
+        .catch(() => sfClearAuth());
+    }
+  }, []); // run only on mount
 
   // ── Auto-connect RingCentral after Google auth ────────────────────────────
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
@@ -237,6 +298,7 @@ export default function App() {
         <Route path="/pe/distributions" element={<Distributions />} />
         <Route path="/pe/funds" element={<FundOverview />} />
         <Route path="/pe/reports" element={<Reports />} />
+        <Route path="/pe/sales" element={<Sales />} />
 
         {/* Other business units (placeholder dashboards) */}
         <Route path="/alm" element={<UnitPlaceholder name="Assisted Living Management" subtitle="Management & Operations" />} />
@@ -247,8 +309,9 @@ export default function App() {
         <Route path="/pmre" element={<UnitPlaceholder name="Property Management & Real Estate" subtitle="Operations & Holdings" />} />
         <Route path="/valuations" element={<UnitPlaceholder name="Valuations" subtitle="Appraisal & Advisory" />} />
 
-        {/* Auth callback */}
+        {/* Auth callbacks */}
         <Route path="/auth/rc/callback" element={<RCCallback />} />
+        <Route path="/auth/sf/callback" element={<SFCallback />} />
       </Routes>
       <Toast />
     </>

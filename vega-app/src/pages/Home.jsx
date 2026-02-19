@@ -77,6 +77,8 @@ export default function Home() {
     localStorage.removeItem('vega-ui-store');
     localStorage.removeItem('vega-google-store');
     localStorage.removeItem('vega-rc-store');
+    localStorage.removeItem('vega-sales-store');
+    localStorage.removeItem('vega-salesforce-store');
     window.location.reload();
   };
 

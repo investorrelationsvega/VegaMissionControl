@@ -199,9 +199,9 @@ export default function Dashboard() {
     },
     {
       title: 'Sales',
-      desc: 'Coming soon',
-      dotColor: null,
-      route: null,
+      desc: 'Fund II capital raise pipeline',
+      dotColor: 'var(--blu)',
+      route: '/pe/sales',
     },
   ];
 

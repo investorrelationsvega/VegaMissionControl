@@ -1,0 +1,945 @@
+// ═══════════════════════════════════════════════
+// VEGA MISSION CONTROL — Sales Page
+// KPI tracking, activity log, prospect pipeline,
+// materials shipments, and expense tracking
+// ═══════════════════════════════════════════════
+
+import { useState, useMemo, useEffect } from 'react';
+import useSalesStore, {
+  FUNNEL_STAGES,
+  EXPENSE_CATEGORIES,
+  MATERIAL_TYPES,
+  ACTIVITY_TYPES,
+  OUTCOMES,
+  getCurrentPeriodKey,
+} from '../stores/salesStore';
+import useSalesforceStore from '../stores/salesforceStore';
+import useUiStore from '../stores/uiStore';
+import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
+import { startSalesforceAuth } from '../services/salesforceAuth';
+
+const mono = { fontFamily: "'Space Mono', monospace" };
+const USER = 'j@vegarei.com';
+
+// ── Period helpers ──────────────────────────────────────────────────────────────
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const start = new Date(now);
+  start.setDate(now.getDate() - day);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start: fmt(start), end: fmt(end), label: 'This Week' };
+}
+
+function getMonthRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start: fmt(start), end: fmt(end), label: 'This Month' };
+}
+
+function getQuarterRange() {
+  const now = new Date();
+  const q = Math.floor(now.getMonth() / 3);
+  const start = new Date(now.getFullYear(), q * 3, 1);
+  const end = new Date(now.getFullYear(), q * 3 + 3, 0);
+  return { start: fmt(start), end: fmt(end), label: 'This Quarter' };
+}
+
+function fmt(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtCurrency(n) {
+  if (!n && n !== 0) return '-';
+  return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function fmtPct(n) {
+  if (n === null || n === undefined) return '-';
+  return Math.round(n) + '%';
+}
+
+function daysAgo(isoStr) {
+  if (!isoStr) return 0;
+  return Math.round((Date.now() - new Date(isoStr).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+const today = fmt(new Date());
+
+// ═══════════════════════════════════════════════
+// SALES PAGE COMPONENT
+// ═══════════════════════════════════════════════
+export default function Sales() {
+  const store = useSalesStore();
+  const showToast = useUiStore((s) => s.showToast);
+
+  // ── Salesforce state ─────────────────────────────────────────────────────
+  const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
+  const sfLoading = useSalesforceStore((s) => s.isLoading);
+  const sfError = useSalesforceStore((s) => s.error);
+  const sfTasks = useSalesforceStore((s) => s.tasks);
+  const sfEvents = useSalesforceStore((s) => s.events);
+  const sfLastFetched = useSalesforceStore((s) => s.lastFetchedAt);
+
+  // ── Tab / filter state ───────────────────────────────────────────────────
+  const [tab, setTab] = useState('kpis');
+  const [repFilter, setRepFilter] = useState('All');
+  const [periodType, setPeriodType] = useState('weekly');
+
+  const periodRange = useMemo(() => {
+    if (periodType === 'weekly') return getWeekRange();
+    if (periodType === 'monthly') return getMonthRange();
+    return getQuarterRange();
+  }, [periodType]);
+
+  const periodKey = useMemo(() => getCurrentPeriodKey(periodType), [periodType]);
+
+  // ── Fetch Salesforce data when authenticated and period changes ──────────
+  useEffect(() => {
+    if (sfAuth && periodRange.start && periodRange.end) {
+      fetchAllSalesforceData(periodRange.start, periodRange.end).catch(() => {});
+    }
+  }, [sfAuth, periodRange.start, periodRange.end]);
+
+  // ── Salesforce KPI mapping ───────────────────────────────────────────────
+  const sfKpis = useMemo(() => {
+    if (!sfAuth || sfTasks.length === 0 && sfEvents.length === 0) return null;
+    return mapSalesforceToKPIs(sfTasks, sfEvents, {});
+  }, [sfAuth, sfTasks, sfEvents]);
+
+  // ── Data selectors ───────────────────────────────────────────────────────
+  const kpiSummary = useMemo(() => store.getKpiSummary(periodKey, repFilter), [store.kpiEntries, periodKey, repFilter]);
+  const prospects = useMemo(() => {
+    const all = store.getProspects();
+    if (repFilter === 'All') return all;
+    return all.filter((p) => p.assignedTo === repFilter);
+  }, [store.prospects, repFilter]);
+  const pipelineHealth = useMemo(() => store.getPipelineHealth(), [store.prospects]);
+  const callNotes = useMemo(() => {
+    let notes = [...store.callNotes].sort((a, b) => b.date.localeCompare(a.date));
+    if (repFilter !== 'All') notes = notes.filter((n) => n.rep === repFilter);
+    return notes;
+  }, [store.callNotes, repFilter]);
+  const shipments = useMemo(() =>
+    [...store.shipments].sort((a, b) => b.date.localeCompare(a.date)),
+    [store.shipments]);
+  const expenses = useMemo(() =>
+    [...store.expenses].sort((a, b) => b.date.localeCompare(a.date)),
+    [store.expenses]);
+
+  // ── Modal state ──────────────────────────────────────────────────────────
+  const [showKpiModal, setShowKpiModal] = useState(false);
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showProspectModal, setShowProspectModal] = useState(false);
+  const [showShipmentModal, setShowShipmentModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+
+  // ── KPI form state ───────────────────────────────────────────────────────
+  const [kpiForm, setKpiForm] = useState({
+    date: today, rep: 'Alex',
+    outboundCallsLogged: '', advisorConversations: '', emailsSent: '',
+    materialsSent: '', appointmentsSetForKen: '', newFirmsVisited: '',
+    inPersonMeetingsTaken: '', scheduledMeetings: '',
+    webinarsHosted: '', webinarAttendees: '', meetingsAdvancing: '',
+    materialsRequested: '', factRightViewed: '',
+    factRightFollowUpHrs: '', postMeetingFollowUpHrs: '',
+    subAgreementsSent: '', subAgreementsCompleted: '', capitalFunded: '',
+    notes: '',
+  });
+
+  // ── Activity form state ──────────────────────────────────────────────────
+  const [actForm, setActForm] = useState({
+    date: today, type: 'call', rep: 'Alex',
+    contactName: '', contactFirm: '', contactPhone: '',
+    duration: '', outcome: '', nextStep: '', notes: '',
+  });
+
+  // ── Prospect form state ──────────────────────────────────────────────────
+  const [prosForm, setProsForm] = useState({
+    name: '', firm: '', phone: '', email: '',
+    assignedTo: 'Alex', funnelStage: 'Cold Lead', source: '', notes: '',
+  });
+
+  // ── Shipment form state ──────────────────────────────────────────────────
+  const [shipForm, setShipForm] = useState({
+    date: today, recipient: '', recipientFirm: '',
+    materialType: MATERIAL_TYPES[0], quantity: '1',
+    trackingNumber: '', carrier: '', cost: '', notes: '',
+  });
+
+  // ── Expense form state ───────────────────────────────────────────────────
+  const [expForm, setExpForm] = useState({
+    date: today, category: 'travel', description: '',
+    amount: '', incurredBy: 'Ken', notes: '',
+  });
+
+  const [expCatFilter, setExpCatFilter] = useState('All');
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleSaveKpi = () => {
+    const entry = { ...kpiForm };
+    // Convert string numbers to actual numbers
+    Object.keys(entry).forEach((k) => {
+      if (k !== 'date' && k !== 'rep' && k !== 'notes' && entry[k] !== '' && entry[k] !== null) {
+        entry[k] = Number(entry[k]) || 0;
+      }
+      if (entry[k] === '') entry[k] = 0;
+    });
+    entry.date = kpiForm.date;
+    entry.rep = kpiForm.rep;
+    entry.notes = kpiForm.notes;
+    store.addKpiEntry(entry, USER);
+    setShowKpiModal(false);
+    showToast('KPI entry saved');
+    setKpiForm((prev) => ({ ...prev, date: today }));
+  };
+
+  const handleSaveActivity = () => {
+    if (!actForm.contactName.trim()) return;
+    store.addCallNote({
+      ...actForm,
+      duration: actForm.duration ? Number(actForm.duration) : null,
+    }, USER);
+    setShowActivityModal(false);
+    showToast('Activity logged');
+    setActForm({ date: today, type: 'call', rep: 'Alex', contactName: '', contactFirm: '', contactPhone: '', duration: '', outcome: '', nextStep: '', notes: '' });
+  };
+
+  const handleSaveProspect = () => {
+    if (!prosForm.name.trim()) return;
+    store.addProspect(prosForm, USER);
+    setShowProspectModal(false);
+    showToast('Prospect added');
+    setProsForm({ name: '', firm: '', phone: '', email: '', assignedTo: 'Alex', funnelStage: 'Cold Lead', source: '', notes: '' });
+  };
+
+  const handleSaveShipment = () => {
+    if (!shipForm.recipient.trim()) return;
+    store.addShipment({
+      ...shipForm,
+      quantity: Number(shipForm.quantity) || 1,
+      cost: Number(shipForm.cost) || 0,
+    }, USER);
+    setShowShipmentModal(false);
+    showToast('Shipment logged');
+    setShipForm({ date: today, recipient: '', recipientFirm: '', materialType: MATERIAL_TYPES[0], quantity: '1', trackingNumber: '', carrier: '', cost: '', notes: '' });
+  };
+
+  const handleSaveExpense = () => {
+    if (!expForm.description.trim()) return;
+    store.addExpense({
+      ...expForm,
+      amount: Number(expForm.amount) || 0,
+    }, USER);
+    setShowExpenseModal(false);
+    showToast('Expense logged');
+    setExpForm({ date: today, category: 'travel', description: '', amount: '', incurredBy: 'Ken', notes: '' });
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  return (
+    <div className="main">
+      {/* ── Page Header ──────────────────────────────────── */}
+      <div className="page-header">
+        <div className="page-header-dot"><span>Active Module</span></div>
+        <h1 className="page-title">Sales</h1>
+        <p className="page-subtitle">
+          Fund II Capital Raise
+          {pipelineHealth.activeProspects > 0 && (
+            <span style={{ color: 'var(--blu)' }}> &middot; {pipelineHealth.activeProspects} active prospects</span>
+          )}
+        </p>
+      </div>
+
+      {/* ── Salesforce Connection Banner ──────────────────── */}
+      {!sfAuth && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 6, marginBottom: 16 }}>
+          <div>
+            <span style={{ ...mono, fontSize: 11, color: 'var(--blu)', fontWeight: 700 }}>Salesforce Not Connected</span>
+            <span style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginLeft: 8 }}>Connect to pull call logs, emails, and meeting data automatically</span>
+          </div>
+          <button onClick={() => startSalesforceAuth('/pe/sales')} style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', color: 'var(--blu)', borderRadius: 4, cursor: 'pointer' }}>
+            Connect Salesforce
+          </button>
+        </div>
+      )}
+      {sfAuth && sfLoading && (
+        <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--blu)', animation: 'pulse 1s infinite' }} />
+          Loading Salesforce data...
+        </div>
+      )}
+      {sfAuth && sfError && (
+        <div style={{ ...mono, fontSize: 10, color: 'var(--red)', marginBottom: 12 }}>
+          SF Error: {sfError}
+        </div>
+      )}
+      {sfAuth && !sfLoading && sfLastFetched && (
+        <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--grn)' }} />
+          Salesforce connected — last synced {new Date(sfLastFetched).toLocaleTimeString()}
+          {sfKpis && <span style={{ color: 'var(--t4)', marginLeft: 8 }}>{sfTasks.length} tasks, {sfEvents.length} events loaded</span>}
+        </div>
+      )}
+
+      {/* ── Controls Row ─────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        {/* Period selector */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[
+            { key: 'weekly', label: 'This Week' },
+            { key: 'monthly', label: 'This Month' },
+            { key: 'quarterly', label: 'This Quarter' },
+          ].map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriodType(p.key)}
+              style={{
+                ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px',
+                border: '1px solid', borderRadius: 20, cursor: 'pointer', transition: 'all 0.15s',
+                borderColor: periodType === p.key ? 'var(--grnB)' : 'var(--bd)',
+                background: periodType === p.key ? 'var(--grnM)' : 'transparent',
+                color: periodType === p.key ? 'var(--grn)' : 'var(--t4)',
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Rep filter */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['All', 'Alex', 'Ken'].map((r) => (
+            <button
+              key={r}
+              onClick={() => setRepFilter(r)}
+              style={{
+                ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px',
+                border: '1px solid', borderRadius: 20, cursor: 'pointer', transition: 'all 0.15s',
+                borderColor: repFilter === r ? 'var(--bluB, rgba(96,165,250,0.3))' : 'var(--bd)',
+                background: repFilter === r ? 'var(--bluM, rgba(96,165,250,0.1))' : 'transparent',
+                color: repFilter === r ? 'var(--blu)' : 'var(--t4)',
+              }}
+            >
+              {r === 'All' ? 'All Reps' : r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Main Tabs ────────────────────────────────────── */}
+      <div style={{ display: 'flex', marginBottom: 24 }}>
+        {[
+          { key: 'kpis', label: 'KPIs' },
+          { key: 'activity', label: `Activity (${callNotes.length})` },
+          { key: 'pipeline', label: `Pipeline (${prospects.length})` },
+          { key: 'materials', label: `Materials (${shipments.length})` },
+          { key: 'expenses', label: `Expenses (${expenses.length})` },
+        ].map((t, i, arr) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                ...mono, fontSize: 12, fontWeight: 700, padding: '10px 24px',
+                border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
+                borderColor: active ? 'var(--grnB)' : 'var(--bd)',
+                borderLeft: i > 0 ? 'none' : undefined,
+                borderRadius: i === 0 ? '4px 0 0 4px' : i === arr.length - 1 ? '0 4px 4px 0' : '0',
+                background: active ? 'var(--grnM)' : 'transparent',
+                color: active ? 'var(--grn)' : 'var(--t4)',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ════════════════════════════════════════════════════
+          KPIs TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'kpis' && (
+        <>
+          {/* Log KPIs button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button onClick={() => setShowKpiModal(true)} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '8px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+              + Log KPIs
+            </button>
+          </div>
+
+          {!kpiSummary ? (
+            <div style={{ ...mono, fontSize: 12, color: 'var(--t5)', textAlign: 'center', padding: 48 }}>
+              No KPI data for {periodRange.label.toLowerCase()}. Click "Log KPIs" to add an entry.
+            </div>
+          ) : (
+            <>
+              {/* Stage 1 */}
+              <KpiSection title="Stage 1 — Volume & Activity" items={[
+                { label: 'Outbound Calls', value: kpiSummary.outboundCallsLogged, owner: 'Alex' },
+                { label: 'Advisor Conversations', value: kpiSummary.advisorConversations, owner: 'Alex' },
+                { label: 'Call Effectiveness', value: fmtPct(kpiSummary.callEffectivenessRate), owner: 'Alex', isPct: true },
+                { label: 'Emails Sent', value: kpiSummary.emailsSent, owner: 'Alex' },
+                { label: 'Materials Sent', value: kpiSummary.materialsSent, owner: 'Both' },
+                { label: 'Appts Set for Ken', value: kpiSummary.appointmentsSetForKen, owner: 'Alex' },
+                { label: 'New Firms Visited', value: kpiSummary.newFirmsVisited, owner: 'Ken' },
+                { label: 'In-Person Meetings', value: kpiSummary.inPersonMeetingsTaken, owner: 'Ken' },
+                { label: 'Advisor Show Rate', value: fmtPct(kpiSummary.advisorShowRate), owner: 'Ken', isPct: true },
+              ]} />
+
+              {/* Stage 2 */}
+              <KpiSection title="Stage 2 — Engagement" items={[
+                { label: 'Webinars Hosted', value: kpiSummary.webinarsHosted, owner: 'Alex' },
+                { label: 'Webinar Attendees', value: kpiSummary.webinarAttendees, owner: 'Alex' },
+                { label: 'Meetings Advancing', value: kpiSummary.meetingsAdvancing, owner: 'Ken' },
+              ]} />
+
+              {/* Stage 3 */}
+              <KpiSection title="Stage 3 — Qualification" items={[
+                { label: 'Materials Requested', value: kpiSummary.materialsRequested, owner: 'Both' },
+                { label: 'FactRight Viewed', value: kpiSummary.factRightViewed, owner: 'Both' },
+                { label: 'FactRight Follow-Up', value: kpiSummary.factRightFollowUpHrs !== null ? `${Math.round(kpiSummary.factRightFollowUpHrs)}h` : '-', owner: 'Alex' },
+                { label: 'Post-Meeting Follow-Up', value: kpiSummary.postMeetingFollowUpHrs !== null ? `${Math.round(kpiSummary.postMeetingFollowUpHrs)}h` : '-', owner: 'Alex' },
+              ]} />
+
+              {/* Stage 4 */}
+              <KpiSection title="Stage 4 — Conversion" items={[
+                { label: 'Agreements Sent', value: kpiSummary.subAgreementsSent, owner: 'Both' },
+                { label: 'Agreements Completed', value: kpiSummary.subAgreementsCompleted, owner: 'Both' },
+                { label: 'Capital Funded', value: fmtCurrency(kpiSummary.capitalFunded), owner: 'Both' },
+                { label: 'Avg Commitment', value: fmtCurrency(kpiSummary.averageCommitmentSize), owner: 'Both' },
+              ]} />
+            </>
+          )}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          ACTIVITY TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'activity' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button onClick={() => setShowActivityModal(true)} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '8px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+              + Add Activity
+            </button>
+          </div>
+
+          {callNotes.length === 0 ? (
+            <div style={{ ...mono, fontSize: 12, color: 'var(--t5)', textAlign: 'center', padding: 48 }}>
+              No activity logged yet. Click "Add Activity" to log a call, meeting, or other touchpoint.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {callNotes.map((n) => (
+                <div key={n.id} style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '14px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <span style={{ ...mono, fontSize: 10, color: 'var(--t5)' }}>{fmtDate(n.date)}</span>
+                    <RepBadge rep={n.rep} />
+                    <TypeBadge type={n.type} />
+                    {n.duration && <span style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{n.duration}min</span>}
+                    {n.outcome && (
+                      <span style={{ ...mono, fontSize: 9, fontWeight: 700, color: n.outcome === 'Not Interested' ? 'var(--red)' : 'var(--grn)', padding: '2px 6px', borderRadius: 3, background: n.outcome === 'Not Interested' ? 'var(--redM)' : 'var(--grnM)' }}>
+                        {n.outcome}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--t1)', marginBottom: 4 }}>
+                    {n.contactName}
+                    {n.contactFirm && <span style={{ fontWeight: 300, color: 'var(--t4)' }}> — {n.contactFirm}</span>}
+                  </div>
+                  {n.notes && <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 4, lineHeight: 1.5 }}>{n.notes}</div>}
+                  {n.nextStep && (
+                    <div style={{ ...mono, fontSize: 10, color: 'var(--ylw)', marginTop: 4 }}>
+                      Next: {n.nextStep}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          PIPELINE TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'pipeline' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <button onClick={() => setShowProspectModal(true)} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '8px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+              + Add Prospect
+            </button>
+          </div>
+
+          {/* Pipeline columns */}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${FUNNEL_STAGES.length}, 1fr)`, gap: 8, marginBottom: 32, overflowX: 'auto' }}>
+            {FUNNEL_STAGES.map((stage) => {
+              const stageProspects = prospects.filter((p) => p.funnelStage === stage);
+              const stageColor = stage === 'Closed Won' ? 'var(--grn)' : stage === 'Closed Lost' ? 'var(--red)' : 'var(--t4)';
+              return (
+                <div key={stage} style={{ minWidth: 140 }}>
+                  {/* Column header */}
+                  <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: stageColor, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: stageColor, display: 'inline-block' }} />
+                    {stage}
+                    <span style={{ color: 'var(--t5)' }}>({stageProspects.length})</span>
+                  </div>
+
+                  {/* Cards */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {stageProspects.map((p) => (
+                      <div key={p.id} style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px', fontSize: 12 }}>
+                        <div style={{ fontWeight: 500, color: 'var(--t1)', marginBottom: 3 }}>{p.name}</div>
+                        {p.firm && <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginBottom: 4 }}>{p.firm}</div>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <RepBadge rep={p.assignedTo} />
+                          <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>{daysAgo(p.enteredStageAt)}d</span>
+                          <span style={{ ...mono, fontSize: 9, color: 'var(--t5)' }}>{p.totalTouchpoints} touches</span>
+                        </div>
+                        {/* Advance button */}
+                        {stage !== 'Closed Won' && stage !== 'Closed Lost' && (
+                          <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
+                            <button
+                              onClick={() => {
+                                const idx = FUNNEL_STAGES.indexOf(stage);
+                                if (idx < FUNNEL_STAGES.length - 2) {
+                                  store.advanceProspectStage(p.id, FUNNEL_STAGES[idx + 1], USER);
+                                  showToast(`${p.name} → ${FUNNEL_STAGES[idx + 1]}`);
+                                }
+                              }}
+                              style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
+                            >
+                              Advance ▸
+                            </button>
+                            <button
+                              onClick={() => {
+                                store.advanceProspectStage(p.id, 'Closed Lost', USER);
+                                showToast(`${p.name} → Closed Lost`);
+                              }}
+                              style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: 'var(--t5)', borderRadius: 3, cursor: 'pointer' }}
+                            >
+                              Lost
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pipeline Health */}
+          <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 20, marginTop: 8 }}>
+            <div style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 16 }}>
+              Pipeline Health
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              <MetricCard label="Total Prospects" value={pipelineHealth.totalProspects} />
+              <MetricCard label="Active Prospects" value={pipelineHealth.activeProspects} />
+              <MetricCard label="Avg Touchpoints to Close" value={pipelineHealth.avgTouchpointsToClose} />
+              <MetricCard label="Closed Won" value={pipelineHealth.prospectsByStage?.['Closed Won'] || 0} color="var(--grn)" />
+            </div>
+
+            {/* Stage conversion rates */}
+            {pipelineHealth.stageConversions && Object.keys(pipelineHealth.stageConversions).length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ ...mono, fontSize: 10, fontWeight: 700, color: 'var(--t5)', marginBottom: 8 }}>CONVERSION RATES</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {Object.entries(pipelineHealth.stageConversions).map(([key, val]) => (
+                    <div key={key} style={{ ...mono, fontSize: 10, color: 'var(--t4)', padding: '4px 10px', background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 4 }}>
+                      {key}: <span style={{ color: 'var(--grn)', fontWeight: 700 }}>{val}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Avg days in stage */}
+            {pipelineHealth.avgDaysInStage && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ ...mono, fontSize: 10, fontWeight: 700, color: 'var(--t5)', marginBottom: 8 }}>AVG DAYS IN STAGE</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {Object.entries(pipelineHealth.avgDaysInStage).filter(([, v]) => v > 0).map(([stage, days]) => (
+                    <div key={stage} style={{ ...mono, fontSize: 10, color: 'var(--t4)', padding: '4px 10px', background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 4 }}>
+                      {stage}: <span style={{ color: days > 30 ? 'var(--ylw)' : 'var(--t2)', fontWeight: 700 }}>{days}d</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          MATERIALS TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'materials' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>
+              Total Cost: <span style={{ color: 'var(--t1)', fontWeight: 700 }}>{fmtCurrency(shipments.reduce((s, sh) => s + (sh.cost || 0), 0))}</span>
+            </div>
+            <button onClick={() => setShowShipmentModal(true)} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '8px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+              + Add Shipment
+            </button>
+          </div>
+
+          {shipments.length === 0 ? (
+            <div style={{ ...mono, fontSize: 12, color: 'var(--t5)', textAlign: 'center', padding: 48 }}>
+              No shipments logged yet. Click "Add Shipment" to track materials sent.
+            </div>
+          ) : (
+            <div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
+                {['Date', 'Recipient', 'Firm', 'Material', 'Qty', 'Tracking', 'Carrier', 'Cost'].map((h) => (
+                  <div key={h} style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)' }}>{h}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              {shipments.map((s) => (
+                <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid rgba(52,92,99,0.2)', fontSize: 12, color: 'var(--t2)' }}>
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{fmtDate(s.date)}</div>
+                  <div>{s.recipient}</div>
+                  <div style={{ color: 'var(--t4)' }}>{s.recipientFirm || '-'}</div>
+                  <div>{s.materialType}</div>
+                  <div style={{ ...mono, fontSize: 11 }}>{s.quantity}</div>
+                  <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{s.trackingNumber || '-'}</div>
+                  <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{s.carrier || '-'}</div>
+                  <div style={{ ...mono, fontSize: 11, fontWeight: 700 }}>{fmtCurrency(s.cost)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          EXPENSES TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'expenses' && (
+        <>
+          {/* Category summary cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+            {EXPENSE_CATEGORIES.map((cat) => {
+              const total = expenses.filter((e) => e.category === cat).reduce((s, e) => s + (e.amount || 0), 0);
+              return (
+                <div key={cat} onClick={() => setExpCatFilter(expCatFilter === cat ? 'All' : cat)} style={{ background: expCatFilter === cat ? 'var(--grnM)' : 'var(--bg1)', border: `1px solid ${expCatFilter === cat ? 'var(--grnB)' : 'var(--bd)'}`, borderRadius: 6, padding: '12px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 4 }}>{cat}</div>
+                  <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: total > 0 ? 'var(--t1)' : 'var(--t5)' }}>{fmtCurrency(total)}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>
+              Total: <span style={{ color: 'var(--t1)', fontWeight: 700 }}>
+                {fmtCurrency(
+                  (expCatFilter === 'All' ? expenses : expenses.filter((e) => e.category === expCatFilter))
+                    .reduce((s, e) => s + (e.amount || 0), 0)
+                )}
+              </span>
+            </div>
+            <button onClick={() => setShowExpenseModal(true)} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '8px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+              + Add Expense
+            </button>
+          </div>
+
+          {(() => {
+            const filtered = expCatFilter === 'All' ? expenses : expenses.filter((e) => e.category === expCatFilter);
+            if (filtered.length === 0) return (
+              <div style={{ ...mono, fontSize: 12, color: 'var(--t5)', textAlign: 'center', padding: 48 }}>
+                No expenses logged yet. Click "Add Expense" to track costs.
+              </div>
+            );
+            return (
+              <div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 100px 1fr 100px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
+                  {['Date', 'Category', 'Description', 'Amount', 'By'].map((h) => (
+                    <div key={h} style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)' }}>{h}</div>
+                  ))}
+                </div>
+                {filtered.map((e) => (
+                  <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '80px 100px 1fr 100px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid rgba(52,92,99,0.2)', fontSize: 12, color: 'var(--t2)' }}>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{fmtDate(e.date)}</div>
+                    <div style={{ ...mono, fontSize: 10, textTransform: 'capitalize', color: 'var(--t3)' }}>{e.category}</div>
+                    <div>{e.description}</div>
+                    <div style={{ ...mono, fontSize: 11, fontWeight: 700 }}>{fmtCurrency(e.amount)}</div>
+                    <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{e.incurredBy}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
+          MODALS
+          ════════════════════════════════════════════════════ */}
+
+      {/* ── KPI Entry Modal ──────────────────────────────── */}
+      {showKpiModal && (
+        <Modal title="Log KPIs" onClose={() => setShowKpiModal(false)} onSave={handleSaveKpi} saveLabel="Save Entry" wide>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <FormField label="Date" value={kpiForm.date} onChange={(v) => setKpiForm({ ...kpiForm, date: v })} type="date" />
+            <FormSelect label="Rep" value={kpiForm.rep} options={['Alex', 'Ken']} onChange={(v) => setKpiForm({ ...kpiForm, rep: v })} />
+          </div>
+          <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 1 — Volume & Activity</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <FormField label="Outbound Calls" value={kpiForm.outboundCallsLogged} onChange={(v) => setKpiForm({ ...kpiForm, outboundCallsLogged: v })} type="number" />
+            <FormField label="Advisor Conversations" value={kpiForm.advisorConversations} onChange={(v) => setKpiForm({ ...kpiForm, advisorConversations: v })} type="number" />
+            <FormField label="Emails Sent" value={kpiForm.emailsSent} onChange={(v) => setKpiForm({ ...kpiForm, emailsSent: v })} type="number" />
+            <FormField label="Materials Sent" value={kpiForm.materialsSent} onChange={(v) => setKpiForm({ ...kpiForm, materialsSent: v })} type="number" />
+            <FormField label="Appts Set for Ken" value={kpiForm.appointmentsSetForKen} onChange={(v) => setKpiForm({ ...kpiForm, appointmentsSetForKen: v })} type="number" />
+            <FormField label="New Firms Visited" value={kpiForm.newFirmsVisited} onChange={(v) => setKpiForm({ ...kpiForm, newFirmsVisited: v })} type="number" />
+            <FormField label="In-Person Meetings" value={kpiForm.inPersonMeetingsTaken} onChange={(v) => setKpiForm({ ...kpiForm, inPersonMeetingsTaken: v })} type="number" />
+            <FormField label="Scheduled Meetings" value={kpiForm.scheduledMeetings} onChange={(v) => setKpiForm({ ...kpiForm, scheduledMeetings: v })} type="number" />
+          </div>
+          <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 2 — Engagement</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <FormField label="Webinars Hosted" value={kpiForm.webinarsHosted} onChange={(v) => setKpiForm({ ...kpiForm, webinarsHosted: v })} type="number" />
+            <FormField label="Webinar Attendees" value={kpiForm.webinarAttendees} onChange={(v) => setKpiForm({ ...kpiForm, webinarAttendees: v })} type="number" />
+            <FormField label="Meetings Advancing" value={kpiForm.meetingsAdvancing} onChange={(v) => setKpiForm({ ...kpiForm, meetingsAdvancing: v })} type="number" />
+          </div>
+          <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 3 — Qualification</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <FormField label="Materials Requested" value={kpiForm.materialsRequested} onChange={(v) => setKpiForm({ ...kpiForm, materialsRequested: v })} type="number" />
+            <FormField label="FactRight Viewed" value={kpiForm.factRightViewed} onChange={(v) => setKpiForm({ ...kpiForm, factRightViewed: v })} type="number" />
+            <FormField label="FactRight Follow-Up (hrs)" value={kpiForm.factRightFollowUpHrs} onChange={(v) => setKpiForm({ ...kpiForm, factRightFollowUpHrs: v })} type="number" />
+            <FormField label="Post-Meeting Follow-Up (hrs)" value={kpiForm.postMeetingFollowUpHrs} onChange={(v) => setKpiForm({ ...kpiForm, postMeetingFollowUpHrs: v })} type="number" />
+          </div>
+          <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 4 — Conversion</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+            <FormField label="Agreements Sent" value={kpiForm.subAgreementsSent} onChange={(v) => setKpiForm({ ...kpiForm, subAgreementsSent: v })} type="number" />
+            <FormField label="Agreements Completed" value={kpiForm.subAgreementsCompleted} onChange={(v) => setKpiForm({ ...kpiForm, subAgreementsCompleted: v })} type="number" />
+            <FormField label="Capital Funded ($)" value={kpiForm.capitalFunded} onChange={(v) => setKpiForm({ ...kpiForm, capitalFunded: v })} type="number" />
+          </div>
+          <FormField label="Notes" value={kpiForm.notes} onChange={(v) => setKpiForm({ ...kpiForm, notes: v })} textarea />
+        </Modal>
+      )}
+
+      {/* ── Activity Modal ───────────────────────────────── */}
+      {showActivityModal && (
+        <Modal title="Log Activity" onClose={() => setShowActivityModal(false)} onSave={handleSaveActivity} saveLabel="Save Activity" saveDisabled={!actForm.contactName.trim()}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Date" value={actForm.date} onChange={(v) => setActForm({ ...actForm, date: v })} type="date" />
+            <FormSelect label="Type" value={actForm.type} options={ACTIVITY_TYPES} onChange={(v) => setActForm({ ...actForm, type: v })} />
+            <FormSelect label="Rep" value={actForm.rep} options={['Alex', 'Ken']} onChange={(v) => setActForm({ ...actForm, rep: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Contact Name *" value={actForm.contactName} onChange={(v) => setActForm({ ...actForm, contactName: v })} />
+            <FormField label="Firm" value={actForm.contactFirm} onChange={(v) => setActForm({ ...actForm, contactFirm: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Phone" value={actForm.contactPhone} onChange={(v) => setActForm({ ...actForm, contactPhone: v })} />
+            <FormField label="Duration (min)" value={actForm.duration} onChange={(v) => setActForm({ ...actForm, duration: v })} type="number" />
+            <FormSelect label="Outcome" value={actForm.outcome} options={['', ...OUTCOMES]} onChange={(v) => setActForm({ ...actForm, outcome: v })} />
+          </div>
+          <FormField label="Next Step" value={actForm.nextStep} onChange={(v) => setActForm({ ...actForm, nextStep: v })} />
+          <div style={{ marginTop: 12 }}>
+            <FormField label="Notes" value={actForm.notes} onChange={(v) => setActForm({ ...actForm, notes: v })} textarea />
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Prospect Modal ───────────────────────────────── */}
+      {showProspectModal && (
+        <Modal title="Add Prospect" onClose={() => setShowProspectModal(false)} onSave={handleSaveProspect} saveLabel="Add Prospect" saveDisabled={!prosForm.name.trim()}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Name *" value={prosForm.name} onChange={(v) => setProsForm({ ...prosForm, name: v })} />
+            <FormField label="Firm" value={prosForm.firm} onChange={(v) => setProsForm({ ...prosForm, firm: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Phone" value={prosForm.phone} onChange={(v) => setProsForm({ ...prosForm, phone: v })} />
+            <FormField label="Email" value={prosForm.email} onChange={(v) => setProsForm({ ...prosForm, email: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormSelect label="Assigned To" value={prosForm.assignedTo} options={['Alex', 'Ken']} onChange={(v) => setProsForm({ ...prosForm, assignedTo: v })} />
+            <FormSelect label="Stage" value={prosForm.funnelStage} options={FUNNEL_STAGES} onChange={(v) => setProsForm({ ...prosForm, funnelStage: v })} />
+            <FormField label="Source" value={prosForm.source} onChange={(v) => setProsForm({ ...prosForm, source: v })} />
+          </div>
+          <FormField label="Notes" value={prosForm.notes} onChange={(v) => setProsForm({ ...prosForm, notes: v })} textarea />
+        </Modal>
+      )}
+
+      {/* ── Shipment Modal ───────────────────────────────── */}
+      {showShipmentModal && (
+        <Modal title="Log Shipment" onClose={() => setShowShipmentModal(false)} onSave={handleSaveShipment} saveLabel="Save Shipment" saveDisabled={!shipForm.recipient.trim()}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Date" value={shipForm.date} onChange={(v) => setShipForm({ ...shipForm, date: v })} type="date" />
+            <FormSelect label="Material Type" value={shipForm.materialType} options={MATERIAL_TYPES} onChange={(v) => setShipForm({ ...shipForm, materialType: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Recipient *" value={shipForm.recipient} onChange={(v) => setShipForm({ ...shipForm, recipient: v })} />
+            <FormField label="Recipient Firm" value={shipForm.recipientFirm} onChange={(v) => setShipForm({ ...shipForm, recipientFirm: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Quantity" value={shipForm.quantity} onChange={(v) => setShipForm({ ...shipForm, quantity: v })} type="number" />
+            <FormField label="Tracking #" value={shipForm.trackingNumber} onChange={(v) => setShipForm({ ...shipForm, trackingNumber: v })} />
+            <FormField label="Carrier" value={shipForm.carrier} onChange={(v) => setShipForm({ ...shipForm, carrier: v })} />
+            <FormField label="Cost ($)" value={shipForm.cost} onChange={(v) => setShipForm({ ...shipForm, cost: v })} type="number" />
+          </div>
+          <FormField label="Notes" value={shipForm.notes} onChange={(v) => setShipForm({ ...shipForm, notes: v })} textarea />
+        </Modal>
+      )}
+
+      {/* ── Expense Modal ────────────────────────────────── */}
+      {showExpenseModal && (
+        <Modal title="Log Expense" onClose={() => setShowExpenseModal(false)} onSave={handleSaveExpense} saveLabel="Save Expense" saveDisabled={!expForm.description.trim()}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormField label="Date" value={expForm.date} onChange={(v) => setExpForm({ ...expForm, date: v })} type="date" />
+            <FormSelect label="Category" value={expForm.category} options={EXPENSE_CATEGORIES} onChange={(v) => setExpForm({ ...expForm, category: v })} />
+            <FormSelect label="Incurred By" value={expForm.incurredBy} options={['Alex', 'Ken', 'J']} onChange={(v) => setExpForm({ ...expForm, incurredBy: v })} />
+          </div>
+          <FormField label="Description *" value={expForm.description} onChange={(v) => setExpForm({ ...expForm, description: v })} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <FormField label="Amount ($)" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} type="number" />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <FormField label="Notes" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} textarea />
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════
+
+function KpiSection({ title, items }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--bd)' }}>
+        {title}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+        {items.map((item) => (
+          <div key={item.label} style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--t4)' }}>{item.label}</span>
+              <OwnerBadge owner={item.owner} />
+            </div>
+            <div style={{ ...mono, fontSize: 22, fontWeight: 300, color: 'var(--t1)' }}>
+              {item.isPct ? item.value : (typeof item.value === 'number' ? item.value : item.value)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OwnerBadge({ owner }) {
+  const color = owner === 'Alex' ? 'var(--blu)' : owner === 'Ken' ? 'var(--ylw)' : 'var(--t4)';
+  return (
+    <span style={{ ...mono, fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color, padding: '1px 5px', borderRadius: 3, background: `color-mix(in srgb, ${color} 15%, transparent)` }}>
+      {owner}
+    </span>
+  );
+}
+
+function RepBadge({ rep }) {
+  const color = rep === 'Alex' ? 'var(--blu)' : rep === 'Ken' ? 'var(--ylw)' : 'var(--t4)';
+  return (
+    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color, padding: '2px 6px', borderRadius: 3, background: `color-mix(in srgb, ${color} 15%, transparent)` }}>
+      {rep}
+    </span>
+  );
+}
+
+function TypeBadge({ type }) {
+  return (
+    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--t4)', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.3)' }}>
+      {type}
+    </span>
+  );
+}
+
+function MetricCard({ label, value, color }) {
+  return (
+    <div style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '14px 16px' }}>
+      <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--t4)', marginBottom: 6 }}>{label}</div>
+      <div style={{ ...mono, fontSize: 22, fontWeight: 300, color: color || 'var(--t1)' }}>{value}</div>
+    </div>
+  );
+}
+
+// ── Reusable Form Components ────────────────────────────────────────────────
+
+function Modal({ title, onClose, onSave, saveLabel, saveDisabled, wide, children }) {
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg1)', border: '1px solid var(--bdH)', borderRadius: 10, width: wide ? 640 : 480, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 16px 64px rgba(0,0,0,0.8)' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--bd)' }}>
+            <span style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--grn)' }}>{title}</span>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          </div>
+          {/* Body */}
+          <div style={{ padding: 20 }}>{children}</div>
+          {/* Footer */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--bd)' }}>
+            <button onClick={onClose} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '10px 20px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t3)', borderRadius: 6, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={onSave} disabled={saveDisabled} style={{ ...mono, fontSize: 11, fontWeight: 700, padding: '10px 20px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: saveDisabled ? 'not-allowed' : 'pointer', opacity: saveDisabled ? 0.5 : 1 }}>{saveLabel}</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function FormField({ label, value, onChange, type, textarea }) {
+  const shared = {
+    ...mono, fontSize: 12, width: '100%', boxSizing: 'border-box',
+    background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+    padding: '8px 10px', color: 'var(--t1)', outline: 'none',
+  };
+  return (
+    <div>
+      <label style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', display: 'block', marginBottom: 4 }}>{label}</label>
+      {textarea ? (
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3} style={{ ...shared, resize: 'vertical', minHeight: 60, lineHeight: 1.5 }}
+          onFocus={(e) => (e.target.style.borderColor = 'var(--grn)')} onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')} />
+      ) : (
+        <input type={type || 'text'} value={value} onChange={(e) => onChange(e.target.value)} style={shared}
+          onFocus={(e) => (e.target.style.borderColor = 'var(--grn)')} onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')} />
+      )}
+    </div>
+  );
+}
+
+function FormSelect({ label, value, options, onChange }) {
+  return (
+    <div>
+      <label style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', display: 'block', marginBottom: 4 }}>{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} style={{
+        ...mono, fontSize: 12, width: '100%', boxSizing: 'border-box',
+        background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+        padding: '8px 10px', color: 'var(--t1)', outline: 'none',
+      }}>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt || '— Select —'}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
