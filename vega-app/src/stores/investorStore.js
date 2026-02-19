@@ -138,6 +138,7 @@ const useInvestorStore = create(
   activityFeed: seedActivityFeed || [],
   notes: {},       // { [invId]: [ { id, text, author, date } ] }
   auditLog: [],    // [ { id, invId, action, detail, user, timestamp } ]
+  contactOverrides: {}, // { [invId]: { phone, email, advisor, custodian, state } } — survives rehydration
 
   // ── Investor Getters ────────────────────────────────────────────────────
   getInvestor: (invId) => get().investors[invId] || null,
@@ -489,15 +490,42 @@ const useInvestorStore = create(
     ),
 
   // ── Investor Contact ────────────────────────────────────────────────────
-  updateInvestorContact: (invId, updates) =>
+  updateInvestorContact: (invId, updates, user = 'System') =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
+
+      const now = new Date().toISOString();
+      const newAuditEntries = [];
+      const FIELD_LABELS = { phone: 'Phone', email: 'Email', advisor: 'Advisor', custodian: 'Custodian', state: 'State' };
+
+      Object.entries(updates).forEach(([field, newValue]) => {
+        const oldValue = investor[field] || '';
+        if (oldValue !== newValue) {
+          newAuditEntries.push({
+            id: `AL-${Date.now()}-${field}`,
+            invId,
+            action: 'Field Updated',
+            detail: `${FIELD_LABELS[field] || field}: "${oldValue || '(empty)'}" → "${newValue || '(empty)'}"`,
+            user,
+            timestamp: now,
+          });
+        }
+      });
+
+      // Merge into contactOverrides so edits survive position-based rehydration
+      const existingOverrides = state.contactOverrides[invId] || {};
+
       return {
         investors: {
           ...state.investors,
           [invId]: { ...investor, ...updates },
         },
+        contactOverrides: {
+          ...state.contactOverrides,
+          [invId]: { ...existingOverrides, ...updates },
+        },
+        auditLog: [...state.auditLog, ...newAuditEntries],
       };
     }),
     }),
@@ -510,10 +538,19 @@ const useInvestorStore = create(
         auditLog: state.auditLog,
         activityFeed: state.activityFeed,
         subDocPipeline: state.subDocPipeline,
+        contactOverrides: state.contactOverrides,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.investors = buildInvestors(state.positions);
+          const investors = buildInvestors(state.positions);
+          // Re-apply contact overrides so edits survive rehydration
+          const overrides = state.contactOverrides || {};
+          Object.entries(overrides).forEach(([invId, fields]) => {
+            if (investors[invId]) {
+              Object.assign(investors[invId], fields);
+            }
+          });
+          state.investors = investors;
         }
       },
     },

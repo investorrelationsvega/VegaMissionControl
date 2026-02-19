@@ -168,7 +168,12 @@ export default function Directory() {
   const [search, setSearch] = useState('')
   const [detailTab, setDetailTab] = useState('overview')
   const [noteText, setNoteText] = useState('')
-  const [editField, setEditField] = useState(null)
+  const [editField, setEditField] = useState(null) // which investor field is being edited
+  const [editValue, setEditValue] = useState('')   // current edit value
+  const [editingAdvisor, setEditingAdvisor] = useState(null) // advisor id being edited
+  const [editingAdvisorFields, setEditingAdvisorFields] = useState({})
+  const [editingCustodian, setEditingCustodian] = useState(null) // custodian id being edited
+  const [editingCustodianFields, setEditingCustodianFields] = useState({})
   const [fundFilter, setFundFilter] = useState('All')
   const [showContactAction, setShowContactAction] = useState(null) // { phone, name, invId }
   const [showRingOut, setShowRingOut] = useState(null) // { phone, name, invId }
@@ -1097,7 +1102,7 @@ export default function Directory() {
                       marginBottom: 16,
                     }}
                   >
-                    {['overview', 'positions', 'compliance', 'distributions', 'communications', 'notes'].map(
+                    {['overview', 'positions', 'compliance', 'distributions', 'communications', 'notes', 'activity'].map(
                       (tab) => {
                         const active = detailTab === tab
                         const hasComplianceDot =
@@ -1153,50 +1158,19 @@ export default function Directory() {
                       }}
                     >
                       {[
-                        {
-                          label: 'Investor Type',
-                          value: selectedInvestor.types.join(', ') || '-',
-                        },
-                        {
-                          label: 'Funds',
-                          value: selectedInvestor.funds.join(', ') || '-',
-                        },
-                        {
-                          label: 'Phone',
-                          value: selectedInvestor.phone || '-',
-                          isPhone: true,
-                        },
-                        {
-                          label: 'Email',
-                          value: selectedInvestor.email || '-',
-                          isEmail: true,
-                        },
-                        {
-                          label: 'Entities',
-                          value: selectedInvestor.entities.join(', ') || '-',
-                        },
-                        {
-                          label: 'Advisor',
-                          value: selectedInvestor.advisor || '-',
-                        },
-                        {
-                          label: 'Custodian',
-                          value: selectedInvestor.custodian || '-',
-                        },
-                        {
-                          label: 'Total Committed',
-                          value: fmtK(selectedInvestor.totalCommitted),
-                        },
-                        {
-                          label: 'Status',
-                          value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-',
-                        },
-                        {
-                          label: 'Date Entered',
-                          value: selectedInvestor.pipeline?.enteredDate || '-',
-                        },
-                      ].map((field, i) => (
-                        <div key={i}>
+                        { label: 'Investor Type', value: selectedInvestor.types.join(', ') || '-', key: 'types' },
+                        { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
+                        { label: 'Phone', value: selectedInvestor.phone || '', key: 'phone', editable: true, isPhone: true },
+                        { label: 'Email', value: selectedInvestor.email || '', key: 'email', editable: true, isEmail: true },
+                        { label: 'State', value: selectedInvestor.state || '', key: 'state', editable: true },
+                        { label: 'Advisor', value: selectedInvestor.advisor || '', key: 'advisor', editable: true, isSelect: true, options: advisors.map((a) => a.name) },
+                        { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
+                        { label: 'Entities', value: selectedInvestor.entities.join(', ') || '-', key: 'entities' },
+                        { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
+                        { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status' },
+                        { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered' },
+                      ].map((field) => (
+                        <div key={field.key}>
                           <div
                             style={{
                               ...mono,
@@ -1220,32 +1194,105 @@ export default function Directory() {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'space-between',
+                              cursor: field.editable ? 'pointer' : 'default',
+                              transition: 'border-color 0.15s',
+                              border: editField === field.key ? '1px solid var(--grn)' : '1px solid transparent',
+                            }}
+                            onClick={() => {
+                              if (field.editable && editField !== field.key) {
+                                setEditField(field.key)
+                                setEditValue(field.value)
+                              }
                             }}
                           >
-                            {field.isPhone && field.value !== '-' ? (
+                            {editField === field.key && field.editable ? (
+                              field.isSelect ? (
+                                <select
+                                  value={editValue}
+                                  onChange={(e) => {
+                                    const newVal = e.target.value
+                                    setEditValue(newVal)
+                                    investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: newVal }, 'j@vegarei.com')
+                                    setEditField(null)
+                                  }}
+                                  onBlur={() => setEditField(null)}
+                                  autoFocus
+                                  style={{
+                                    ...mono, fontSize: 13, width: '100%', background: 'var(--bg0)',
+                                    border: 'none', color: 'var(--t1)', outline: 'none', padding: 0,
+                                  }}
+                                >
+                                  <option value="">— None —</option>
+                                  {field.options.map((opt) => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                      setEditField(null)
+                                    }
+                                    if (e.key === 'Escape') setEditField(null)
+                                  }}
+                                  onBlur={() => {
+                                    if (editValue !== field.value) {
+                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                    }
+                                    setEditField(null)
+                                  }}
+                                  autoFocus
+                                  style={{
+                                    ...mono, fontSize: 13, width: '100%', background: 'transparent',
+                                    border: 'none', color: 'var(--t1)', outline: 'none', padding: 0,
+                                  }}
+                                />
+                              )
+                            ) : field.isPhone && field.value ? (
                               <>
                                 <a href={`tel:${field.value}`} style={{ color: 'var(--grn)', textDecoration: 'none' }}>{field.value}</a>
-                                {rcAuth && (
-                                  <button
-                                    onClick={() => setShowContactAction({ phone: field.value, name: selectedInvestor.name, invId: selectedInvestor.id })}
-                                    title="Call via RingCentral"
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
-                                  >
-                                    <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, fill: 'var(--grn)' }}>
-                                      <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-                                    </svg>
-                                  </button>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                  {rcAuth && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setShowContactAction({ phone: field.value, name: selectedInvestor.name, invId: selectedInvestor.id }) }}
+                                      title="Call via RingCentral"
+                                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
+                                    >
+                                      <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, fill: 'var(--grn)' }}>
+                                        <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                  <svg onClick={(e) => { e.stopPropagation(); setEditField(field.key); setEditValue(field.value) }} viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                                  </svg>
+                                </div>
+                              </>
+                            ) : field.isEmail && field.value ? (
+                              <>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setShowEmailCompose({ email: field.value, name: selectedInvestor.name }) }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--grn)', padding: 0, font: 'inherit', fontSize: 'inherit', textDecoration: 'none' }}
+                                >
+                                  {field.value}
+                                </button>
+                                <svg onClick={(e) => { e.stopPropagation(); setEditField(field.key); setEditValue(field.value) }} viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit">
+                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                                </svg>
+                              </>
+                            ) : (
+                              <>
+                                <span>{field.value || '-'}</span>
+                                {field.editable && (
+                                  <svg onClick={(e) => { e.stopPropagation(); setEditField(field.key); setEditValue(field.value) }} viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                                  </svg>
                                 )}
                               </>
-                            ) : field.isEmail && field.value !== '-' ? (
-                              <button
-                                onClick={() => setShowEmailCompose({ email: field.value, name: selectedInvestor.name })}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--grn)', padding: 0, font: 'inherit', fontSize: 'inherit', textDecoration: 'none' }}
-                              >
-                                {field.value}
-                              </button>
-                            ) : (
-                              field.value
                             )}
                           </div>
                         </div>
@@ -1970,6 +2017,59 @@ export default function Directory() {
                       )}
                     </div>
                   )}
+
+                  {/* ── Tab 7: Activity Log ───────────── */}
+                  {detailTab === 'activity' && (() => {
+                    const entries = investorStore.getAuditLog(selectedInvestor.id)
+                    const sorted = [...entries].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                    const ACTION_COLORS = {
+                      'Field Updated': 'var(--grn)',
+                      'Pipeline Stage Changed': 'var(--ylw)',
+                      'Status Changed': 'var(--ylw)',
+                      'Declined': 'var(--red)',
+                      'Amount Changed': 'var(--blu)',
+                    }
+                    return (
+                      <div>
+                        {sorted.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--t4)', ...mono, fontSize: 13 }}>
+                            No activity recorded yet
+                          </div>
+                        ) : (
+                          sorted.map((entry) => (
+                            <div
+                              key={entry.id}
+                              style={{
+                                display: 'flex',
+                                gap: 12,
+                                padding: '8px 0',
+                                borderBottom: '1px solid rgba(52,92,99,0.2)',
+                                fontSize: 12,
+                                alignItems: 'flex-start',
+                              }}
+                            >
+                              <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', width: 140, flexShrink: 0 }}>
+                                {new Date(entry.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <span style={{ fontWeight: 600, color: ACTION_COLORS[entry.action] || 'var(--t3)' }}>
+                                  {entry.action}
+                                </span>
+                                {entry.detail && (
+                                  <span style={{ color: 'var(--t4)', marginLeft: 8 }}>
+                                    {entry.detail}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', flexShrink: 0 }}>
+                                {entry.user}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )
+                  })()}
                 </>
               )}
             </div>
@@ -2032,69 +2132,144 @@ export default function Directory() {
                       ...mono,
                       fontSize: 11,
                       color: 'var(--t5)',
+                      flex: 1,
                     }}
                   >
                     Advisor
                   </span>
+                  <svg
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (editingAdvisor === adv.id) {
+                        setEditingAdvisor(null)
+                        setEditingAdvisorFields({})
+                      } else {
+                        setEditingAdvisor(adv.id)
+                        setEditingAdvisorFields({ name: adv.name, firm: adv.firm || '', phone: adv.phone || '', email: adv.email || '', territory: adv.territory || '', crd: adv.crd || '' })
+                      }
+                    }}
+                    viewBox="0 0 24 24"
+                    style={{ width: 13, height: 13, fill: editingAdvisor === adv.id ? 'var(--grn)' : 'var(--t5)', cursor: 'pointer' }}
+                    title="Edit advisor"
+                  >
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                  </svg>
                 </div>
 
-                {/* Name */}
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 300,
-                    color: 'var(--t1)',
-                    marginBottom: 4,
-                  }}
-                >
-                  {adv.name}
-                </div>
-
-                {/* Contact Info */}
-                {adv.phone && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <a href={`tel:${adv.phone}`} style={{ ...mono, fontSize: 11, color: 'var(--t3)', textDecoration: 'none' }}>
-                      {adv.phone}
-                    </a>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowContactAction({ phone: adv.phone, name: adv.name })
+                {editingAdvisor === adv.id ? (
+                  <>
+                    {[
+                      { label: 'Name', key: 'name' },
+                      { label: 'Firm', key: 'firm' },
+                      { label: 'Phone', key: 'phone' },
+                      { label: 'Email', key: 'email' },
+                      { label: 'Territory', key: 'territory' },
+                      { label: 'CRD', key: 'crd' },
+                    ].map((f) => (
+                      <div key={f.key} style={{ marginBottom: 8 }}>
+                        <div style={{ ...mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 3 }}>{f.label}</div>
+                        <input
+                          type="text"
+                          value={editingAdvisorFields[f.key] || ''}
+                          onChange={(e) => setEditingAdvisorFields((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          style={{
+                            ...mono, fontSize: 12, width: '100%', boxSizing: 'border-box',
+                            background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+                            padding: '6px 8px', color: 'var(--t1)', outline: 'none',
+                          }}
+                          onFocus={(e) => (e.target.style.borderColor = 'var(--grn)')}
+                          onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingAdvisor(null); setEditingAdvisorFields({}) }}
+                        style={{ ...mono, fontSize: 10, color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          fundStore.updateAdvisor(adv.id, editingAdvisorFields, 'j@vegarei.com')
+                          setEditingAdvisor(null)
+                          setEditingAdvisorFields({})
+                        }}
+                        style={{
+                          ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px',
+                          border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)',
+                          color: 'var(--grn)', borderRadius: 4, cursor: 'pointer',
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Name */}
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 300,
+                        color: 'var(--t1)',
+                        marginBottom: 4,
                       }}
-                      title="Call via RingCentral"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
                     >
-                      <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--grn)' }}>
-                        <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-                {adv.email && (
-                  <div style={{ marginBottom: 4 }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowEmailCompose({ email: adv.email, name: adv.name })
-                      }}
-                      style={{ ...mono, fontSize: 11, color: 'var(--t3)', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                    >
-                      {adv.email}
-                    </button>
-                  </div>
-                )}
+                      {adv.name}
+                    </div>
+                    {adv.firm && (
+                      <div style={{ ...mono, fontSize: 11, color: 'var(--t4)', marginBottom: 4 }}>{adv.firm}</div>
+                    )}
 
-                {/* AUM */}
-                <div
-                  style={{
-                    ...mono,
-                    fontSize: 12,
-                    color: 'var(--t3)',
-                    marginBottom: 12,
-                  }}
-                >
-                  {fmt(aum)} AUM
-                </div>
+                    {/* Contact Info */}
+                    {adv.phone && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <a href={`tel:${adv.phone}`} style={{ ...mono, fontSize: 11, color: 'var(--t3)', textDecoration: 'none' }}>
+                          {adv.phone}
+                        </a>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowContactAction({ phone: adv.phone, name: adv.name })
+                          }}
+                          title="Call via RingCentral"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
+                        >
+                          <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--grn)' }}>
+                            <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    {adv.email && (
+                      <div style={{ marginBottom: 4 }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowEmailCompose({ email: adv.email, name: adv.name })
+                          }}
+                          style={{ ...mono, fontSize: 11, color: 'var(--t3)', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          {adv.email}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* AUM */}
+                    <div
+                      style={{
+                        ...mono,
+                        fontSize: 12,
+                        color: 'var(--t3)',
+                        marginBottom: 12,
+                      }}
+                    >
+                      {fmt(aum)} AUM
+                    </div>
+                  </>
+                )}
 
                 {/* Investors label */}
                 <div
@@ -2203,80 +2378,152 @@ export default function Directory() {
                       ...mono,
                       fontSize: 11,
                       color: 'var(--t5)',
+                      flex: 1,
                     }}
                   >
                     Custodian
                   </span>
-                </div>
-
-                {/* Name */}
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 300,
-                    color: 'var(--t1)',
-                    marginBottom: 4,
-                  }}
-                >
-                  {cust.name}
-                </div>
-
-                {/* Stats */}
-                <div
-                  style={{
-                    ...mono,
-                    fontSize: 12,
-                    color: 'var(--t3)',
-                    marginBottom: 16,
-                  }}
-                >
-                  {fmt(aum)} AUM &middot; {linked.length} investor
-                  {linked.length !== 1 ? 's' : ''}
-                </div>
-
-                {/* Table */}
-                {linked.length > 0 ? (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th>Investor</th>
-                        <th>Advisor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linked.map((inv) => (
-                        <tr key={inv.id}>
-                          <td
-                            onClick={() => {
-                              setDirTab('investors')
-                              handleSelectInvestor(inv.id)
-                            }}
-                            style={{
-                              color: 'var(--grn)',
-                              cursor: 'pointer',
-                              fontSize: 13,
-                            }}
-                          >
-                            {inv.name}
-                          </td>
-                          <td style={{ color: 'var(--t3)', fontSize: 13 }}>
-                            {inv.advisor || '-'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div
-                    style={{
-                      ...mono,
-                      fontSize: 11,
-                      color: 'var(--t5)',
-                      padding: '6px 0',
+                  <svg
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (editingCustodian === cust.id) {
+                        setEditingCustodian(null)
+                        setEditingCustodianFields({})
+                      } else {
+                        setEditingCustodian(cust.id)
+                        setEditingCustodianFields({ name: cust.name, address: cust.address || '', phone: cust.phone || '', email: cust.email || '', reportingFrequency: cust.reportingFrequency || '', nextReportingDate: cust.nextReportingDate || '' })
+                      }
                     }}
+                    viewBox="0 0 24 24"
+                    style={{ width: 13, height: 13, fill: editingCustodian === cust.id ? 'var(--blu)' : 'var(--t5)', cursor: 'pointer' }}
+                    title="Edit custodian"
                   >
-                    No linked investors
-                  </div>
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                  </svg>
+                </div>
+
+                {editingCustodian === cust.id ? (
+                  <>
+                    {[
+                      { label: 'Name', key: 'name' },
+                      { label: 'Address', key: 'address' },
+                      { label: 'Phone', key: 'phone' },
+                      { label: 'Email', key: 'email' },
+                      { label: 'Reporting Frequency', key: 'reportingFrequency' },
+                      { label: 'Next Reporting Date', key: 'nextReportingDate' },
+                    ].map((f) => (
+                      <div key={f.key} style={{ marginBottom: 8 }}>
+                        <div style={{ ...mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 3 }}>{f.label}</div>
+                        <input
+                          type="text"
+                          value={editingCustodianFields[f.key] || ''}
+                          onChange={(e) => setEditingCustodianFields((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          style={{
+                            ...mono, fontSize: 12, width: '100%', boxSizing: 'border-box',
+                            background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4,
+                            padding: '6px 8px', color: 'var(--t1)', outline: 'none',
+                          }}
+                          onFocus={(e) => (e.target.style.borderColor = 'var(--blu)')}
+                          onBlur={(e) => (e.target.style.borderColor = 'var(--bd)')}
+                        />
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingCustodian(null); setEditingCustodianFields({}) }}
+                        style={{ ...mono, fontSize: 10, color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          fundStore.updateCustodian(cust.id, editingCustodianFields, 'j@vegarei.com')
+                          setEditingCustodian(null)
+                          setEditingCustodianFields({})
+                        }}
+                        style={{
+                          ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px',
+                          border: '1px solid rgba(96,165,250,0.3)', background: 'var(--bluM)',
+                          color: 'var(--blu)', borderRadius: 4, cursor: 'pointer',
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Name */}
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 300,
+                        color: 'var(--t1)',
+                        marginBottom: 4,
+                      }}
+                    >
+                      {cust.name}
+                    </div>
+
+                    {/* Stats */}
+                    <div
+                      style={{
+                        ...mono,
+                        fontSize: 12,
+                        color: 'var(--t3)',
+                        marginBottom: 16,
+                      }}
+                    >
+                      {fmt(aum)} AUM &middot; {linked.length} investor
+                      {linked.length !== 1 ? 's' : ''}
+                    </div>
+
+                    {/* Table */}
+                    {linked.length > 0 ? (
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th>Investor</th>
+                            <th>Advisor</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {linked.map((inv) => (
+                            <tr key={inv.id}>
+                              <td
+                                onClick={() => {
+                                  setDirTab('investors')
+                                  handleSelectInvestor(inv.id)
+                                }}
+                                style={{
+                                  color: 'var(--grn)',
+                                  cursor: 'pointer',
+                                  fontSize: 13,
+                                }}
+                              >
+                                {inv.name}
+                              </td>
+                              <td style={{ color: 'var(--t3)', fontSize: 13 }}>
+                                {inv.advisor || '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div
+                        style={{
+                          ...mono,
+                          fontSize: 11,
+                          color: 'var(--t5)',
+                          padding: '6px 0',
+                        }}
+                      >
+                        No linked investors
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )

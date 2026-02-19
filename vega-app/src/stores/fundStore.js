@@ -22,6 +22,8 @@ const useFundStore = create(
   custodians,
   fundDocuments,
   commitmentAuditLog: [], // Tracks commitment status changes (committed → invested, close out)
+  advisorAuditLog: [],    // Tracks advisor field changes
+  custodianAuditLog: [],  // Tracks custodian field changes
 
   // ── Fund Getters ────────────────────────────────────────────────────────
   getAllFunds: () => get().funds,
@@ -74,6 +76,84 @@ const useFundStore = create(
         },
       ],
     })),
+
+  // ── Advisor Mutations ──────────────────────────────────────────────────
+  updateAdvisor: (id, updates, user = 'System') =>
+    set((state) => {
+      const advisor = state.advisors.find((a) => a.id === id);
+      if (!advisor) return state;
+
+      const now = new Date().toISOString();
+      const LABELS = { name: 'Name', firm: 'Firm', phone: 'Phone', email: 'Email', territory: 'Territory', crd: 'CRD', status: 'Status' };
+      const newEntries = [];
+
+      Object.entries(updates).forEach(([field, newValue]) => {
+        const oldValue = advisor[field] || '';
+        if (oldValue !== newValue) {
+          newEntries.push({
+            id: `AAL-${Date.now()}-${field}`,
+            entityId: id,
+            entityName: advisor.name,
+            field: LABELS[field] || field,
+            oldValue: oldValue || '(empty)',
+            newValue: newValue || '(empty)',
+            user,
+            timestamp: now,
+          });
+        }
+      });
+
+      return {
+        advisors: state.advisors.map((a) =>
+          a.id === id ? { ...a, ...updates } : a,
+        ),
+        advisorAuditLog: [...state.advisorAuditLog, ...newEntries],
+      };
+    }),
+
+  getAdvisorAuditLog: (id) =>
+    id
+      ? get().advisorAuditLog.filter((e) => e.entityId === id)
+      : get().advisorAuditLog,
+
+  // ── Custodian Mutations ───────────────────────────────────────────────
+  updateCustodian: (id, updates, user = 'System') =>
+    set((state) => {
+      const custodian = state.custodians.find((c) => c.id === id);
+      if (!custodian) return state;
+
+      const now = new Date().toISOString();
+      const LABELS = { name: 'Name', address: 'Address', phone: 'Phone', email: 'Email', reportingFrequency: 'Reporting Frequency', nextReportingDate: 'Next Reporting Date' };
+      const newEntries = [];
+
+      Object.entries(updates).forEach(([field, newValue]) => {
+        const oldValue = custodian[field] || '';
+        if (oldValue !== newValue) {
+          newEntries.push({
+            id: `CAL-${Date.now()}-${field}`,
+            entityId: id,
+            entityName: custodian.name,
+            field: LABELS[field] || field,
+            oldValue: oldValue || '(empty)',
+            newValue: newValue || '(empty)',
+            user,
+            timestamp: now,
+          });
+        }
+      });
+
+      return {
+        custodians: state.custodians.map((c) =>
+          c.id === id ? { ...c, ...updates } : c,
+        ),
+        custodianAuditLog: [...state.custodianAuditLog, ...newEntries],
+      };
+    }),
+
+  getCustodianAuditLog: (id) =>
+    id
+      ? get().custodianAuditLog.filter((e) => e.entityId === id)
+      : get().custodianAuditLog,
 
   // ── Fund Mutations ──────────────────────────────────────────────────────
   updateFund: (id, updates) =>
