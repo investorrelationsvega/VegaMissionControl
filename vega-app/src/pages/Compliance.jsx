@@ -216,7 +216,7 @@ export default function Compliance() {
           <div
             key={i}
             style={{
-              background: 'rgba(15,23,42,0.5)',
+              background: 'rgba(30,58,64,0.5)',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               padding: '14px 18px',
@@ -290,7 +290,7 @@ export default function Compliance() {
                   <div
                     key={filing.id}
                     style={{
-                      background: 'rgba(15,23,42,0.5)',
+                      background: 'rgba(30,58,64,0.5)',
                       border: `1px solid ${daysLeft < 0 ? 'var(--red)' : daysLeft <= 7 ? 'var(--ylwB)' : 'var(--bd)'}`,
                       borderRadius: 4,
                       marginBottom: 8,
@@ -379,7 +379,7 @@ export default function Compliance() {
                   <div
                     key={filing.id}
                     style={{
-                      background: 'rgba(15,23,42,0.5)',
+                      background: 'rgba(30,58,64,0.5)',
                       border: '1px solid var(--bd)',
                       borderRadius: 4,
                       marginBottom: 8,
@@ -738,7 +738,7 @@ export default function Compliance() {
                           alignItems: 'flex-start',
                           gap: 12,
                           padding: '10px 0',
-                          borderBottom: '1px solid rgba(30,41,59,0.3)',
+                          borderBottom: '1px solid rgba(52,92,99,0.3)',
                         }}
                       >
                         {/* Checkbox */}
@@ -1031,7 +1031,7 @@ export default function Compliance() {
                             key={entry.id}
                             style={{
                               padding: '8px 0',
-                              borderBottom: '1px solid rgba(30,41,59,0.2)',
+                              borderBottom: '1px solid rgba(52,92,99,0.2)',
                               fontSize: 12,
                             }}
                           >

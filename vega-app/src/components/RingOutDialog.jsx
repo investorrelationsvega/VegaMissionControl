@@ -130,6 +130,63 @@ export default function RingOutDialog({ to, toName, onClose }) {
 
   const isTerminal = status !== 'initiating' && status !== 'InProgress' && status !== 'Success';
 
+  // ── Unauthenticated state ───────────────────────────────────────
+  if (!accessToken) {
+    return (
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.6)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            background: 'var(--bg1)',
+            border: '1px solid var(--bdH)',
+            borderRadius: 10,
+            padding: 32,
+            width: 340,
+            textAlign: 'center',
+            boxShadow: '0 16px 64px rgba(0,0,0,0.8)',
+          }}
+        >
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(74,122,130,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <svg viewBox="0 0 24 24" style={{ width: 24, height: 24, fill: 'var(--t3)' }}>
+              <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 300, color: 'var(--t1)', marginBottom: 8 }}>Connect RingCentral</div>
+          <div style={{ fontSize: 13, color: 'var(--t4)', marginBottom: 20, lineHeight: 1.5 }}>
+            Connect your RingCentral account from the header to make calls directly from the dashboard.
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              ...mono,
+              fontSize: 11,
+              fontWeight: 700,
+              padding: '10px 24px',
+              border: '1px solid var(--bd)',
+              background: 'transparent',
+              color: 'var(--t3)',
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Backdrop */}
@@ -149,7 +206,7 @@ export default function RingOutDialog({ to, toName, onClose }) {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            background: '#0f172a',
+            background: 'var(--bg1)',
             border: '1px solid var(--bdH)',
             borderRadius: 10,
             padding: 32,
@@ -170,7 +227,7 @@ export default function RingOutDialog({ to, toName, onClose }) {
                 ? 'var(--grnM)'
                 : status === 'Error' || isTerminal
                 ? 'var(--redM)'
-                : 'rgba(51,65,85,0.3)',
+                : 'rgba(74,122,130,0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

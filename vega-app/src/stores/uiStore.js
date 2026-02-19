@@ -5,13 +5,16 @@
 // ═══════════════════════════════════════════════
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   attentionItems,
   upcomingDates,
   quickLinks,
 } from '../data/seedData';
 
-const useUiStore = create((set, get) => ({
+const useUiStore = create(
+  persist(
+    (set, get) => ({
   // State
   toast: { visible: false, message: '' },
   attentionItems,
@@ -178,6 +181,20 @@ const useUiStore = create((set, get) => ({
   // ── Sidebar ─────────────────────────────────────────────────────────────
   toggleSidebar: () =>
     set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-}));
+    }),
+    {
+      name: 'vega-ui-store',
+      version: 1,
+      partialize: (state) => ({
+        attentionItems: state.attentionItems,
+        upcomingDates: state.upcomingDates,
+        quickLinks: state.quickLinks,
+        notifications: state.notifications,
+        sidebarOpen: state.sidebarOpen,
+        // Excluded: toast (ephemeral), calendarEvents/calendarSyncStatus/calendarLastSyncAt (fetched live)
+      }),
+    },
+  ),
+);
 
 export default useUiStore;

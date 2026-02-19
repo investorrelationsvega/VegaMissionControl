@@ -7,6 +7,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useUiStore from '../stores/uiStore';
 import useBlueskyStore from '../stores/blueskyStore';
+import useGoogleStore from '../stores/googleStore';
+import useRingCentralStore from '../stores/ringcentralStore';
+import { revokeToken } from '../services/googleAuth';
 
 const CURRENT_USER = 'jjones@vegarei.com';
 
@@ -51,6 +54,29 @@ export default function Home() {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+
+  const googleAuth = useGoogleStore((s) => s.isAuthenticated);
+  const googleToken = useGoogleStore((s) => s.accessToken);
+  const googleClear = useGoogleStore((s) => s.clearAuth);
+  const rcClear = useRingCentralStore((s) => s.clearAuth);
+
+  const handleSignOut = () => {
+    if (googleAuth && googleToken) {
+      try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
+    }
+    googleClear();
+    rcClear();
+    localStorage.removeItem('vega-investor-store');
+    localStorage.removeItem('vega-fund-store');
+    localStorage.removeItem('vega-task-store');
+    localStorage.removeItem('vega-compliance-store');
+    localStorage.removeItem('vega-distribution-store');
+    localStorage.removeItem('vega-bluesky-store');
+    localStorage.removeItem('vega-ui-store');
+    localStorage.removeItem('vega-google-store');
+    localStorage.removeItem('vega-rc-store');
+    window.location.reload();
+  };
 
   const allNotifications = useUiStore((s) => s.notifications);
   const markNotificationRead = useUiStore((s) => s.markNotificationRead);
@@ -149,8 +175,8 @@ export default function Home() {
                 <div onClick={() => setShowDropdown(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 299 }} />
                 <div style={{
                   position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 360, maxHeight: 440,
-                  overflowY: 'auto', background: '#0f172a', border: '1px solid var(--bdH)', borderRadius: 8,
-                  boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(51,65,85,0.3)', zIndex: 300,
+                  overflowY: 'auto', background: 'var(--bg1)', border: '1px solid var(--bdH)', borderRadius: 8,
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(74,122,130,0.3)', zIndex: 300,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--bd)' }}>
                     <span className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)' }}>
@@ -168,7 +194,7 @@ export default function Home() {
                   ) : (
                     notifications.map((notif) => (
                       <div key={notif.id} onClick={() => handleNotifClick(notif)}
-                        style={{ display: 'flex', gap: 12, padding: '12px 16px', borderBottom: '1px solid rgba(30,41,59,0.3)', cursor: 'pointer', background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)', transition: 'background 0.1s' }}
+                        style={{ display: 'flex', gap: 12, padding: '12px 16px', borderBottom: '1px solid rgba(52,92,99,0.3)', cursor: 'pointer', background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)', transition: 'background 0.1s' }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bgH)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = notif.read ? 'transparent' : 'rgba(52,211,153,0.02)')}>
                         <div style={{ flexShrink: 0, paddingTop: 5 }}>
@@ -199,7 +225,7 @@ export default function Home() {
           </div>
 
           <span className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>{CURRENT_USER}</span>
-          <button style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '4px 12px', fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'var(--t4)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <button onClick={handleSignOut} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '4px 12px', fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'var(--t4)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             Sign Out
           </button>
         </div>

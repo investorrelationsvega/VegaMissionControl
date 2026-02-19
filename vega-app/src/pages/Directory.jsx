@@ -125,7 +125,7 @@ function MethodBadge({ method }) {
     bg = 'var(--ylwM)'
     color = 'var(--ylw)'
   } else {
-    bg = 'rgba(51,65,85,0.5)'
+    bg = 'rgba(52,92,99,0.5)'
     color = 'var(--t3)'
   }
   return (
@@ -455,7 +455,7 @@ export default function Directory() {
                 key={i}
                 style={{
                   flex: 1,
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: '14px 18px',
@@ -600,7 +600,7 @@ export default function Directory() {
                       justifyContent: 'space-between',
                       alignItems: 'flex-start',
                       padding: '12px 16px',
-                      borderBottom: '1px solid rgba(30,41,59,0.3)',
+                      borderBottom: '1px solid rgba(52,92,99,0.3)',
                       cursor: 'pointer',
                       background: isSelected ? 'rgba(52,211,153,0.04)' : 'transparent',
                       borderLeft: isSelected
@@ -1173,7 +1173,7 @@ export default function Directory() {
                                     fontSize: 10,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    background: 'rgba(51,65,85,0.5)',
+                                    background: 'rgba(52,92,99,0.5)',
                                     color: 'var(--t2)',
                                     padding: '3px 8px',
                                     borderRadius: 3,
@@ -1189,7 +1189,7 @@ export default function Directory() {
                                     fontSize: 10,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    background: 'rgba(51,65,85,0.5)',
+                                    background: 'rgba(52,92,99,0.5)',
                                     color: 'var(--t2)',
                                     padding: '3px 8px',
                                     borderRadius: 3,
@@ -1706,7 +1706,7 @@ export default function Directory() {
               <div
                 key={adv.id}
                 style={{
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: 20,
@@ -1834,7 +1834,7 @@ export default function Directory() {
                       padding: '6px 0',
                       fontSize: 14,
                       color: 'var(--t2)',
-                      borderBottom: '1px solid rgba(30,41,59,0.3)',
+                      borderBottom: '1px solid rgba(52,92,99,0.3)',
                       cursor: 'pointer',
                     }}
                   >
@@ -1877,7 +1877,7 @@ export default function Directory() {
               <div
                 key={cust.id}
                 style={{
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: 20,
@@ -2039,7 +2039,7 @@ export default function Directory() {
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
-                background: '#0f172a',
+                background: 'var(--bg1)',
                 border: '1px solid var(--bdH)',
                 borderRadius: 10,
                 width: 420,
@@ -2081,7 +2081,7 @@ export default function Directory() {
                       fontSize: 12,
                       width: '100%',
                       padding: '8px 10px',
-                      background: 'rgba(15,23,42,0.5)',
+                      background: 'rgba(30,58,64,0.5)',
                       border: '1px solid var(--bd)',
                       borderRadius: 4,
                       color: 'var(--t1)',
@@ -2152,7 +2152,7 @@ export default function Directory() {
               <div
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  background: '#0f172a',
+                  background: 'var(--bg1)',
                   border: '1px solid var(--bdH)',
                   borderRadius: 10,
                   width: 380,
@@ -2197,7 +2197,7 @@ export default function Directory() {
                           fontWeight: 600,
                           padding: '10px 14px',
                           border: '1px solid var(--bd)',
-                          background: 'rgba(15,23,42,0.5)',
+                          background: 'rgba(30,58,64,0.5)',
                           color: 'var(--t2)',
                           borderRadius: 6,
                           cursor: 'pointer',
@@ -2205,7 +2205,7 @@ export default function Directory() {
                           transition: 'all 0.15s',
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--grn)'; e.currentTarget.style.background = 'rgba(52,211,153,0.04)' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bd)'; e.currentTarget.style.background = 'rgba(15,23,42,0.5)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bd)'; e.currentTarget.style.background = 'rgba(30,58,64,0.5)' }}
                       >
                         &#9654; {stage}
                       </button>

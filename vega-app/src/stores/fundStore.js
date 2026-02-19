@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   funds,
   advisors,
@@ -12,7 +13,9 @@ import {
   fundDocuments,
 } from '../data/seedData';
 
-const useFundStore = create((set, get) => ({
+const useFundStore = create(
+  persist(
+    (set, get) => ({
   // State
   funds,
   advisors,
@@ -79,6 +82,12 @@ const useFundStore = create((set, get) => ({
         f.id === id ? { ...f, ...updates } : f,
       ),
     })),
-}));
+    }),
+    {
+      name: 'vega-fund-store',
+      version: 1,
+    },
+  ),
+);
 
 export default useFundStore;

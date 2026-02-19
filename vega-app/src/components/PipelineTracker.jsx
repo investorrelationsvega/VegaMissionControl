@@ -213,7 +213,7 @@ export default function PipelineTracker({ pipeline, signers, compact = false }) 
           style={{
             marginTop: 10,
             padding: '10px 12px',
-            background: 'rgba(15,23,42,0.5)',
+            background: 'rgba(30,58,64,0.5)',
             border: '1px solid var(--bd)',
             borderRadius: 6,
           }}

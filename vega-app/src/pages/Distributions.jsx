@@ -25,7 +25,7 @@ function MethodBadge({ method }) {
     bg = 'var(--ylwM)'
     color = 'var(--ylw)'
   } else {
-    bg = 'rgba(51,65,85,0.5)'
+    bg = 'rgba(52,92,99,0.5)'
     color = 'var(--t3)'
   }
   return (
@@ -574,7 +574,7 @@ export default function Distributions() {
           <div
             key={i}
             style={{
-              background: 'rgba(15,23,42,0.5)',
+              background: 'rgba(30,58,64,0.5)',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               padding: '14px 18px',
@@ -983,7 +983,7 @@ export default function Distributions() {
                           display: 'flex',
                           gap: 12,
                           padding: '6px 0',
-                          borderBottom: '1px solid rgba(30,41,59,0.2)',
+                          borderBottom: '1px solid rgba(52,92,99,0.2)',
                           fontSize: 12,
                         }}
                       >

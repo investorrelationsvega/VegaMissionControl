@@ -129,7 +129,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
           width: 560,
           maxHeight: '85vh',
           overflowY: 'auto',
-          background: '#0f172a',
+          background: 'var(--bg1)',
           border: '1px solid var(--bdH)',
           borderRadius: 10,
           boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
@@ -391,7 +391,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
                             alignItems: 'flex-start',
                             gap: 10,
                             padding: '8px 12px',
-                            borderBottom: '1px solid rgba(30,41,59,0.3)',
+                            borderBottom: '1px solid rgba(52,92,99,0.3)',
                             cursor: 'pointer',
                             transition: 'background 0.1s',
                           }}
@@ -573,7 +573,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
               key={entry.id}
               style={{
                 padding: '6px 0',
-                borderBottom: '1px solid rgba(30,41,59,0.2)',
+                borderBottom: '1px solid rgba(52,92,99,0.2)',
                 fontSize: 12,
               }}
             >

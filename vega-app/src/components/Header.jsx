@@ -148,6 +148,33 @@ export default function Header({ currentPage }) {
   const [blueskyModalFilingId, setBlueskyModalFilingId] = useState(null);
   const dropdownRef = useRef(null);
 
+  const googleAuth = useGoogleStore((s) => s.isAuthenticated);
+  const googleToken = useGoogleStore((s) => s.accessToken);
+  const googleClear = useGoogleStore((s) => s.clearAuth);
+  const rcClear = useRingCentralStore((s) => s.clearAuth);
+
+  const handleSignOut = () => {
+    // Clear Google auth
+    if (googleAuth && googleToken) {
+      try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
+    }
+    googleClear();
+    // Clear RingCentral auth
+    rcClear();
+    // Clear all persisted store data
+    localStorage.removeItem('vega-investor-store');
+    localStorage.removeItem('vega-fund-store');
+    localStorage.removeItem('vega-task-store');
+    localStorage.removeItem('vega-compliance-store');
+    localStorage.removeItem('vega-distribution-store');
+    localStorage.removeItem('vega-bluesky-store');
+    localStorage.removeItem('vega-ui-store');
+    localStorage.removeItem('vega-google-store');
+    localStorage.removeItem('vega-rc-store');
+    // Reload to clear all in-memory state
+    window.location.reload();
+  };
+
   // Derive back link: sub-pages go to their unit root, unit roots go to Mission Control
   const segments = pathname.split('/').filter(Boolean); // e.g. ['pe','distributions']
   const unitSlug = segments[0]; // e.g. 'pe'
@@ -271,10 +298,10 @@ export default function Header({ currentPage }) {
                   width: 360,
                   maxHeight: 440,
                   overflowY: 'auto',
-                  background: '#0f172a',
+                  background: 'var(--bg1)',
                   border: '1px solid var(--bdH)',
                   borderRadius: 8,
-                  boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(51,65,85,0.3)',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(74,122,130,0.3)',
                   zIndex: 300,
                 }}
               >
@@ -364,7 +391,7 @@ export default function Header({ currentPage }) {
                         display: 'flex',
                         gap: 12,
                         padding: '12px 16px',
-                        borderBottom: '1px solid rgba(30,41,59,0.3)',
+                        borderBottom: '1px solid rgba(52,92,99,0.3)',
                         cursor: notif.type === 'bluesky' ? 'default' : 'pointer',
                         background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)',
                         transition: 'background 0.1s',
@@ -488,7 +515,7 @@ export default function Header({ currentPage }) {
           </div>
 
           <span className="header-email">j@vegarei.com</span>
-          <button className="header-signout">Sign Out</button>
+          <button className="header-signout" onClick={handleSignOut}>Sign Out</button>
         </div>
       </div>
 

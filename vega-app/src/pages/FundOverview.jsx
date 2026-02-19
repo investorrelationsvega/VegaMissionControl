@@ -53,6 +53,7 @@ export default function FundOverview() {
 
   // ── Stores ──────────────────────────────────
   const funds = useFundStore((s) => s.funds)
+  const updateFund = useFundStore((s) => s.updateFund)
   const logCommitmentAction = useFundStore((s) => s.logCommitmentAction)
   const commitmentAuditLog = useFundStore((s) => s.commitmentAuditLog)
   const investorStore = useInvestorStore()
@@ -325,7 +326,7 @@ export default function FundOverview() {
                 key={i}
                 onClick={stat.clickable ? () => setShowCommittedModal(true) : undefined}
                 style={{
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: `1px solid ${stat.clickable ? 'var(--bluM)' : 'var(--bd)'}`,
                   borderRadius: 6,
                   padding: '14px 18px',
@@ -443,7 +444,7 @@ export default function FundOverview() {
                                   fontSize: 10,
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
-                                  background: 'rgba(51,65,85,0.5)',
+                                  background: 'rgba(52,92,99,0.5)',
                                   color: 'var(--t2)',
                                   padding: '3px 8px',
                                   borderRadius: 3,
@@ -459,7 +460,7 @@ export default function FundOverview() {
                                   fontSize: 10,
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
-                                  background: 'rgba(51,65,85,0.5)',
+                                  background: 'rgba(52,92,99,0.5)',
                                   color: 'var(--t2)',
                                   padding: '3px 8px',
                                   borderRadius: 3,
@@ -678,7 +679,7 @@ export default function FundOverview() {
                           key={entry.id}
                           style={{
                             padding: '10px 0',
-                            borderBottom: '1px solid rgba(30,41,59,0.2)',
+                            borderBottom: '1px solid rgba(52,92,99,0.2)',
                           }}
                         >
                           <div style={{ display: 'flex', gap: 12 }}>
@@ -737,7 +738,7 @@ export default function FundOverview() {
                     <div
                       key={idx}
                       style={{
-                        background: 'rgba(30,41,59,0.3)',
+                        background: 'rgba(52,92,99,0.3)',
                         borderRadius: 6,
                         padding: '12px 14px',
                         marginBottom: idx < keyDates.length - 1 ? 8 : 0,
@@ -826,7 +827,7 @@ export default function FundOverview() {
                           key={activity.id}
                           style={{
                             padding: '10px 12px',
-                            background: isNew ? 'rgba(251,191,36,0.04)' : 'rgba(30,41,59,0.3)',
+                            background: isNew ? 'rgba(251,191,36,0.04)' : 'rgba(52,92,99,0.3)',
                             border: `1px solid ${isNew ? 'rgba(251,191,36,0.15)' : 'transparent'}`,
                             borderRadius: 6,
                           }}
@@ -968,7 +969,7 @@ export default function FundOverview() {
                           fontSize: 9,
                           fontWeight: 700,
                           textTransform: 'uppercase',
-                          background: 'rgba(51,65,85,0.5)',
+                          background: 'rgba(52,92,99,0.5)',
                           color: 'var(--t2)',
                           padding: '2px 6px',
                           borderRadius: 3,

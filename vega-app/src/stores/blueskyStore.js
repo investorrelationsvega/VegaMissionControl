@@ -5,92 +5,101 @@
 // ═══════════════════════════════════════════════
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-const useBlueskyStore = create((set, get) => ({
-  // State
-  filings: [],
+const useBlueskyStore = create(
+  persist(
+    (set, get) => ({
+      // State
+      filings: [],
 
-  // ── Add Filing ─────────────────────────────────────────────────────────────
-  // Creates a new Bluesky filing with 30-day deadline from webformCompleteDate
-  addFiling: (position) => {
-    if (get().hasFiling(position.invId)) return; // one per investor
+      // ── Add Filing ─────────────────────────────────────────────────────────────
+      // Creates a new Bluesky filing with 30-day deadline from webformCompleteDate
+      addFiling: (position) => {
+        if (get().hasFiling(position.invId)) return; // one per investor
 
-    const triggerDate = position.pipeline?.webformCompleteDate
-      ? new Date(position.pipeline.webformCompleteDate)
-      : new Date();
+        const triggerDate = position.pipeline?.webformCompleteDate
+          ? new Date(position.pipeline.webformCompleteDate)
+          : new Date();
 
-    const deadlineDate = new Date(triggerDate);
-    deadlineDate.setDate(deadlineDate.getDate() + 30);
+        const deadlineDate = new Date(triggerDate);
+        deadlineDate.setDate(deadlineDate.getDate() + 30);
 
-    const filing = {
-      id: `BF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      invId: position.invId,
-      name: position.name,
-      state: position.state,
-      fund: position.fund,
-      triggerDate: triggerDate.toISOString(),
-      deadlineDate: deadlineDate.toISOString(),
-      status: 'Pending',
-      filedBy: null,
-      filedDate: null,
-      notes: '',
-      attachedEmails: [],
-      auditLog: [
-        {
-          id: `BA-${Date.now()}`,
-          action: 'Filing Created',
-          user: 'System',
-          timestamp: new Date().toISOString(),
-          detail: `Blue Sky filing required for ${position.name} (${position.state}) — ${position.fund}`,
+        const filing = {
+          id: `BF-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          invId: position.invId,
+          name: position.name,
+          state: position.state,
+          fund: position.fund,
+          triggerDate: triggerDate.toISOString(),
+          deadlineDate: deadlineDate.toISOString(),
+          status: 'Pending',
+          filedBy: null,
+          filedDate: null,
           notes: '',
-        },
-      ],
-    };
+          attachedEmails: [],
+          auditLog: [
+            {
+              id: `BA-${Date.now()}`,
+              action: 'Filing Created',
+              user: 'System',
+              timestamp: new Date().toISOString(),
+              detail: `Blue Sky filing required for ${position.name} (${position.state}) — ${position.fund}`,
+              notes: '',
+            },
+          ],
+        };
 
-    set((state) => ({ filings: [...state.filings, filing] }));
-    return filing;
-  },
+        set((state) => ({ filings: [...state.filings, filing] }));
+        return filing;
+      },
 
-  // ── Resolve Filing ─────────────────────────────────────────────────────────
-  resolveFiling: (id, email, notes, attachedEmails = []) =>
-    set((state) => ({
-      filings: state.filings.map((f) =>
-        f.id === id
-          ? {
-              ...f,
-              status: 'Filed',
-              filedBy: email,
-              filedDate: new Date().toISOString(),
-              notes,
-              attachedEmails,
-              auditLog: [
-                ...f.auditLog,
-                {
-                  id: `BA-${Date.now()}`,
-                  action: 'Filing Resolved',
-                  user: email,
-                  timestamp: new Date().toISOString(),
-                  detail: `Marked as filed${attachedEmails.length > 0 ? ` with ${attachedEmails.length} email${attachedEmails.length > 1 ? 's' : ''} attached` : ''}`,
+      // ── Resolve Filing ─────────────────────────────────────────────────────────
+      resolveFiling: (id, email, notes, attachedEmails = []) =>
+        set((state) => ({
+          filings: state.filings.map((f) =>
+            f.id === id
+              ? {
+                  ...f,
+                  status: 'Filed',
+                  filedBy: email,
+                  filedDate: new Date().toISOString(),
                   notes,
-                },
-              ],
-            }
-          : f,
-      ),
-    })),
+                  attachedEmails,
+                  auditLog: [
+                    ...f.auditLog,
+                    {
+                      id: `BA-${Date.now()}`,
+                      action: 'Filing Resolved',
+                      user: email,
+                      timestamp: new Date().toISOString(),
+                      detail: `Marked as filed${attachedEmails.length > 0 ? ` with ${attachedEmails.length} email${attachedEmails.length > 1 ? 's' : ''} attached` : ''}`,
+                      notes,
+                    },
+                  ],
+                }
+              : f,
+          ),
+        })),
 
-  // ── Duplicate Prevention ───────────────────────────────────────────────────
-  hasFiling: (invId) => get().filings.some((f) => f.invId === invId),
+      // ── Duplicate Prevention ───────────────────────────────────────────────────
+      hasFiling: (invId) => get().filings.some((f) => f.invId === invId),
 
-  // ── Filtered Getters ───────────────────────────────────────────────────────
-  getPending: () => get().filings.filter((f) => f.status === 'Pending'),
-  getFiled: () => get().filings.filter((f) => f.status === 'Filed'),
+      // ── Filtered Getters ───────────────────────────────────────────────────────
+      getPending: () => get().filings.filter((f) => f.status === 'Pending'),
+      getFiled: () => get().filings.filter((f) => f.status === 'Filed'),
 
-  // ── Get Filing by ID ──────────────────────────────────────────────────────
-  getFiling: (id) => get().filings.find((f) => f.id === id) || null,
+      // ── Get Filing by ID ──────────────────────────────────────────────────────
+      getFiling: (id) => get().filings.find((f) => f.id === id) || null,
 
-  // ── Get Filing by Investor ─────────────────────────────────────────────────
-  getFilingByInvestor: (invId) => get().filings.find((f) => f.invId === invId) || null,
-}));
+      // ── Get Filing by Investor ─────────────────────────────────────────────────
+      getFilingByInvestor: (invId) => get().filings.find((f) => f.invId === invId) || null,
+    }),
+    {
+      name: 'vega-bluesky-store',
+      version: 1,
+    },
+  ),
+);
 
 export default useBlueskyStore;

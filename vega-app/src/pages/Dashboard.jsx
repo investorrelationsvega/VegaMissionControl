@@ -201,7 +201,7 @@ export default function Dashboard() {
       title: 'Sales',
       desc: 'Coming soon',
       dotColor: null,
-      route: '#',
+      route: null,
     },
   ];
 
@@ -389,7 +389,7 @@ export default function Dashboard() {
             <div
               key={item.id}
               style={{
-                background: 'rgba(30,41,59,0.3)',
+                background: 'rgba(52,92,99,0.3)',
                 borderRadius: 6,
                 padding: '12px 16px',
               }}
@@ -421,7 +421,7 @@ export default function Dashboard() {
                       textTransform: 'uppercase',
                       padding: '2px 6px',
                       borderRadius: 3,
-                      background: 'rgba(51,65,85,0.5)',
+                      background: 'rgba(52,92,99,0.5)',
                       color: 'var(--t4)',
                     }}>
                       {item.secondary.split('@')[0]}
@@ -434,7 +434,7 @@ export default function Dashboard() {
           {overflowCount > 0 && (
             <div
               style={{
-                background: 'rgba(30,41,59,0.3)',
+                background: 'rgba(52,92,99,0.3)',
                 borderRadius: 6,
                 padding: '12px 16px',
                 display: 'flex',
@@ -455,15 +455,16 @@ export default function Dashboard() {
         {navCards.map((card, i) => (
           <div
             key={card.title}
-            onClick={() => navigate(card.route)}
+            onClick={() => card.route && navigate(card.route)}
             onMouseEnter={() => setHoveredNav(i)}
             onMouseLeave={() => setHoveredNav(null)}
             style={{
               background: 'var(--bg-card-half)',
-              border: `1px solid ${hoveredNav === i ? 'var(--grnB)' : 'var(--bd)'}`,
+              border: `1px solid ${hoveredNav === i && card.route ? 'var(--grnB)' : 'var(--bd)'}`,
               borderRadius: 6,
               padding: 18,
-              cursor: 'pointer',
+              cursor: card.route ? 'pointer' : 'default',
+              opacity: card.route ? 1 : 0.5,
               transition: 'all 0.15s',
             }}
           >
@@ -592,7 +593,7 @@ export default function Dashboard() {
                 <div className="activity-item-meta">{item.meta}</div>
               </div>
             ))}
-            <a className="view-all-link">View All Activity &rarr;</a>
+            <a className="view-all-link" onClick={() => navigate('/pe/directory')} style={{ cursor: 'pointer' }}>View All Activity &rarr;</a>
           </div>
 
           {/* Quick Links */}

@@ -113,7 +113,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            background: '#0f172a',
+            background: 'var(--bg1)',
             border: '1px solid var(--bdH)',
             borderRadius: 10,
             width: 480,
@@ -190,7 +190,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t3)',
                   padding: '8px 10px',
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                 }}
@@ -221,7 +221,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                 }}
@@ -257,7 +257,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                   width: '100%',
@@ -295,7 +295,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(15,23,42,0.5)',
+                  background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                   width: '100%',
@@ -335,7 +335,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   color: 'var(--t4)',
                   marginBottom: 12,
                   padding: '8px 12px',
-                  background: 'rgba(51,65,85,0.2)',
+                  background: 'rgba(52,92,99,0.2)',
                   borderRadius: 4,
                 }}
               >

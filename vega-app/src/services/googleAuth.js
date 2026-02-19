@@ -161,7 +161,7 @@ export function isTokenValid(token) {
 
 /** Revoke the current token */
 export function revokeToken(accessToken) {
-  if (accessToken) {
+  if (accessToken && window.google?.accounts?.oauth2?.revoke) {
     window.google.accounts.oauth2.revoke(accessToken, () => {});
   }
 }

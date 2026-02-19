@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { positions, activityFeed as seedActivityFeed } from '../data/seedData';
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
@@ -128,7 +129,9 @@ const initialInvestors = buildInvestors(positions);
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
-const useInvestorStore = create((set, get) => ({
+const useInvestorStore = create(
+  persist(
+    (set, get) => ({
   // State
   investors: initialInvestors,
   positions,
@@ -497,6 +500,24 @@ const useInvestorStore = create((set, get) => ({
         },
       };
     }),
-}));
+    }),
+    {
+      name: 'vega-investor-store',
+      version: 1,
+      partialize: (state) => ({
+        positions: state.positions,
+        notes: state.notes,
+        auditLog: state.auditLog,
+        activityFeed: state.activityFeed,
+        subDocPipeline: state.subDocPipeline,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.investors = buildInvestors(state.positions);
+        }
+      },
+    },
+  ),
+);
 
 export default useInvestorStore;
