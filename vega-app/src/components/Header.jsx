@@ -194,14 +194,12 @@ export default function Header({ currentPage }) {
   const rcClear = useRingCentralStore((s) => s.clearAuth);
 
   const handleSignOut = () => {
-    // Clear Google auth
+    // Revoke Google token before clearing
     if (googleAuth && googleToken) {
       try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
     }
-    googleClear();
-    // Clear RingCentral auth
-    rcClear();
-    // Clear all persisted store data
+    // Clear all persisted store data FIRST, before any Zustand actions
+    // (Zustand persist middleware can re-write to localStorage after state changes)
     localStorage.removeItem('vega-investor-store');
     localStorage.removeItem('vega-fund-store');
     localStorage.removeItem('vega-task-store');
@@ -213,8 +211,8 @@ export default function Header({ currentPage }) {
     localStorage.removeItem('vega-rc-store');
     localStorage.removeItem('vega-sales-store');
     localStorage.removeItem('vega-salesforce-store');
-    // Reload to clear all in-memory state
-    window.location.reload();
+    // Navigate to root and reload to clear all in-memory state
+    window.location.href = '/';
   };
 
   // Derive back link: sub-pages go to their unit root, unit roots go to Mission Control

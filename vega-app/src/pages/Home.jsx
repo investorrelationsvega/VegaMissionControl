@@ -63,11 +63,12 @@ export default function Home() {
   const rcClear = useRingCentralStore((s) => s.clearAuth);
 
   const handleSignOut = () => {
+    // Revoke Google token before clearing
     if (googleAuth && googleToken) {
       try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
     }
-    googleClear();
-    rcClear();
+    // Clear all persisted store data FIRST, before any Zustand actions
+    // (Zustand persist middleware can re-write to localStorage after state changes)
     localStorage.removeItem('vega-investor-store');
     localStorage.removeItem('vega-fund-store');
     localStorage.removeItem('vega-task-store');
@@ -79,7 +80,8 @@ export default function Home() {
     localStorage.removeItem('vega-rc-store');
     localStorage.removeItem('vega-sales-store');
     localStorage.removeItem('vega-salesforce-store');
-    window.location.reload();
+    // Navigate to root and reload to clear all in-memory state
+    window.location.href = '/';
   };
 
   const allNotifications = useUiStore((s) => s.notifications);
