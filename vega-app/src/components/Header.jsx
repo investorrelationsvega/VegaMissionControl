@@ -198,20 +198,8 @@ export default function Header({ currentPage }) {
     if (googleAuth && googleToken) {
       try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
     }
-    // Clear all persisted store data FIRST, before any Zustand actions
-    // (Zustand persist middleware can re-write to localStorage after state changes)
-    localStorage.removeItem('vega-investor-store');
-    localStorage.removeItem('vega-fund-store');
-    localStorage.removeItem('vega-task-store');
-    localStorage.removeItem('vega-compliance-store');
-    localStorage.removeItem('vega-distribution-store');
-    localStorage.removeItem('vega-bluesky-store');
-    localStorage.removeItem('vega-ui-store');
-    localStorage.removeItem('vega-google-store');
-    localStorage.removeItem('vega-rc-store');
-    localStorage.removeItem('vega-sales-store');
-    localStorage.removeItem('vega-salesforce-store');
-    // Navigate to root and reload to clear all in-memory state
+    // Nuke all localStorage and navigate — clears all Zustand persisted stores
+    localStorage.clear();
     window.location.href = '/';
   };
 
