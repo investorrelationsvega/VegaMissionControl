@@ -10,10 +10,12 @@ import { useNavigate } from 'react-router-dom'
 import useFundStore from '../stores/fundStore'
 import useInvestorStore from '../stores/investorStore'
 import useDistributionStore from '../stores/distributionStore'
+import useTicStore from '../stores/ticStore'
 import useUiStore from '../stores/uiStore'
 import { fmt, fmtK } from '../utils/format'
 import DriveDocuments from '../components/DriveDocuments'
 import { PipelineBadge } from '../components/PipelineTracker'
+import useResponsive from '../hooks/useResponsive'
 
 // ── Inline style helpers ─────────────────────────────────────────────────────
 const mono = { fontFamily: "'Space Mono', monospace" }
@@ -50,6 +52,7 @@ const formatTimestamp = (ts) => {
 // ═══════════════════════════════════════════════
 export default function FundOverview() {
   const navigate = useNavigate()
+  const { isMobile, isTablet } = useResponsive()
 
   // ── Stores ──────────────────────────────────
   const funds = useFundStore((s) => s.funds)
@@ -58,6 +61,7 @@ export default function FundOverview() {
   const commitmentAuditLog = useFundStore((s) => s.commitmentAuditLog)
   const investorStore = useInvestorStore()
   const distributionStore = useDistributionStore()
+  const ticStore = useTicStore()
   const showToast = useUiStore((s) => s.showToast)
 
   // ── State ───────────────────────────────────
@@ -68,6 +72,10 @@ export default function FundOverview() {
   const [showAuditLog, setShowAuditLog] = useState(false)
   const [editingAmtId, setEditingAmtId] = useState(null) // position id being edited
   const [editingAmtValue, setEditingAmtValue] = useState('')
+  const [expandedProperty, setExpandedProperty] = useState(null)
+  const [editingTicDist, setEditingTicDist] = useState(null) // { id, period }
+  const [editingTicValue, setEditingTicValue] = useState('')
+  const [ticPeriod, setTicPeriod] = useState(null) // selected TIC distribution period
 
   // ── Derived data ────────────────────────────
   const selectedFund = selectedFundIdx !== null ? funds[selectedFundIdx] : null
@@ -89,6 +97,12 @@ export default function FundOverview() {
       return { left: `Aug 1, 2025 \u2014 Open`, right: `${fund.positionCount} positions` }
     return { left: 'Launch: TBD', right: 'Prospects only' }
   }
+
+  // TIC outside capital (for Fund II card — always computed)
+  const ticOutsideCapital = useMemo(() => {
+    const props = ticStore.getProperties()
+    return props.reduce((s, p) => s + p.totalTicFunds, 0)
+  }, [ticStore.ticProperties])
 
   const getBadgeClass = (status) => {
     if (status === 'Closed') return 'badge badge-closed'
@@ -197,6 +211,33 @@ export default function FundOverview() {
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
   }, [selectedFund, commitmentAuditLog])
 
+  // ── TIC Property Data (Fund II only) ─────────────
+  const ticProperties = useMemo(() => {
+    if (!selectedFund || selectedFund.shortName !== 'Fund II') return []
+    return ticStore.getProperties()
+  }, [selectedFund, ticStore.ticProperties])
+
+  const ticPeriods = useMemo(() => ticStore.getPeriods(), [ticStore.ticProperties])
+
+  // Set default TIC period to latest
+  const activeTicPeriod = ticPeriod || (ticPeriods.length > 0 ? ticPeriods[ticPeriods.length - 1] : null)
+
+  const ticSummary = useMemo(() => {
+    if (ticProperties.length === 0) return null
+    const fundIIPositions = ticStore.getFundIIPositions()
+    const totalMonthly = activeTicPeriod ? ticStore.getFundIITotalDistributions(activeTicPeriod) : 0
+    const totalOutsideCapital = ticProperties.reduce((s, p) => s + p.totalTicFunds, 0)
+    const avgOwnership = fundIIPositions.length > 0
+      ? fundIIPositions.reduce((s, p) => s + p.ownership, 0) / fundIIPositions.length
+      : 0
+    return {
+      propertyCount: ticProperties.length,
+      avgOwnership,
+      totalMonthly,
+      totalOutsideCapital,
+    }
+  }, [ticProperties, activeTicPeriod, ticStore.ticProperties])
+
   // Fund-specific activity feed
   const fundActivityFeed = useMemo(() => {
     if (!selectedFund) return []
@@ -246,7 +287,7 @@ export default function FundOverview() {
 
       {/* ── Fund Cards ────────────────────────── */}
       <div className="section-label" style={{ marginBottom: 16 }}>Select Fund</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
         {funds.map((fund, idx) => {
           const isActive = idx === selectedFundIdx
           const footer = getFundFooter(fund)
@@ -276,21 +317,47 @@ export default function FundOverview() {
               <div style={{ fontSize: 16, fontWeight: 300, color: 'var(--t1)', marginBottom: 6, lineHeight: 1.3 }}>
                 {fund.name}
               </div>
-              <div className="mono" style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
-                {getFundAmountText(fund)}
-              </div>
-              {fund.target > 0 && (
-                <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, marginBottom: 12, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      background: 'var(--grn)',
-                      borderRadius: 3,
-                      width: `${getFundProgress(fund)}%`,
-                      transition: 'width 0.4s ease',
-                    }}
-                  />
-                </div>
+              {fund.shortName === 'Fund II' && ticOutsideCapital > 0 ? (
+                <>
+                  {/* LP Raised */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>LP Raised</span>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--grn)' }}>{fmtK(fund.committed)}</span>
+                    </div>
+                    {fund.target > 0 && (
+                      <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'var(--grn)', borderRadius: 3, width: `${getFundProgress(fund)}%`, transition: 'width 0.4s ease' }} />
+                      </div>
+                    )}
+                  </div>
+                  {/* TIC Capital */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TIC Capital</span>
+                      <span className="mono" style={{ fontSize: 11, color: 'var(--blu)' }}>{fmtK(ticOutsideCapital)}</span>
+                    </div>
+                    <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: 'var(--blu)', borderRadius: 3, width: fund.target > 0 ? `${Math.min(100, (ticOutsideCapital / fund.target) * 100)}%` : '0%', transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                  {/* Total */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span className="mono" style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total</span>
+                    <span className="mono" style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500 }}>{fmtK(fund.committed + ticOutsideCapital)}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mono" style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
+                    {getFundAmountText(fund)}
+                  </div>
+                  {fund.target > 0 && (
+                    <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, marginBottom: 12, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: 'var(--grn)', borderRadius: 3, width: `${getFundProgress(fund)}%`, transition: 'width 0.4s ease' }} />
+                    </div>
+                  )}
+                </>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--t4)' }}>
                 <span>{footer.left}</span>
@@ -308,9 +375,9 @@ export default function FundOverview() {
           <div className="section-label" style={{ marginBottom: 16 }}>
             {selectedFund.shortName} Overview
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: selectedFund.shortName === 'Fund II' && ticOutsideCapital > 0 ? (isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)') : (isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)'), gap: 12, marginBottom: selectedFund.shortName === 'Fund II' && ticOutsideCapital > 0 ? 12 : 24 }}>
             {[
-              { label: 'Total Raised', value: fmtK(overviewStats.raised) },
+              { label: 'LP Raised', value: fmtK(overviewStats.raised) },
               { label: 'Target', value: overviewStats.target > 0 ? fmtK(overviewStats.target) : 'TBD' },
               {
                 label: 'Committed',
@@ -320,7 +387,9 @@ export default function FundOverview() {
                 color: 'var(--blu)',
               },
               { label: 'Investor Count', value: overviewStats.investorCount },
-              { label: 'Avg Investment', value: overviewStats.avgInvestment > 0 ? fmtK(overviewStats.avgInvestment) : '--' },
+              ...(selectedFund.shortName !== 'Fund II' || !ticOutsideCapital ? [
+                { label: 'Avg Investment', value: overviewStats.avgInvestment > 0 ? fmtK(overviewStats.avgInvestment) : '--' },
+              ] : []),
             ].map((stat, i) => (
               <div
                 key={i}
@@ -371,8 +440,42 @@ export default function FundOverview() {
             ))}
           </div>
 
+          {/* TIC Capital + Combined Total row (Fund II only) */}
+          {selectedFund.shortName === 'Fund II' && ticOutsideCapital > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+              {[
+                { label: 'TIC Capital', value: fmtK(ticOutsideCapital), color: 'var(--blu)', sub: `${ticSummary?.propertyCount || 0} properties` },
+                { label: 'Combined Total', value: fmtK(overviewStats.raised + ticOutsideCapital), color: 'var(--grn)', highlight: true },
+                { label: 'Avg LP Investment', value: overviewStats.avgInvestment > 0 ? fmtK(overviewStats.avgInvestment) : '--' },
+                { label: 'Avg Fund II Ownership', value: ticSummary ? `${ticSummary.avgOwnership.toFixed(1)}%` : '--', sub: 'across TIC properties' },
+              ].map((stat, i) => (
+                <div
+                  key={`tic-${i}`}
+                  style={{
+                    background: stat.highlight ? 'rgba(52,211,153,0.04)' : 'rgba(30,58,64,0.5)',
+                    border: `1px solid ${stat.highlight ? 'var(--grn)' : 'var(--bd)'}`,
+                    borderRadius: 6,
+                    padding: '14px 18px',
+                  }}
+                >
+                  <div style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 4 }}>
+                    {stat.label}
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 300, color: stat.color || 'var(--t1)' }}>
+                    {stat.value}
+                  </div>
+                  {stat.sub && (
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginTop: 2 }}>
+                      {stat.sub}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Content Grid (2fr + 1fr) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 24, marginBottom: 32 }}>
 
             {/* LEFT COLUMN */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -400,7 +503,7 @@ export default function FundOverview() {
                     {fundPositions.length} positions
                   </span>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
+                <div className="r-scroll-table">
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
@@ -876,6 +979,273 @@ export default function FundOverview() {
             </div>
           </div>
 
+          {/* ── TIC Property Income Section (Fund II only) ──── */}
+          {selectedFund.shortName === 'Fund II' && ticProperties.length > 0 && ticSummary && (
+            <div style={{ marginBottom: 32 }}>
+              <div className="section-label" style={{ marginBottom: 16 }}>
+                Property Income (TIC)
+              </div>
+
+              {/* TIC Summary Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: 'Properties', value: ticSummary.propertyCount },
+                  { label: 'Avg Fund II Ownership', value: `${ticSummary.avgOwnership.toFixed(1)}%` },
+                  { label: `Monthly TIC Income`, value: fmt(ticSummary.totalMonthly), sub: activeTicPeriod, color: 'var(--grn)' },
+                  { label: 'Outside TIC Capital', value: fmtK(ticSummary.totalOutsideCapital) },
+                ].map((stat, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: 'rgba(30,58,64,0.5)',
+                      border: '1px solid var(--bd)',
+                      borderRadius: 6,
+                      padding: '14px 18px',
+                    }}
+                  >
+                    <div style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 4 }}>
+                      {stat.label}
+                    </div>
+                    <div style={{ fontSize: 22, fontWeight: 300, color: stat.color || 'var(--t1)' }}>
+                      {stat.value}
+                    </div>
+                    {stat.sub && (
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', marginTop: 2 }}>
+                        {stat.sub}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Period Selector */}
+              {ticPeriods.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                  {ticPeriods.map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setTicPeriod(period)}
+                      style={{
+                        ...mono,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        border: `1px solid ${activeTicPeriod === period ? 'var(--grn)' : 'var(--bd)'}`,
+                        background: activeTicPeriod === period ? 'var(--grnM)' : 'transparent',
+                        color: activeTicPeriod === period ? 'var(--grn)' : 'var(--t3)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Property Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 16 }}>
+                {ticProperties.map((prop) => {
+                  const isExpanded = expandedProperty === prop.name
+                  const fundIIOwner = prop.owners.find((o) => o.isFundII)
+                  const fundIIDist = fundIIOwner?.distributions[activeTicPeriod] || 0
+                  const totalDist = prop.owners.reduce((s, o) => s + (o.distributions[activeTicPeriod] || 0), 0)
+                  return (
+                    <div
+                      key={prop.name}
+                      style={{
+                        background: 'var(--bg-card-half)',
+                        border: `1px solid ${isExpanded ? 'var(--grn)' : 'var(--bd)'}`,
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        transition: 'border-color 0.2s',
+                      }}
+                    >
+                      {/* Card Header */}
+                      <div
+                        onClick={() => setExpandedProperty(isExpanded ? null : prop.name)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '16px 20px',
+                          cursor: 'pointer',
+                          borderBottom: isExpanded ? '1px solid var(--bd)' : 'none',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--t1)', marginBottom: 4 }}>
+                            {prop.name}
+                          </div>
+                          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--grn)', fontWeight: 700 }}>
+                              Fund II: {prop.fundIIOwnership > 0 ? `${prop.fundIIOwnership}%` : 'TBD'}
+                            </span>
+                            <span className="mono" style={{ fontSize: 10, color: 'var(--t5)' }}>
+                              {prop.owners.length} TIC owners
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: fundIIDist > 0 ? 'var(--grn)' : 'var(--t4)' }}>
+                            {fundIIDist > 0 ? fmt(fundIIDist) : '--'}
+                          </div>
+                          <div className="mono" style={{ fontSize: 9, color: 'var(--t5)', textTransform: 'uppercase' }}>
+                            Fund II share
+                          </div>
+                          <span style={{
+                            fontSize: 12,
+                            color: 'var(--t5)',
+                            transition: 'transform 0.2s',
+                            display: 'inline-block',
+                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)',
+                            marginTop: 4,
+                          }}>
+                            &#9654;
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expanded Ownership Table */}
+                      {isExpanded && (
+                        <div style={{ padding: '0 20px 16px' }}>
+                          {prop.totalTicFunds > 0 && (
+                            <div className="mono" style={{ fontSize: 10, color: 'var(--t4)', padding: '12px 0 8px', textTransform: 'uppercase' }}>
+                              Outside TIC Capital: {fmtK(prop.totalTicFunds)}
+                              {totalDist > 0 && ` · Total Distributions: ${fmt(totalDist)}`}
+                            </div>
+                          )}
+                          <div className="r-scroll-table">
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr>
+                                <th style={{ textAlign: 'left', padding: '8px 0', fontSize: 10, color: 'var(--t4)', borderBottom: '1px solid var(--bd)' }}>
+                                  Entity
+                                </th>
+                                <th style={{ textAlign: 'right', padding: '8px 0', fontSize: 10, color: 'var(--t4)', borderBottom: '1px solid var(--bd)' }}>
+                                  Ownership
+                                </th>
+                                <th style={{ textAlign: 'right', padding: '8px 0', fontSize: 10, color: 'var(--t4)', borderBottom: '1px solid var(--bd)' }}>
+                                  TIC Funds
+                                </th>
+                                <th style={{ textAlign: 'right', padding: '8px 0', fontSize: 10, color: 'var(--t4)', borderBottom: '1px solid var(--bd)' }}>
+                                  {activeTicPeriod || 'Distribution'}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {prop.owners
+                                .sort((a, b) => b.ownership - a.ownership)
+                                .map((owner) => {
+                                  const dist = owner.distributions[activeTicPeriod] || 0
+                                  const isEditingThis = editingTicDist?.id === owner.id && editingTicDist?.period === activeTicPeriod
+                                  return (
+                                    <tr
+                                      key={owner.id}
+                                      style={{
+                                        borderBottom: '1px solid rgba(52,92,99,0.15)',
+                                        background: owner.isFundII ? 'rgba(52,211,153,0.04)' : 'transparent',
+                                      }}
+                                    >
+                                      <td style={{ padding: '10px 0', fontSize: 13, color: owner.isFundII ? 'var(--grn)' : 'var(--t2)', fontWeight: owner.isFundII ? 600 : 400 }}>
+                                        {owner.entity}
+                                        {owner.isFundII && (
+                                          <span className="mono" style={{ fontSize: 9, color: 'var(--grnB)', marginLeft: 6, fontWeight: 700, textTransform: 'uppercase' }}>
+                                            Fund II
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="mono" style={{ textAlign: 'right', padding: '10px 0', fontSize: 12, color: 'var(--t3)', fontWeight: 700 }}>
+                                        {owner.ownership > 0 ? `${owner.ownership}%` : 'TBD'}
+                                      </td>
+                                      <td style={{ textAlign: 'right', padding: '10px 0', fontSize: 12, color: 'var(--t3)' }}>
+                                        {owner.ticFunds > 0 ? fmtK(owner.ticFunds) : '-'}
+                                      </td>
+                                      <td style={{ textAlign: 'right', padding: '10px 0' }}>
+                                        {isEditingThis ? (
+                                          <input
+                                            autoFocus
+                                            type="text"
+                                            value={editingTicValue}
+                                            onChange={(e) => setEditingTicValue(e.target.value.replace(/[^0-9.,]/g, ''))}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const parsed = parseFloat(editingTicValue.replace(/,/g, ''))
+                                                if (!isNaN(parsed)) {
+                                                  ticStore.updateDistribution(owner.id, activeTicPeriod, parsed)
+                                                  showToast(`Updated ${owner.entity} distribution`)
+                                                }
+                                                setEditingTicDist(null)
+                                                setEditingTicValue('')
+                                              } else if (e.key === 'Escape') {
+                                                setEditingTicDist(null)
+                                                setEditingTicValue('')
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              const parsed = parseFloat(editingTicValue.replace(/,/g, ''))
+                                              if (!isNaN(parsed) && parsed !== dist) {
+                                                ticStore.updateDistribution(owner.id, activeTicPeriod, parsed)
+                                                showToast(`Updated ${owner.entity} distribution`)
+                                              }
+                                              setEditingTicDist(null)
+                                              setEditingTicValue('')
+                                            }}
+                                            style={{
+                                              ...mono,
+                                              fontSize: 12,
+                                              fontWeight: 700,
+                                              color: 'var(--t1)',
+                                              background: 'rgba(52,211,153,0.08)',
+                                              border: '1px solid var(--grn)',
+                                              borderRadius: 4,
+                                              padding: '4px 8px',
+                                              width: 100,
+                                              textAlign: 'right',
+                                              outline: 'none',
+                                            }}
+                                          />
+                                        ) : (
+                                          <span
+                                            onClick={() => {
+                                              if (activeTicPeriod) {
+                                                setEditingTicDist({ id: owner.id, period: activeTicPeriod })
+                                                setEditingTicValue(dist.toString())
+                                              }
+                                            }}
+                                            style={{
+                                              ...mono,
+                                              fontSize: 12,
+                                              fontWeight: 700,
+                                              color: dist > 0 ? 'var(--t1)' : 'var(--t5)',
+                                              cursor: activeTicPeriod ? 'pointer' : 'default',
+                                              padding: '4px 8px',
+                                              borderRadius: 4,
+                                              transition: 'background 0.15s',
+                                            }}
+                                            onMouseEnter={(e) => { if (activeTicPeriod) e.target.style.background = 'rgba(52,211,153,0.08)' }}
+                                            onMouseLeave={(e) => { e.target.style.background = 'transparent' }}
+                                          >
+                                            {dist > 0 ? fmt(dist) : '--'}
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                            </tbody>
+                          </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Fund Documents — Google Drive Integration */}
           <div style={{ marginBottom: 32 }}>
             <DriveDocuments fundId={selectedFund.id} fundShortName={selectedFund.shortName} />
@@ -929,6 +1299,7 @@ export default function FundOverview() {
               </button>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: 0 }}>
+              <div className="r-scroll-table">
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
@@ -1024,6 +1395,7 @@ export default function FundOverview() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <div style={{ padding: '16px 20px', borderTop: '1px solid var(--bd)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span className="mono" style={{ fontSize: 12, color: 'var(--t4)' }}>

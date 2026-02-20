@@ -15,6 +15,7 @@ import useSalesStore, {
 } from '../stores/salesStore';
 import useSalesforceStore from '../stores/salesforceStore';
 import useUiStore from '../stores/uiStore';
+import useResponsive from '../hooks/useResponsive';
 import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
 import { startSalesforceAuth } from '../services/salesforceAuth';
 
@@ -81,6 +82,7 @@ const today = fmt(new Date());
 export default function Sales() {
   const store = useSalesStore();
   const showToast = useUiStore((s) => s.showToast);
+  const { isMobile, isTablet } = useResponsive();
 
   // ── Salesforce state ─────────────────────────────────────────────────────
   const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
@@ -262,7 +264,7 @@ export default function Sales() {
 
       {/* ── Salesforce Connection Banner ──────────────────── */}
       {!sfAuth && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 6, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '12px 16px', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 6, marginBottom: 16 }}>
           <div>
             <span style={{ ...mono, fontSize: 11, color: 'var(--blu)', fontWeight: 700 }}>Salesforce Not Connected</span>
             <span style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginLeft: 8 }}>Connect to pull call logs, emails, and meeting data automatically</span>
@@ -337,7 +339,7 @@ export default function Sales() {
       </div>
 
       {/* ── Main Tabs ────────────────────────────────────── */}
-      <div style={{ display: 'flex', marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: 24 }}>
         {[
           { key: 'kpis', label: 'KPIs' },
           { key: 'activity', label: `Activity (${callNotes.length})` },
@@ -483,7 +485,7 @@ export default function Sales() {
           </div>
 
           {/* Pipeline columns */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${FUNNEL_STAGES.length}, 1fr)`, gap: 8, marginBottom: 32, overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}><div style={{ display: 'grid', gridTemplateColumns: `repeat(${FUNNEL_STAGES.length}, 1fr)`, gap: 8, marginBottom: 32, minWidth: FUNNEL_STAGES.length * 160 }}>
             {FUNNEL_STAGES.map((stage) => {
               const stageProspects = prospects.filter((p) => p.funnelStage === stage);
               const stageColor = stage === 'Closed Won' ? 'var(--grn)' : stage === 'Closed Lost' ? 'var(--red)' : 'var(--t4)';
@@ -539,14 +541,14 @@ export default function Sales() {
                 </div>
               );
             })}
-          </div>
+          </div></div>
 
           {/* Pipeline Health */}
           <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 20, marginTop: 8 }}>
             <div style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 16 }}>
               Pipeline Health
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
               <MetricCard label="Total Prospects" value={pipelineHealth.totalProspects} />
               <MetricCard label="Active Prospects" value={pipelineHealth.activeProspects} />
               <MetricCard label="Avg Touchpoints to Close" value={pipelineHealth.avgTouchpointsToClose} />
@@ -603,7 +605,7 @@ export default function Sales() {
               No shipments logged yet. Click "Add Shipment" to track materials sent.
             </div>
           ) : (
-            <div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden' }}>
+            <div className="r-scroll-table"><div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden', minWidth: 680 }}>
               {/* Header */}
               <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
                 {['Date', 'Recipient', 'Firm', 'Material', 'Qty', 'Tracking', 'Carrier', 'Cost'].map((h) => (
@@ -623,7 +625,7 @@ export default function Sales() {
                   <div style={{ ...mono, fontSize: 11, fontWeight: 700 }}>{fmtCurrency(s.cost)}</div>
                 </div>
               ))}
-            </div>
+            </div></div>
           )}
         </>
       )}
@@ -634,7 +636,7 @@ export default function Sales() {
       {tab === 'expenses' && (
         <>
           {/* Category summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
             {EXPENSE_CATEGORIES.map((cat) => {
               const total = expenses.filter((e) => e.category === cat).reduce((s, e) => s + (e.amount || 0), 0);
               return (
@@ -668,7 +670,7 @@ export default function Sales() {
               </div>
             );
             return (
-              <div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden' }}>
+              <div className="r-scroll-table"><div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden', minWidth: 480 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '80px 100px 1fr 100px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
                   {['Date', 'Category', 'Description', 'Amount', 'By'].map((h) => (
                     <div key={h} style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)' }}>{h}</div>
@@ -683,7 +685,7 @@ export default function Sales() {
                     <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{e.incurredBy}</div>
                   </div>
                 ))}
-              </div>
+              </div></div>
             );
           })()}
         </>
@@ -696,12 +698,12 @@ export default function Sales() {
       {/* ── KPI Entry Modal ──────────────────────────────── */}
       {showKpiModal && (
         <Modal title="Log KPIs" onClose={() => setShowKpiModal(false)} onSave={handleSaveKpi} saveLabel="Save Entry" wide>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <FormField label="Date" value={kpiForm.date} onChange={(v) => setKpiForm({ ...kpiForm, date: v })} type="date" />
             <FormSelect label="Rep" value={kpiForm.rep} options={['Alex', 'Ken']} onChange={(v) => setKpiForm({ ...kpiForm, rep: v })} />
           </div>
           <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 1 — Volume & Activity</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
             <FormField label="Outbound Calls" value={kpiForm.outboundCallsLogged} onChange={(v) => setKpiForm({ ...kpiForm, outboundCallsLogged: v })} type="number" />
             <FormField label="Advisor Conversations" value={kpiForm.advisorConversations} onChange={(v) => setKpiForm({ ...kpiForm, advisorConversations: v })} type="number" />
             <FormField label="Emails Sent" value={kpiForm.emailsSent} onChange={(v) => setKpiForm({ ...kpiForm, emailsSent: v })} type="number" />
@@ -712,20 +714,20 @@ export default function Sales() {
             <FormField label="Scheduled Meetings" value={kpiForm.scheduledMeetings} onChange={(v) => setKpiForm({ ...kpiForm, scheduledMeetings: v })} type="number" />
           </div>
           <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 2 — Engagement</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
             <FormField label="Webinars Hosted" value={kpiForm.webinarsHosted} onChange={(v) => setKpiForm({ ...kpiForm, webinarsHosted: v })} type="number" />
             <FormField label="Webinar Attendees" value={kpiForm.webinarAttendees} onChange={(v) => setKpiForm({ ...kpiForm, webinarAttendees: v })} type="number" />
             <FormField label="Meetings Advancing" value={kpiForm.meetingsAdvancing} onChange={(v) => setKpiForm({ ...kpiForm, meetingsAdvancing: v })} type="number" />
           </div>
           <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 3 — Qualification</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
             <FormField label="Materials Requested" value={kpiForm.materialsRequested} onChange={(v) => setKpiForm({ ...kpiForm, materialsRequested: v })} type="number" />
             <FormField label="FactRight Viewed" value={kpiForm.factRightViewed} onChange={(v) => setKpiForm({ ...kpiForm, factRightViewed: v })} type="number" />
             <FormField label="FactRight Follow-Up (hrs)" value={kpiForm.factRightFollowUpHrs} onChange={(v) => setKpiForm({ ...kpiForm, factRightFollowUpHrs: v })} type="number" />
             <FormField label="Post-Meeting Follow-Up (hrs)" value={kpiForm.postMeetingFollowUpHrs} onChange={(v) => setKpiForm({ ...kpiForm, postMeetingFollowUpHrs: v })} type="number" />
           </div>
           <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 8 }}>Stage 4 — Conversion</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
             <FormField label="Agreements Sent" value={kpiForm.subAgreementsSent} onChange={(v) => setKpiForm({ ...kpiForm, subAgreementsSent: v })} type="number" />
             <FormField label="Agreements Completed" value={kpiForm.subAgreementsCompleted} onChange={(v) => setKpiForm({ ...kpiForm, subAgreementsCompleted: v })} type="number" />
             <FormField label="Capital Funded ($)" value={kpiForm.capitalFunded} onChange={(v) => setKpiForm({ ...kpiForm, capitalFunded: v })} type="number" />
@@ -737,16 +739,16 @@ export default function Sales() {
       {/* ── Activity Modal ───────────────────────────────── */}
       {showActivityModal && (
         <Modal title="Log Activity" onClose={() => setShowActivityModal(false)} onSave={handleSaveActivity} saveLabel="Save Activity" saveDisabled={!actForm.contactName.trim()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Date" value={actForm.date} onChange={(v) => setActForm({ ...actForm, date: v })} type="date" />
             <FormSelect label="Type" value={actForm.type} options={ACTIVITY_TYPES} onChange={(v) => setActForm({ ...actForm, type: v })} />
             <FormSelect label="Rep" value={actForm.rep} options={['Alex', 'Ken']} onChange={(v) => setActForm({ ...actForm, rep: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Contact Name *" value={actForm.contactName} onChange={(v) => setActForm({ ...actForm, contactName: v })} />
             <FormField label="Firm" value={actForm.contactFirm} onChange={(v) => setActForm({ ...actForm, contactFirm: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Phone" value={actForm.contactPhone} onChange={(v) => setActForm({ ...actForm, contactPhone: v })} />
             <FormField label="Duration (min)" value={actForm.duration} onChange={(v) => setActForm({ ...actForm, duration: v })} type="number" />
             <FormSelect label="Outcome" value={actForm.outcome} options={['', ...OUTCOMES]} onChange={(v) => setActForm({ ...actForm, outcome: v })} />
@@ -761,15 +763,15 @@ export default function Sales() {
       {/* ── Prospect Modal ───────────────────────────────── */}
       {showProspectModal && (
         <Modal title="Add Prospect" onClose={() => setShowProspectModal(false)} onSave={handleSaveProspect} saveLabel="Add Prospect" saveDisabled={!prosForm.name.trim()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Name *" value={prosForm.name} onChange={(v) => setProsForm({ ...prosForm, name: v })} />
             <FormField label="Firm" value={prosForm.firm} onChange={(v) => setProsForm({ ...prosForm, firm: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Phone" value={prosForm.phone} onChange={(v) => setProsForm({ ...prosForm, phone: v })} />
             <FormField label="Email" value={prosForm.email} onChange={(v) => setProsForm({ ...prosForm, email: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormSelect label="Assigned To" value={prosForm.assignedTo} options={['Alex', 'Ken']} onChange={(v) => setProsForm({ ...prosForm, assignedTo: v })} />
             <FormSelect label="Stage" value={prosForm.funnelStage} options={FUNNEL_STAGES} onChange={(v) => setProsForm({ ...prosForm, funnelStage: v })} />
             <FormField label="Source" value={prosForm.source} onChange={(v) => setProsForm({ ...prosForm, source: v })} />
@@ -781,15 +783,15 @@ export default function Sales() {
       {/* ── Shipment Modal ───────────────────────────────── */}
       {showShipmentModal && (
         <Modal title="Log Shipment" onClose={() => setShowShipmentModal(false)} onSave={handleSaveShipment} saveLabel="Save Shipment" saveDisabled={!shipForm.recipient.trim()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Date" value={shipForm.date} onChange={(v) => setShipForm({ ...shipForm, date: v })} type="date" />
             <FormSelect label="Material Type" value={shipForm.materialType} options={MATERIAL_TYPES} onChange={(v) => setShipForm({ ...shipForm, materialType: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Recipient *" value={shipForm.recipient} onChange={(v) => setShipForm({ ...shipForm, recipient: v })} />
             <FormField label="Recipient Firm" value={shipForm.recipientFirm} onChange={(v) => setShipForm({ ...shipForm, recipientFirm: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Quantity" value={shipForm.quantity} onChange={(v) => setShipForm({ ...shipForm, quantity: v })} type="number" />
             <FormField label="Tracking #" value={shipForm.trackingNumber} onChange={(v) => setShipForm({ ...shipForm, trackingNumber: v })} />
             <FormField label="Carrier" value={shipForm.carrier} onChange={(v) => setShipForm({ ...shipForm, carrier: v })} />
@@ -802,13 +804,13 @@ export default function Sales() {
       {/* ── Expense Modal ────────────────────────────────── */}
       {showExpenseModal && (
         <Modal title="Log Expense" onClose={() => setShowExpenseModal(false)} onSave={handleSaveExpense} saveLabel="Save Expense" saveDisabled={!expForm.description.trim()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <FormField label="Date" value={expForm.date} onChange={(v) => setExpForm({ ...expForm, date: v })} type="date" />
             <FormSelect label="Category" value={expForm.category} options={EXPENSE_CATEGORIES} onChange={(v) => setExpForm({ ...expForm, category: v })} />
             <FormSelect label="Incurred By" value={expForm.incurredBy} options={['Alex', 'Ken', 'J']} onChange={(v) => setExpForm({ ...expForm, incurredBy: v })} />
           </div>
           <FormField label="Description *" value={expForm.description} onChange={(v) => setExpForm({ ...expForm, description: v })} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginTop: 12 }}>
             <FormField label="Amount ($)" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} type="number" />
           </div>
           <div style={{ marginTop: 12 }}>
@@ -885,10 +887,12 @@ function MetricCard({ label, value, color }) {
 // ── Reusable Form Components ────────────────────────────────────────────────
 
 function Modal({ title, onClose, onSave, saveLabel, saveDisabled, wide, children }) {
+  const { isMobile } = useResponsive();
+  const modalWidth = isMobile ? 'calc(100vw - 32px)' : wide ? 640 : 480;
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg1)', border: '1px solid var(--bdH)', borderRadius: 10, width: wide ? 640 : 480, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 16px 64px rgba(0,0,0,0.8)' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg1)', border: '1px solid var(--bdH)', borderRadius: 10, width: modalWidth, maxWidth: '100vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 16px 64px rgba(0,0,0,0.8)' }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--bd)' }}>
             <span style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--grn)' }}>{title}</span>

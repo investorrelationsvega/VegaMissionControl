@@ -9,6 +9,7 @@ import { requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from '../s
 import { startAuthFlow } from '../services/ringcentralAuth';
 import { startSalesforceAuth } from '../services/salesforceAuth';
 import BlueskyFilingModal from './BlueskyFilingModal';
+import useResponsive from '../hooks/useResponsive';
 
 const NOTIF_TYPE_COLORS = {
   assignment: 'var(--blu)',
@@ -129,7 +130,7 @@ function ConnectionIndicators() {
           <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: googleAuth ? 'var(--grn)' : 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
             <path d="M7.71 3.5L1.15 15l2.79 4.84L10.5 8.34l-2.79-4.84zm1.42 0l6.56 11.5H2.56l2.79 4.84h13.09l-2.79-4.84L9.13 3.5z" />
           </svg>
-          Drive
+          <span className="r-hide-mobile">Drive</span>
         </span>
       </button>
 
@@ -146,7 +147,7 @@ function ConnectionIndicators() {
             <svg viewBox="0 0 24 24" style={{ width: 11, height: 11, fill: 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
               <path d="M6.62 10.79c1.44 2.83 3.76 5.15 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
             </svg>
-            RC
+            <span className="r-hide-mobile">RC</span>
           </span>
         </button>
       )}
@@ -163,7 +164,7 @@ function ConnectionIndicators() {
           <svg viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: sfAuth ? 'var(--grn)' : 'var(--t5)', verticalAlign: 'middle', marginRight: 3 }}>
             <path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
           </svg>
-          SF
+          <span className="r-hide-mobile">SF</span>
         </span>
       </button>
     </div>
@@ -187,6 +188,7 @@ export default function Header({ currentPage }) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [blueskyModalFilingId, setBlueskyModalFilingId] = useState(null);
   const dropdownRef = useRef(null);
+  const { isMobile } = useResponsive();
 
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const googleToken = useGoogleStore((s) => s.accessToken);
@@ -323,12 +325,13 @@ export default function Header({ currentPage }) {
               />
               <div
                 style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: 8,
-                  width: 360,
-                  maxHeight: 440,
+                  position: isMobile ? 'fixed' : 'absolute',
+                  top: isMobile ? 60 : '100%',
+                  right: isMobile ? 8 : 0,
+                  left: isMobile ? 8 : 'auto',
+                  marginTop: isMobile ? 0 : 8,
+                  width: isMobile ? 'auto' : 360,
+                  maxHeight: isMobile ? 'calc(100vh - 80px)' : 440,
                   overflowY: 'auto',
                   background: 'var(--bg1)',
                   border: '1px solid var(--bdH)',
@@ -546,7 +549,7 @@ export default function Header({ currentPage }) {
             )}
           </div>
 
-          <span className="header-email">j@vegarei.com</span>
+          <span className="header-email r-hide-mobile">j@vegarei.com</span>
           <button className="header-signout" onClick={handleSignOut}>Sign Out</button>
         </div>
       </div>

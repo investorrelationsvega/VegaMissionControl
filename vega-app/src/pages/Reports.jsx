@@ -5,6 +5,7 @@ import useDistributionStore from '../stores/distributionStore';
 import useFundStore from '../stores/fundStore';
 import useUiStore from '../stores/uiStore';
 import { fmt, fmtK } from '../utils/format';
+import useResponsive from '../hooks/useResponsive';
 
 const reportTypes = [
   { id: 'fund-summary', title: 'Fund Summary', desc: 'AUM, investor count, compliance status, key metrics', dot: 'var(--grn)' },
@@ -34,6 +35,8 @@ export default function Reports() {
   const getPeriods = useDistributionStore((s) => s.getPeriods);
   const funds = useFundStore((s) => s.funds) || [];
   const showToast = useUiStore((s) => s.showToast);
+
+  const { isMobile, isTablet } = useResponsive();
 
   const [reportType, setReportType] = useState('fund-summary');
   const [selectedFund, setSelectedFund] = useState('F02');
@@ -124,7 +127,7 @@ export default function Reports() {
         <p className="page-subtitle">Generate Exportable Reports</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
         {reportTypes.map((rt) => (
           <div key={rt.id} onClick={() => setReportType(rt.id)} style={{
             background: reportType === rt.id ? 'rgba(52,211,153,0.03)' : 'var(--bg-card-half)',
@@ -141,7 +144,7 @@ export default function Reports() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '300px 1fr', gap: 24 }}>
         <div>
           <div className="section-label" style={{ marginBottom: 16 }}>Parameters</div>
           <div style={{ background: 'var(--bg-card-half)', border: '1px solid var(--bd)', borderRadius: 6, padding: 20 }}>
@@ -214,7 +217,7 @@ export default function Reports() {
                 <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                   <span className={'badge ' + (fund.status === 'Closed' ? 'badge-closed' : fund.status === 'Open' ? 'badge-open' : 'badge-pending')}>{fund.status}</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
                   {[
                     { l: 'Total Raised', v: fmt(fund.committed) },
                     { l: 'Target', v: fund.target ? fmt(fund.target) : 'TBD' },
@@ -248,7 +251,7 @@ export default function Reports() {
                     <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginBottom: 16 }}>
                       {investor.id} {'\u00B7'} {investor.types.join(', ')} {'\u00B7'} {investor.funds.join(', ')}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
                       {[
                         { l: 'Committed', v: fmtK(investor.totalCommitted) },
                         { l: 'Positions', v: investor.positions.length },
@@ -262,6 +265,7 @@ export default function Reports() {
                       ))}
                     </div>
                     <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 8 }}>Positions</div>
+                    <div className="r-scroll-table">
                     <table style={{ marginBottom: 20 }}>
                       <thead><tr>
                         {['Fund', 'Entity', 'Type', 'Amount', 'Status'].map((h) => <th key={h} className={h === 'Amount' ? 'right' : ''}>{h}</th>)}
@@ -278,6 +282,7 @@ export default function Reports() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: 'var(--t5)', fontSize: 14 }}>
@@ -321,7 +326,7 @@ export default function Reports() {
             {reportType === 'distribution-report' && (
               <div className="fade-in">
                 <div style={{ fontSize: 18, fontWeight: 300, color: 'var(--t1)', marginBottom: 16 }}>{selectedPeriod} Distribution</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
                   {[
                     { l: 'Total', v: fmt(periodDists.reduce((s, d) => s + d.amt, 0)) },
                     { l: 'Payments', v: periodDists.length },
@@ -335,6 +340,7 @@ export default function Reports() {
                   ))}
                 </div>
                 {periodDists.length > 0 ? (
+                  <div className="r-scroll-table">
                   <table>
                     <thead><tr>
                       {['Investor', 'Entity', 'Amount', 'Method', 'Status', 'Date'].map((h) => <th key={h} className={h === 'Amount' ? 'right' : ''}>{h}</th>)}
@@ -352,6 +358,7 @@ export default function Reports() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: 40, color: 'var(--t5)' }}>No distributions for this period</div>
                 )}

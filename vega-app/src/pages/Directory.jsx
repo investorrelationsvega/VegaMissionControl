@@ -6,7 +6,7 @@
 // =============================================
 
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import useInvestorStore from '../stores/investorStore'
 import useComplianceStore from '../stores/complianceStore'
 import useDistributionStore from '../stores/distributionStore'
@@ -23,6 +23,7 @@ import EmailComposeDialog from '../components/EmailComposeDialog'
 import { PipelineBadge, NewBadge } from '../components/PipelineTracker'
 import PipelineTracker from '../components/PipelineTracker'
 import { PIPELINE_STAGES } from '../stores/investorStore'
+import useResponsive from '../hooks/useResponsive'
 
 // ── Inline style helpers ─────────────────────────────────────────────────────
 const mono = { fontFamily: "'Space Mono', monospace" }
@@ -155,6 +156,8 @@ function MethodBadge({ method }) {
 // ═══════════════════════════════════════════════
 export default function Directory() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { isMobile, isTablet } = useResponsive()
 
   // ── Stores ──────────────────────────────────
   const investorStore = useInvestorStore()
@@ -165,6 +168,7 @@ export default function Directory() {
   // ── State ───────────────────────────────────
   const [dirTab, setDirTab] = useState('investors')
   const [sel, setSel] = useState(null)
+  const [mobileShowDetail, setMobileShowDetail] = useState(false)
   const [search, setSearch] = useState('')
   const [detailTab, setDetailTab] = useState('overview')
   const [noteText, setNoteText] = useState('')
@@ -187,6 +191,13 @@ export default function Directory() {
   const [showDeclineDialog, setShowDeclineDialog] = useState(null) // { positionId, name }
   const [declineReason, setDeclineReason] = useState('')
   const [showAdvanceDialog, setShowAdvanceDialog] = useState(null) // { positionId, name, currentStage }
+  const [editingContact, setEditingContact] = useState(null) // index or 'new'
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', role: '' })
+  const [resolveNotes, setResolveNotes] = useState({}) // { [complianceId]: string }
+  const [resolveErrors, setResolveErrors] = useState({}) // { [complianceId]: true }
+  const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
+  const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
+  const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
 
   // ── RingCentral Store ─────────────────────────
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated)
@@ -198,6 +209,7 @@ export default function Directory() {
   // ── Google / Email Store ────────────────────────
   const googleAuth = useGoogleStore((s) => s.isAuthenticated)
   const googleToken = useGoogleStore((s) => s.accessToken)
+  const googleUserEmail = useGoogleStore((s) => s.userEmail)
   const setGoogleToken = useGoogleStore((s) => s.setToken)
 
   // ── Email thread state ──────────────────────────
@@ -207,6 +219,17 @@ export default function Directory() {
   const [threadLoading, setThreadLoading] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [replySending, setReplySending] = useState(false)
+
+  // ── Handle navigation state (e.g. from Compliance page) ───
+  useEffect(() => {
+    if (location.state?.selectInvestor) {
+      setSel(location.state.selectInvestor)
+      if (location.state.tab) setDetailTab(location.state.tab)
+      if (isMobile) setMobileShowDetail(true)
+      // Clear the state so it doesn't re-trigger on re-renders
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location.state])
 
   // ── Derived data ────────────────────────────
   const investors = useMemo(() => investorStore.getAll(), [investorStore])
@@ -339,6 +362,7 @@ export default function Directory() {
   const handleSelectInvestor = (id) => {
     setSel(id)
     setDetailTab('overview')
+    if (isMobile) setMobileShowDetail(true)
   }
 
   const handleAddNote = () => {
@@ -348,7 +372,25 @@ export default function Directory() {
   }
 
   const handleResolve = (id) => {
-    complianceStore.resolve(id, 'j@vegarei.com')
+    const notes = resolveNotes[id]?.trim()
+    if (!notes) {
+      setResolveErrors((prev) => ({ ...prev, [id]: true }))
+      return
+    }
+    complianceStore.resolve(id, 'j@vegarei.com', notes)
+    setResolveNotes((prev) => { const n = { ...prev }; delete n[id]; return n })
+    setResolveErrors((prev) => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  const handleReopen = (id) => {
+    const notes = reopenNotes[id]?.trim() || ''
+    complianceStore.reopen(id, 'j@vegarei.com', notes)
+    setReopenNotes((prev) => { const n = { ...prev }; delete n[id]; return n })
+    setShowReopenInput((prev) => { const n = { ...prev }; delete n[id]; return n })
+  }
+
+  const handleTogglePriority = (id) => {
+    complianceStore.togglePriority(id, 'j@vegarei.com')
   }
 
   const handleDecline = () => {
@@ -472,6 +514,7 @@ export default function Directory() {
         to: replyTo,
         subject: expandedThread.subject,
         body: replyText.trim(),
+        from: googleUserEmail || 'j@vegarei.com',
       })
       setReplyText('')
       // Refresh the thread to show the new message
@@ -512,6 +555,17 @@ export default function Directory() {
     }
   }, [detailTab, sel, rcAuth])
 
+  // Reset contact/compliance state when investor changes
+  useEffect(() => {
+    setEditingContact(null)
+    setContactForm({ name: '', phone: '', email: '', role: '' })
+    setResolveNotes({})
+    setResolveErrors({})
+    setReopenNotes({})
+    setShowReopenInput({})
+    setShowComplianceAudit({})
+  }, [sel])
+
   // Distributed total for selected investor
   const totalDistributed = useMemo(
     () => invDistributions.reduce((s, d) => s + d.amt, 0),
@@ -539,7 +593,7 @@ export default function Directory() {
       </div>
 
       {/* ── Directory Tabs ────────────────────── */}
-      <div style={{ display: 'flex', marginBottom: 24 }}>
+      <div style={{ display: 'flex', marginBottom: 24, overflowX: 'auto', flexWrap: isMobile ? 'nowrap' : 'wrap', whiteSpace: 'nowrap' }}>
         {[
           { key: 'investors', label: `Investors (${investors.length})`, radius: '4px 0 0 4px', noBorderLeft: false },
           { key: 'advisors', label: `Advisors (${advisors.length})`, radius: '0', noBorderLeft: true },
@@ -577,7 +631,7 @@ export default function Directory() {
       {dirTab === 'investors' && (
         <>
           {/* Stats Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
             {[
               { label: 'Total Committed', value: fmtK(totalCommitted) },
               { label: 'Investors', value: investors.length },
@@ -585,18 +639,24 @@ export default function Directory() {
                 label: 'Open Compliance',
                 value: totalOpenCompliance,
                 color: totalOpenCompliance > 0 ? 'var(--red)' : 'var(--grn)',
+                onClick: () => navigate('/pe/compliance'),
               },
               { label: 'Avg Commitment', value: fmtK(avgCommitment) },
             ].map((stat, i) => (
               <div
                 key={i}
+                onClick={stat.onClick}
                 style={{
                   flex: 1,
                   background: 'rgba(30,58,64,0.5)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: '14px 18px',
+                  cursor: stat.onClick ? 'pointer' : 'default',
+                  transition: 'border-color 0.15s',
                 }}
+                onMouseEnter={(e) => { if (stat.onClick) e.currentTarget.style.borderColor = 'var(--grn)' }}
+                onMouseLeave={(e) => { if (stat.onClick) e.currentTarget.style.borderColor = 'var(--bd)' }}
               >
                 <div
                   style={{
@@ -689,21 +749,21 @@ export default function Directory() {
           {/* Split View */}
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: '400px 1fr',
+              display: isMobile ? 'block' : 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : isTablet ? '300px 1fr' : '400px 1fr',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               overflow: 'hidden',
-              minHeight: 600,
+              minHeight: isMobile ? 0 : 600,
               background: 'var(--bg2)',
             }}
           >
             {/* Left Panel - Investor List */}
-            <div
+            {(!isMobile || !mobileShowDetail) && <div
               style={{
-                borderRight: '1px solid var(--bd)',
+                borderRight: isMobile ? 'none' : '1px solid var(--bd)',
                 overflowY: 'auto',
-                maxHeight: 700,
+                maxHeight: isMobile ? 'none' : 700,
               }}
             >
               {/* List Header */}
@@ -747,15 +807,23 @@ export default function Directory() {
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          color: 'var(--t1)',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {inv.name}
-                      </div>
+                      {(() => {
+                        const isEntity = inv.entities.length > 0 && inv.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
+                        const primaryName = isEntity ? inv.entities[0] : inv.name
+                        const secondaryName = isEntity ? inv.name : null
+                        return (
+                          <>
+                            <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500 }}>
+                              {primaryName}
+                            </div>
+                            {secondaryName && (
+                              <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1 }}>
+                                {secondaryName}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                       <div
                         style={{
                           ...mono,
@@ -779,7 +847,11 @@ export default function Directory() {
                         ))}
                         {inv.pipeline && <PipelineBadge stage={inv.pipeline.stage} />}
                         {inv.pipeline?.stage === 'New' && <NewBadge />}
-                        {cCount > 0 && <ComplianceBadge count={cCount} />}
+                        {cCount > 0 && (
+                          <span onClick={(e) => { e.stopPropagation(); setSel(inv.id); setDetailTab('compliance'); if (isMobile) setMobileShowDetail(true) }} style={{ cursor: 'pointer' }}>
+                            <ComplianceBadge count={cCount} />
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div
@@ -797,10 +869,10 @@ export default function Directory() {
                   </div>
                 )
               })}
-            </div>
+            </div>}
 
             {/* Right Panel - Detail */}
-            <div style={{ padding: 24, overflowY: 'auto', maxHeight: 700 }}>
+            {(!isMobile || mobileShowDetail) && <div style={{ padding: isMobile ? 16 : 24, overflowY: 'auto', maxHeight: isMobile ? 'none' : 700 }}>
               {!selectedInvestor ? (
                 /* Empty State */
                 <div
@@ -828,6 +900,28 @@ export default function Directory() {
               ) : (
                 /* Investor Detail */
                 <>
+                  {/* Mobile Back Button */}
+                  {isMobile && (
+                    <button
+                      onClick={() => setMobileShowDetail(false)}
+                      style={{
+                        ...mono,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '8px 0',
+                        marginBottom: 12,
+                        border: 'none',
+                        background: 'none',
+                        color: 'var(--grn)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span style={{ fontSize: 16, lineHeight: 1 }}>&larr;</span> Back to list
+                    </button>
+                  )}
                   {/* Detail Header */}
                   <div
                     style={{
@@ -838,16 +932,23 @@ export default function Directory() {
                     }}
                   >
                     <div>
-                      <div
-                        style={{
-                          fontSize: 22,
-                          fontWeight: 300,
-                          color: 'var(--t1)',
-                          letterSpacing: '-0.01em',
-                        }}
-                      >
-                        {selectedInvestor.name}
-                      </div>
+                      {(() => {
+                        const isEntity = selectedInvestor.entities.length > 0 && selectedInvestor.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
+                        const primaryName = isEntity ? selectedInvestor.entities[0] : selectedInvestor.name
+                        const secondaryName = isEntity ? selectedInvestor.name : null
+                        return (
+                          <>
+                            <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em' }}>
+                              {primaryName}
+                            </div>
+                            {secondaryName && (
+                              <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 2 }}>
+                                {secondaryName}
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                       <div
                         style={{
                           ...mono,
@@ -870,7 +971,9 @@ export default function Directory() {
                         <FundBadge key={f} fund={f} />
                       ))}
                       {openComplianceCount > 0 && (
-                        <ComplianceBadge count={openComplianceCount} />
+                        <span onClick={() => setDetailTab('compliance')} style={{ cursor: 'pointer' }} title="View compliance issues">
+                          <ComplianceBadge count={openComplianceCount} />
+                        </span>
                       )}
                       {selectedInvestor.pipeline && <PipelineBadge stage={selectedInvestor.pipeline.stage} />}
                       {selectedInvestor.pipeline?.stage === 'New' && <NewBadge />}
@@ -1046,7 +1149,7 @@ export default function Directory() {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
+                      gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
                       gap: 10,
                       marginBottom: 20,
                     }}
@@ -1059,15 +1162,22 @@ export default function Directory() {
                         label: 'Compliance',
                         value: openComplianceCount === 0 ? 'Clear' : `${openComplianceCount} Open`,
                         color: openComplianceCount > 0 ? 'var(--red)' : 'var(--grn)',
+                        onClick: () => setDetailTab('compliance'),
                       },
                     ].map((stat, i) => (
                       <div
                         key={i}
+                        onClick={stat.onClick}
                         style={{
                           background: 'var(--bgI)',
                           borderRadius: 5,
                           padding: 12,
+                          cursor: stat.onClick ? 'pointer' : 'default',
+                          transition: 'border-color 0.15s',
+                          border: stat.onClick ? '1px solid transparent' : 'none',
                         }}
+                        onMouseEnter={(e) => { if (stat.onClick) e.currentTarget.style.borderColor = 'var(--bd)' }}
+                        onMouseLeave={(e) => { if (stat.onClick) e.currentTarget.style.borderColor = 'transparent' }}
                       >
                         <div
                           style={{
@@ -1100,6 +1210,9 @@ export default function Directory() {
                       display: 'flex',
                       borderBottom: '1px solid var(--bd)',
                       marginBottom: 16,
+                      overflowX: 'auto',
+                      flexWrap: isMobile ? 'nowrap' : 'wrap',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {['overview', 'positions', 'compliance', 'distributions', 'communications', 'notes', 'activity'].map(
@@ -1153,12 +1266,12 @@ export default function Directory() {
                     <div
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
+                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
                         gap: 14,
                       }}
                     >
                       {[
-                        { label: 'Investor Type', value: selectedInvestor.types.join(', ') || '-', key: 'types' },
+                        { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual', 'Entity', 'Joint', 'Trust'] },
                         { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
                         { label: 'Phone', value: selectedInvestor.phone || '', key: 'phone', editable: true, isPhone: true },
                         { label: 'Email', value: selectedInvestor.email || '', key: 'email', editable: true, isEmail: true },
@@ -1212,7 +1325,11 @@ export default function Directory() {
                                   onChange={(e) => {
                                     const newVal = e.target.value
                                     setEditValue(newVal)
-                                    investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: newVal }, 'j@vegarei.com')
+                                    if (field.key === 'profileType') {
+                                      investorStore.updateProfileType(selectedInvestor.id, newVal, 'j@vegarei.com')
+                                    } else {
+                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: newVal }, 'j@vegarei.com')
+                                    }
                                     setEditField(null)
                                   }}
                                   onBlur={() => setEditField(null)}
@@ -1299,6 +1416,129 @@ export default function Directory() {
                       ))}
                     </div>
 
+                    {/* Contacts / Owners Section */}
+                    <div style={{ marginTop: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)' }}>
+                          Contacts / Owners
+                        </span>
+                        {editingContact === null && (
+                          <button
+                            onClick={() => { setEditingContact('new'); setContactForm({ name: '', phone: '', email: '', role: '' }) }}
+                            style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                          >
+                            + Add Contact
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Contact cards */}
+                      {(selectedInvestor.contacts || []).map((contact, idx) => (
+                        editingContact === idx ? (
+                          <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: 12, marginBottom: 8, border: '1px solid var(--grn)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+                              <input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Name" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} autoFocus />
+                              <select value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}>
+                                <option value="">Role...</option>
+                                <option value="Owner">Owner</option>
+                                <option value="Trustee">Trustee</option>
+                                <option value="Authorized Signer">Authorized Signer</option>
+                                <option value="Beneficiary">Beneficiary</option>
+                                <option value="Contact">Contact</option>
+                              </select>
+                              <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                              <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+                              <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
+                              <button
+                                onClick={() => {
+                                  if (!contactForm.name.trim()) return
+                                  const updated = [...(selectedInvestor.contacts || [])]
+                                  updated[idx] = { ...contactForm }
+                                  investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                  setEditingContact(null)
+                                }}
+                                style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                              >Save</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: '10px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{contact.name}</span>
+                                {contact.role && (
+                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.5)', color: 'var(--t3)' }}>
+                                    {contact.role}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ ...mono, fontSize: 11, color: 'var(--t4)', marginTop: 3, display: 'flex', gap: 12 }}>
+                                {contact.phone && <span>{contact.phone}</span>}
+                                {contact.email && <span>{contact.email}</span>}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                              <svg
+                                onClick={() => { setEditingContact(idx); setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '', role: contact.role || '' }) }}
+                                viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit"
+                              >
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                              </svg>
+                              <svg
+                                onClick={() => {
+                                  const updated = (selectedInvestor.contacts || []).filter((_, i) => i !== idx)
+                                  investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                }}
+                                viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--red)', cursor: 'pointer', opacity: 0.6 }} title="Remove"
+                              >
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                              </svg>
+                            </div>
+                          </div>
+                        )
+                      ))}
+
+                      {/* Add new contact form */}
+                      {editingContact === 'new' && (
+                        <div style={{ background: 'var(--bgI)', borderRadius: 5, padding: 12, marginBottom: 8, border: '1px solid var(--grn)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+                            <input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Name" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} autoFocus />
+                            <select value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}>
+                              <option value="">Role...</option>
+                              <option value="Owner">Owner</option>
+                              <option value="Trustee">Trustee</option>
+                              <option value="Authorized Signer">Authorized Signer</option>
+                              <option value="Beneficiary">Beneficiary</option>
+                              <option value="Contact">Contact</option>
+                            </select>
+                            <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                            <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+                            <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
+                            <button
+                              onClick={() => {
+                                if (!contactForm.name.trim()) return
+                                const updated = [...(selectedInvestor.contacts || []), { ...contactForm }]
+                                investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                setEditingContact(null)
+                              }}
+                              style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                            >Save</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Empty state */}
+                      {(!selectedInvestor.contacts || selectedInvestor.contacts.length === 0) && editingContact === null && (
+                        <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--t5)', ...mono, fontSize: 11 }}>
+                          No contacts added yet
+                        </div>
+                      )}
+                    </div>
+
                     {/* Pipeline Tracker */}
                     {selectedInvestor.pipeline && (
                       <div style={{ marginTop: 20 }}>
@@ -1325,7 +1565,7 @@ export default function Directory() {
 
                   {/* ── Tab 2: Positions ─────────── */}
                   {detailTab === 'positions' && (
-                    <div style={{ overflowX: 'auto' }}>
+                    <div className="r-scroll-table">
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
@@ -1409,92 +1649,168 @@ export default function Directory() {
                   {detailTab === 'compliance' && (
                     <div>
                       {invCompliance.length === 0 ? (
-                        <div
-                          style={{
-                            textAlign: 'center',
-                            padding: '40px 0',
-                            color: 'var(--t4)',
-                            ...mono,
-                            fontSize: 13,
-                          }}
-                        >
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--t4)', ...mono, fontSize: 13 }}>
                           No compliance issues -- all clear {'\u2713'}
                         </div>
                       ) : (
                         invCompliance.map((c) => {
                           const resolved = c.status === 'Resolved'
+                          const isBlocking = c.priority === 'blocking'
+                          const borderColor = !resolved && isBlocking ? 'var(--red)' : !resolved ? 'var(--ylw)' : 'var(--t5)'
+                          const auditLog = complianceStore.getAuditLog(c.id)
                           return (
                             <div
                               key={c.id}
                               style={{
                                 padding: 14,
-                                borderLeft: `2px solid ${resolved ? 'var(--t5)' : 'var(--ylw)'}`,
+                                borderLeft: `3px solid ${borderColor}`,
                                 background: 'var(--bgI)',
                                 borderRadius: '0 5px 5px 0',
-                                marginBottom: 8,
-                                opacity: resolved ? 0.4 : 1,
+                                marginBottom: 10,
                               }}
                             >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'flex-start',
-                                }}
-                              >
+                              {/* Header row */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                                 <div>
-                                  <div
-                                    style={{
-                                      ...mono,
-                                      fontSize: 10,
-                                      fontWeight: 700,
-                                      textTransform: 'uppercase',
-                                      color: 'var(--t4)',
-                                      marginBottom: 4,
-                                    }}
-                                  >
-                                    {c.doc}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                    <span style={{ ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.5)', color: 'var(--t3)' }}>
+                                      {c.doc}
+                                    </span>
+                                    {!resolved && isBlocking && (
+                                      <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'var(--redM)', color: 'var(--red)' }}>
+                                        Blocking
+                                      </span>
+                                    )}
+                                    <StatusBadge status={c.status} />
                                   </div>
-                                  <div
-                                    style={{
-                                      fontSize: 14,
-                                      color: 'var(--t2)',
-                                      lineHeight: 1.5,
-                                    }}
-                                  >
+                                  <div style={{ fontSize: 14, color: 'var(--t2)', lineHeight: 1.5 }}>
                                     {c.issue}
                                   </div>
                                 </div>
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    flexShrink: 0,
-                                    marginLeft: 12,
-                                  }}
-                                >
-                                  <StatusBadge status={c.status} />
-                                  {!resolved && (
+                                {/* Priority toggle for open items */}
+                                {!resolved && (
+                                  <button
+                                    onClick={() => handleTogglePriority(c.id)}
+                                    style={{
+                                      ...mono, fontSize: 9, fontWeight: 700, padding: '3px 8px',
+                                      border: `1px solid ${isBlocking ? 'rgba(239,68,68,0.3)' : 'var(--bd)'}`,
+                                      background: isBlocking ? 'var(--redM)' : 'transparent',
+                                      color: isBlocking ? 'var(--red)' : 'var(--t4)',
+                                      borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                                    }}
+                                  >
+                                    {isBlocking ? 'Blocking' : 'Standard'}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Open item: resolve notes + button */}
+                              {!resolved && (
+                                <div style={{ marginTop: 8 }}>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <input
+                                      type="text"
+                                      value={resolveNotes[c.id] || ''}
+                                      onChange={(e) => {
+                                        setResolveNotes((prev) => ({ ...prev, [c.id]: e.target.value }))
+                                        if (e.target.value.trim()) setResolveErrors((prev) => { const n = { ...prev }; delete n[c.id]; return n })
+                                      }}
+                                      placeholder="Resolution notes (required)..."
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleResolve(c.id) }}
+                                      style={{
+                                        flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)',
+                                        border: `1px solid ${resolveErrors[c.id] ? 'var(--red)' : 'var(--bd)'}`,
+                                        borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none',
+                                      }}
+                                    />
                                     <button
                                       onClick={() => handleResolve(c.id)}
                                       style={{
-                                        ...mono,
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        padding: '4px 10px',
-                                        border: '1px solid rgba(52,211,153,0.3)',
-                                        background: 'var(--grnM)',
-                                        color: 'var(--grn)',
-                                        borderRadius: 4,
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
+                                        ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px',
+                                        border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)',
+                                        color: 'var(--grn)', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap',
                                       }}
                                     >
-                                      Mark Resolved
+                                      Resolve
+                                    </button>
+                                  </div>
+                                  {resolveErrors[c.id] && (
+                                    <div style={{ ...mono, fontSize: 10, color: 'var(--red)', marginTop: 4 }}>
+                                      Notes are required to resolve
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Resolved item: info + reopen */}
+                              {resolved && (
+                                <div style={{ marginTop: 8, opacity: 0.7 }}>
+                                  <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', marginBottom: 4 }}>
+                                    Resolved by {c.resolvedBy || 'j@vegarei.com'}
+                                    {c.resolvedDate && ` on ${new Date(c.resolvedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                                  </div>
+                                  {c.notes && (
+                                    <div style={{ fontSize: 12, color: 'var(--t4)', marginBottom: 6, fontStyle: 'italic' }}>
+                                      {c.notes}
+                                    </div>
+                                  )}
+                                  {showReopenInput[c.id] ? (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                                      <input
+                                        type="text"
+                                        value={reopenNotes[c.id] || ''}
+                                        onChange={(e) => setReopenNotes((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                                        placeholder="Reopen reason (optional)..."
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleReopen(c.id) }}
+                                        autoFocus
+                                        style={{ flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
+                                      />
+                                      <button onClick={() => handleReopen(c.id)} style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 10px', border: '1px solid rgba(251,191,36,0.3)', background: 'var(--ylwM)', color: 'var(--ylw)', borderRadius: 4, cursor: 'pointer' }}>
+                                        Reopen
+                                      </button>
+                                      <button onClick={() => setShowReopenInput((prev) => { const n = { ...prev }; delete n[c.id]; return n })} style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setShowReopenInput((prev) => ({ ...prev, [c.id]: true }))}
+                                      style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(251,191,36,0.3)', background: 'var(--ylwM)', color: 'var(--ylw)', borderRadius: 4, cursor: 'pointer' }}
+                                    >
+                                      Reopen
                                     </button>
                                   )}
                                 </div>
+                              )}
+
+                              {/* Audit trail toggle */}
+                              <div style={{ marginTop: 8, borderTop: '1px solid rgba(52,92,99,0.2)', paddingTop: 6 }}>
+                                <button
+                                  onClick={() => setShowComplianceAudit((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+                                  style={{ ...mono, fontSize: 9, color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                >
+                                  {showComplianceAudit[c.id] ? '\u25BE Hide History' : '\u25B8 Show History'}
+                                  {auditLog.length > 0 && ` (${auditLog.length})`}
+                                </button>
+                                {showComplianceAudit[c.id] && auditLog.length > 0 && (
+                                  <div style={{ marginTop: 6 }}>
+                                    {auditLog.map((entry) => (
+                                      <div key={entry.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 11, borderBottom: '1px solid rgba(52,92,99,0.15)' }}>
+                                        <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', width: 120, flexShrink: 0 }}>
+                                          {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        <span style={{ fontWeight: 600, color: entry.action === 'Resolved' ? 'var(--grn)' : entry.action === 'Reopened' ? 'var(--ylw)' : 'var(--t3)' }}>
+                                          {entry.action}
+                                        </span>
+                                        <span style={{ color: 'var(--t4)', flex: 1 }}>{entry.notes || ''}</span>
+                                        <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', flexShrink: 0 }}>{entry.user}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                {showComplianceAudit[c.id] && auditLog.length === 0 && (
+                                  <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', padding: '4px 0' }}>No history</div>
+                                )}
                               </div>
                             </div>
                           )
@@ -1519,6 +1835,7 @@ export default function Directory() {
                           No distributions recorded
                         </div>
                       ) : (
+                        <div className="r-scroll-table">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                           <thead>
                             <tr>
@@ -1569,6 +1886,7 @@ export default function Directory() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1871,6 +2189,7 @@ export default function Directory() {
                                 {callLogLoading ? 'Loading call log...' : 'No calls recorded — click Refresh to fetch'}
                               </div>
                             ) : (
+                              <div className="r-scroll-table">
                               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                   <tr>
@@ -1917,6 +2236,7 @@ export default function Directory() {
                                   ))}
                                 </tbody>
                               </table>
+                              </div>
                             )}
                           </div>
                         </>
@@ -2072,7 +2392,7 @@ export default function Directory() {
                   })()}
                 </>
               )}
-            </div>
+            </div>}
           </div>
         </>
       )}
@@ -2084,7 +2404,7 @@ export default function Directory() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
             gap: 16,
           }}
         >
@@ -2330,7 +2650,7 @@ export default function Directory() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
             gap: 16,
           }}
         >
@@ -2481,6 +2801,7 @@ export default function Directory() {
 
                     {/* Table */}
                     {linked.length > 0 ? (
+                      <div className="r-scroll-table">
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
@@ -2511,6 +2832,7 @@ export default function Directory() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     ) : (
                       <div
                         style={{

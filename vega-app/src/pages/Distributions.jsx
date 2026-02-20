@@ -6,9 +6,11 @@
 
 import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import useResponsive from '../hooks/useResponsive'
 import useDistributionStore from '../stores/distributionStore'
 import useInvestorStore from '../stores/investorStore'
 import useFundStore from '../stores/fundStore'
+import useTicStore from '../stores/ticStore'
 import useUiStore from '../stores/uiStore'
 import { fmt, fmtK } from '../utils/format'
 
@@ -119,6 +121,7 @@ const formatTimestamp = (ts) => {
 // DISTRIBUTIONS PAGE COMPONENT
 // ═══════════════════════════════════════════════
 export default function Distributions() {
+  const { isMobile, isTablet } = useResponsive()
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
@@ -126,6 +129,7 @@ export default function Distributions() {
   const distributionStore = useDistributionStore()
   const investorStore = useInvestorStore()
   const fundStore = useFundStore()
+  const ticStore = useTicStore()
   const showToast = useUiStore((s) => s.showToast)
 
   // ── State ───────────────────────────────────
@@ -171,6 +175,24 @@ export default function Distributions() {
 
   // New investor flags
   const newInvestorFlags = distributionStore.newInvestorFlags || []
+
+  // TIC property income for current period (Fund II only)
+  const ticPropertyIncome = useMemo(() => {
+    if (!activePeriod) return null
+    const properties = ticStore.getProperties()
+    if (properties.length === 0) return null
+    const items = properties.map((prop) => {
+      const fundIIOwner = prop.owners.find((o) => o.isFundII)
+      return {
+        name: prop.name,
+        ownership: prop.fundIIOwnership,
+        distribution: fundIIOwner?.distributions[activePeriod] || 0,
+      }
+    }).filter((p) => p.distribution > 0)
+    if (items.length === 0) return null
+    const total = items.reduce((s, p) => s + p.distribution, 0)
+    return { items, total }
+  }, [activePeriod, ticStore.ticProperties])
   const pendingFlags = newInvestorFlags.filter((f) => f.status === 'Pending Review')
 
   // Stats
@@ -563,8 +585,60 @@ export default function Distributions() {
         </button>
       </div>
 
+      {/* ── TIC Property Income Card ────────────── */}
+      {ticPropertyIncome && (
+        <div
+          style={{
+            background: 'rgba(52,211,153,0.03)',
+            border: '1px solid var(--grnB)',
+            borderRadius: 6,
+            padding: '14px 20px',
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="mono" style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--grn)' }}>
+                TIC Property Income
+              </span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--t5)' }}>
+                {activePeriod}
+              </span>
+            </div>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--grn)' }}>
+              {fmt(ticPropertyIncome.total)}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {ticPropertyIncome.items.map((prop) => (
+              <div
+                key={prop.name}
+                style={{
+                  background: 'rgba(52,92,99,0.3)',
+                  borderRadius: 4,
+                  padding: '8px 12px',
+                  minWidth: 120,
+                }}
+              >
+                <div style={{ fontSize: 12, color: 'var(--t2)', fontWeight: 500, marginBottom: 2 }}>
+                  {prop.name}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                  <span className="mono" style={{ fontSize: 10, color: 'var(--t4)' }}>
+                    {prop.ownership > 0 ? `${prop.ownership}%` : 'TBD'}
+                  </span>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)' }}>
+                    {fmt(prop.distribution)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Summary Stats ─────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Amount', value: fmt(totalAmount) },
           { label: 'Payment Count', value: paymentCount },
@@ -615,7 +689,7 @@ export default function Distributions() {
           marginBottom: 20,
         }}
       >
-        <div style={{ overflowX: 'auto' }}>
+        <div className="r-scroll-table">
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -849,7 +923,7 @@ export default function Distributions() {
               </div>
 
               {/* Entity / Amount row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Entity</label>
                   <input
@@ -873,7 +947,7 @@ export default function Distributions() {
               </div>
 
               {/* Method / Status row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Method</label>
                   <select
@@ -913,7 +987,7 @@ export default function Distributions() {
               </div>
 
               {/* Tracking Ref / Reported In Portal */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Tracking Ref</label>
                   <input
@@ -1179,7 +1253,7 @@ export default function Distributions() {
               </button>
             </div>
             <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <label className="form-label">Annual Distribution %</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1234,6 +1308,7 @@ export default function Distributions() {
                   <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 10 }}>
                     Monthly Amounts ({calcPercent}% annual &divide; 12)
                   </div>
+                  <div className="r-scroll-table">
                   <table>
                     <thead>
                       <tr>
@@ -1289,6 +1364,7 @@ export default function Distributions() {
                       })()}
                     </tbody>
                   </table>
+                  </div>
                 </>
               )}
             </div>

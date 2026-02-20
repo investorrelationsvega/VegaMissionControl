@@ -6,7 +6,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { positions, activityFeed as seedActivityFeed } from '../data/seedData';
+import { positions as seedPositions, activityFeed as seedActivityFeed } from '../data/seedData';
+import { updateInvestorField, updatePositionField, appendAuditLog } from '../services/sheetsService';
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
 
@@ -59,6 +60,7 @@ function buildInvestors(positionList) {
         phone: '',
         email: '',
         state: '',
+        contacts: [],
         pipeline: null,
         signers: null,
         docRouting: null,
@@ -124,7 +126,7 @@ function buildInvestors(positionList) {
   return map;
 }
 
-const initialInvestors = buildInvestors(positions);
+const initialInvestors = buildInvestors(seedPositions);
 
 // ---------------------------------------------------------------------------
 // Store
@@ -134,11 +136,43 @@ const useInvestorStore = create(
     (set, get) => ({
   // State
   investors: initialInvestors,
-  positions,
+  positions: seedPositions,
   activityFeed: seedActivityFeed || [],
+  sheetsLoaded: false, // Track if we've loaded from Google Sheets
   notes: {},       // { [invId]: [ { id, text, author, date } ] }
   auditLog: [],    // [ { id, invId, action, detail, user, timestamp } ]
   contactOverrides: {}, // { [invId]: { phone, email, advisor, custodian, state } } — survives rehydration
+
+  // ── Google Sheets Sync ────────────────────────────────────────────────
+  loadFromSheets: (sheetPositions, investorLookup) => {
+    set((state) => {
+      const investors = buildInvestors(sheetPositions);
+      // Re-apply contact overrides so local edits survive
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([invId, fields]) => {
+        if (investors[invId]) {
+          Object.assign(investors[invId], fields);
+        }
+      });
+      // Merge in investor-level data from the Investors tab (email, phone, advisor, contacts, etc.)
+      if (investorLookup) {
+        Object.entries(investorLookup).forEach(([invId, data]) => {
+          if (investors[invId]) {
+            if (data.email && !investors[invId].email) investors[invId].email = data.email;
+            if (data.phone && !investors[invId].phone) investors[invId].phone = data.phone;
+            if (data.advisor && !investors[invId].advisor) investors[invId].advisor = data.advisor;
+            if (data.custodian && !investors[invId].custodian) investors[invId].custodian = data.custodian;
+            if (data.contacts && data.contacts.length > 0) investors[invId].contacts = data.contacts;
+          }
+        });
+      }
+      return {
+        positions: sheetPositions,
+        investors,
+        sheetsLoaded: true,
+      };
+    });
+  },
 
   // ── Investor Getters ────────────────────────────────────────────────────
   getInvestor: (invId) => get().investors[invId] || null,
@@ -516,6 +550,26 @@ const useInvestorStore = create(
       // Merge into contactOverrides so edits survive position-based rehydration
       const existingOverrides = state.contactOverrides[invId] || {};
 
+      // Write back to Google Sheet (fire-and-forget)
+      Object.entries(updates).forEach(([field, newValue]) => {
+        updateInvestorField(invId, field, newValue).catch((err) =>
+          console.error(`Sheet write-back failed for ${field}:`, err)
+        );
+      });
+
+      // Append to sheet audit log
+      newAuditEntries.forEach((entry) => {
+        appendAuditLog({
+          id: entry.id,
+          recordType: 'investor',
+          recordId: invId,
+          action: entry.action,
+          notes: entry.detail,
+          user: entry.user || user,
+          timestamp: entry.timestamp,
+        }).catch((err) => console.error('Audit log write-back failed:', err));
+      });
+
       return {
         investors: {
           ...state.investors,
@@ -528,10 +582,119 @@ const useInvestorStore = create(
         auditLog: [...state.auditLog, ...newAuditEntries],
       };
     }),
+
+  // ── Profile Type ─────────────────────────────────────────────────────
+  updateProfileType: (invId, newType, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const oldType = investor.types[0] || '(empty)';
+      const now = new Date().toISOString();
+
+      // Update all positions for this investor
+      const updatedPositions = state.positions.map((p) =>
+        p.invId === invId ? { ...p, type: newType } : p,
+      );
+
+      // Rebuild investors from updated positions
+      const newInvestors = buildInvestors(updatedPositions);
+
+      // Re-apply contact overrides
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([id, fields]) => {
+        if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+      });
+
+      // Write back to Investors sheet (profile_type column C)
+      updateInvestorField(invId, 'profile_type', newType).catch((err) =>
+        console.error('Profile type sheet write-back failed:', err),
+      );
+
+      // Write back to each Position sheet row (profile_type column F)
+      investor.positions.forEach((p) => {
+        updatePositionField(p.id, 'profile_type', newType).catch((err) =>
+          console.error(`Position profile_type write-back failed for ${p.id}:`, err),
+        );
+      });
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-profileType`,
+        invId,
+        action: 'Profile Type Changed',
+        detail: `Profile Type: "${oldType}" → "${newType}"`,
+        user,
+        timestamp: now,
+      };
+
+      appendAuditLog({
+        id: auditEntry.id,
+        recordType: 'investor',
+        recordId: invId,
+        action: auditEntry.action,
+        notes: auditEntry.detail,
+        user,
+        timestamp: now,
+      }).catch((err) => console.error('Audit log write-back failed:', err));
+
+      return {
+        positions: updatedPositions,
+        investors: newInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
+  // ── Investor Contacts / Owners ──────────────────────────────────────
+  updateInvestorContacts: (invId, contacts, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const now = new Date().toISOString();
+
+      // Write JSON to Investors sheet column K
+      updateInvestorField(invId, 'contacts_json', JSON.stringify(contacts)).catch((err) =>
+        console.error('Contacts sheet write-back failed:', err),
+      );
+
+      // Persist in contactOverrides so contacts survive rehydration
+      const existingOverrides = state.contactOverrides[invId] || {};
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-contacts`,
+        invId,
+        action: 'Contacts Updated',
+        detail: `Contacts updated (${contacts.length} contact${contacts.length !== 1 ? 's' : ''})`,
+        user,
+        timestamp: now,
+      };
+
+      appendAuditLog({
+        id: auditEntry.id,
+        recordType: 'investor',
+        recordId: invId,
+        action: auditEntry.action,
+        notes: auditEntry.detail,
+        user,
+        timestamp: now,
+      }).catch((err) => console.error('Audit log write-back failed:', err));
+
+      return {
+        investors: {
+          ...state.investors,
+          [invId]: { ...investor, contacts },
+        },
+        contactOverrides: {
+          ...state.contactOverrides,
+          [invId]: { ...existingOverrides, contacts },
+        },
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
     }),
     {
       name: 'vega-investor-store',
-      version: 1,
+      version: 2, // Bumped for Google Sheets integration
       partialize: (state) => ({
         positions: state.positions,
         notes: state.notes,

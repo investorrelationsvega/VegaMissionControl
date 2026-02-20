@@ -10,6 +10,7 @@ import useComplianceStore from '../stores/complianceStore'
 import useUiStore from '../stores/uiStore'
 import useBlueskyStore from '../stores/blueskyStore'
 import BlueskyFilingModal from '../components/BlueskyFilingModal'
+import useResponsive from '../hooks/useResponsive'
 
 // ── Document type list ──────────────────────────────────────────────────────
 const DOC_TYPES = [
@@ -37,6 +38,7 @@ const DOC_TYPE_COLORS = {
 // ═══════════════════════════════════════════════
 export default function Compliance() {
   const navigate = useNavigate()
+  const { isMobile } = useResponsive()
 
   // ── Stores ──────────────────────────────────
   const items = useComplianceStore((s) => s.items)
@@ -207,7 +209,7 @@ export default function Compliance() {
       </div>
 
       {/* ── Stats Row ─────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Items', value: totalItems },
           { label: 'Open', value: openCount, color: openCount > 0 ? 'var(--ylw)' : 'var(--grn)' },
@@ -519,7 +521,7 @@ export default function Compliance() {
                   style={{
                     fontSize: 11,
                     color: 'var(--t3)',
-                    width: 180,
+                    width: isMobile ? 120 : 180,
                     flexShrink: 0,
                     textAlign: 'right',
                   }}
@@ -695,7 +697,15 @@ export default function Compliance() {
                   </span>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--t1)' }}>
-                      {group.name}
+                      <span
+                        onClick={(e) => { e.stopPropagation(); navigate('/pe/directory', { state: { selectInvestor: group.invId, tab: 'compliance' } }) }}
+                        style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--grn)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--t1)')}
+                        title="Open in Directory"
+                      >
+                        {group.name}
+                      </span>
                       {group.entity && (
                         <span style={{ color: 'var(--t4)', fontWeight: 400, fontSize: 12, marginLeft: 8 }}>
                           {group.entity}
@@ -1009,7 +1019,7 @@ export default function Compliance() {
                     <button
                       className="btn btn-secondary"
                       style={{ fontSize: 10, padding: '5px 14px' }}
-                      onClick={() => navigate('/pe/directory')}
+                      onClick={() => navigate('/pe/directory', { state: { selectInvestor: group.invId, tab: 'compliance' } })}
                     >
                       View in Directory &rarr;
                     </button>

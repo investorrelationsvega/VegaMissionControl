@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import useTaskStore from '../stores/taskStore'
 import useInvestorStore from '../stores/investorStore'
 import useUiStore from '../stores/uiStore'
+import useResponsive from '../hooks/useResponsive'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const TEAM_EMAILS = ['j@vegarei.com', 'cory@vegacapital.com']
@@ -36,6 +37,7 @@ const EMPTY_FORM = {
 // ═══════════════════════════════════════════════
 export default function Tasks() {
   const navigate = useNavigate()
+  const { isMobile } = useResponsive()
 
   // ── Stores ──────────────────────────────────
   const tasks = useTaskStore((s) => s.tasks)
@@ -172,7 +174,7 @@ export default function Tasks() {
       </div>
 
       {/* ── Stats Row ─────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
           { label: 'Total Tasks', value: totalCount },
           { label: 'To Do', value: todoCount },
@@ -497,7 +499,7 @@ export default function Tasks() {
               </div>
 
               {/* Assignee + Due Date row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Assignee</label>
                   <select
@@ -523,7 +525,7 @@ export default function Tasks() {
               </div>
 
               {/* Priority + Status row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Priority</label>
                   <select

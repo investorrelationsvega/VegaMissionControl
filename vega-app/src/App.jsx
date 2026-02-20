@@ -12,7 +12,7 @@ import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
 import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
-import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
+import { exchangeCodeForToken, getReturnPath } from './services/ringcentralAuth';
 import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken } from './services/salesforceAuth';
 import useRingCentralStore from './stores/ringcentralStore';
 import useSalesforceStore from './stores/salesforceStore';
@@ -20,9 +20,53 @@ import useGoogleStore from './stores/googleStore';
 import useInvestorStore from './stores/investorStore';
 import useBlueskyStore from './stores/blueskyStore';
 import useUiStore from './stores/uiStore';
-import { initGapi, initTokenClient, isTokenValid, requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from './services/googleAuth';
+import { initGapi, initTokenClient, isTokenValid, requestAccessToken, requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from './services/googleAuth';
 import { refreshAccessToken } from './services/ringcentralAuth';
 import { checkUnansweredEmails } from './services/gmailService';
+import { fetchAllSheetData, ensureContactsColumn, ensureTicTab, populateTicTab, backfillContactInfo } from './services/sheetsService';
+import useFundStore from './stores/fundStore';
+import useComplianceStore from './stores/complianceStore';
+import useDistributionStore from './stores/distributionStore';
+import useTicStore from './stores/ticStore';
+
+// Contact data for backfill (from Contact_Report.xlsx + Company Dashboard CSV)
+// Keys match the 'name' column in Investors sheet for exact matching
+const CSV_CONTACT_MAP = {
+  'Alex Smith': { phone: '801-455-5185', email: 'utahscaper@gmail.com' },
+  'Benjamin Nelson': { phone: '801-664-0971', email: 'ben@blackrocklaw.net' },
+  'Blake Seifers': { phone: '801-450-9388', email: 'seifersblake@gmail.com' },
+  'Bowen England': { phone: '801-577-9980', email: 'bowenengland@gmail.com' },
+  'Brady Simon': { phone: '801-403-8155', email: 'xbrady@yahoo.com' },
+  'Brian Jones': { phone: '801-750-6981', email: 'bjones4631@gmail.com' },
+  'Bridger Wilde': { phone: '435-671-3289', email: 'bridger.wilde@premiertaxfinancial.com' },
+  'Bryan Griffith': { phone: '801-699-7522', email: 'bgriffith@griffcographics.com' },
+  'Cameron Cope': { phone: '801-809-2565', email: 'camcope@gmail.com' },
+  'Chase Benson': { phone: '', email: 'chasebdental@gmail.com' },
+  'Chieh Chang': { phone: '626-236-0763', email: 'chieh.chang@gmail.com' },
+  'Chris Hermansen': { phone: '801-358-7343', email: 'lakeshoregolfclub@yahoo.com' },
+  'Clark Evans': { phone: '801-953-3640', email: 'clark.evans@arbitersports.com' },
+  'Connor Clissold': { phone: '801-712-3057', email: 'cjclissold@gmail.com' },
+  'Curtis Larsen': { phone: '801-633-7037', email: 'curtlarsen4@gmail.com' },
+  'Daniel Cerf': { phone: '415-205-2608', email: 'danocerf@gmail.com' },
+  'Darrin Simon': { phone: '801-232-2305', email: 'darrin0@yahoo.com' },
+  'Dave Soper': { phone: '501-707-4321', email: 'davsoper@gmail.com' },
+  'David Child': { phone: '801-656-5678', email: 'davidchild43@gmail.com' },
+  'Dustin Jorgenson': { phone: '801-641-9845', email: 'workhardplayharddustin@gmail.com' },
+  'Elissa Oleole': { phone: '808-389-6922', email: 'mangomom808@gmail.com' },
+  'Jeremiah Post': { phone: '801-560-3559', email: 'jer@solidrenovationcompany.com' },
+  'Jim Cook': { phone: '209-329-6051', email: 'jimandmelaniecook@yahoo.com' },
+  'Joel Reichert': { phone: '832-797-4890', email: 'joel.reichert5@gmail.com' },
+  'John Sirrine': { phone: '801-673-3840', email: 'john.sirrine9@gmail.com' },
+  'Kelly Buchanan': { phone: '', email: 'kwoody56@hotmail.com' },
+  'Lance Jorgenson': { phone: '801-694-0040', email: 'lancejorgenson@outlook.com' },
+  'Matt Cragun': { phone: '801-404-6021', email: 'mcragun@gmail.com' },
+  'Sam Ellis': { phone: '801-664-7803', email: 'samwellis95@gmail.com' },
+  'Sayer Leslie': { phone: '208-339-1073', email: 'sayer.leslie@gmail.com' },
+  'Spencer Evans': { phone: '801-474-9637', email: '1520kens@gmail.com' },
+  'Stephen Collette': { phone: '801-367-5565', email: 'colletteclan07@gmail.com' },
+  'Vega Property Holdings': { phone: '801-664-7803', email: 'vegapropertyholdings@gmail.com' },
+  'Woody Klemetson': { phone: '801-664-5961', email: 'jwklemetson@gmail.com' },
+};
 
 // Map pathname to a friendly page name for the Header
 function getPageName(pathname) {
@@ -148,6 +192,36 @@ function LoginGate() {
       const store = useGoogleStore.getState();
       store.setToken(token);
       store.setUserEmail(email);
+
+      // Load Google Sheets data before the app re-renders and triggers RC auto-connect
+      try {
+        console.log('[Sheets] Loading live data from Google Sheets...');
+        const data = await fetchAllSheetData();
+        console.log(`[Sheets] Loaded: ${data.positions.length} positions, ${data.compliance.length} compliance, ${data.distributions.length} distributions`);
+        useInvestorStore.getState().loadFromSheets(data.positions, data.investorLookup);
+        useFundStore.getState().loadFromSheets(data.funds, data.advisors, data.custodians, data.positions);
+        useComplianceStore.getState().loadFromSheets(data.compliance);
+        useDistributionStore.getState().loadFromSheets(data.distributions);
+        useTicStore.getState().loadFromSheets(data.ticProperties);
+        ensureContactsColumn();
+        ensureTicTab().then(() => {
+          if (!data.ticProperties || data.ticProperties.length === 0) {
+            populateTicTab(useTicStore.getState().ticProperties);
+          }
+        });
+        backfillContactInfo(CSV_CONTACT_MAP).then((updates) => {
+          if (updates && Object.keys(updates).length > 0) {
+            const invStore = useInvestorStore.getState();
+            Object.entries(updates).forEach(([invId, fields]) => {
+              if (invStore.investors[invId]) {
+                invStore.updateInvestorContact(invId, fields, 'system-backfill');
+              }
+            });
+          }
+        });
+      } catch (sheetErr) {
+        console.error('[Sheets] Failed to load sheet data, using seed data:', sheetErr);
+      }
     } catch (err) {
       if (err.message !== 'popup_closed') {
         setError('Sign-in failed. Please try again.');
@@ -231,9 +305,26 @@ export default function App() {
   const googleExpiry = useGoogleStore((s) => s.tokenExpiresAt);
 
   useEffect(() => {
-    // Initialize Google APIs on mount
-    initGapi().catch(() => {});
-    initTokenClient().catch(() => {});
+    // Initialize Google APIs on mount, then silently re-acquire token for returning users
+    Promise.all([initGapi(), initTokenClient()])
+      .then(() => {
+        // If user already passed the auth gate but token is gone (page refresh), try silent re-auth
+        if (isAuthorized && !useGoogleStore.getState().accessToken) {
+          requestAccessToken()
+            .then((tokenResponse) => {
+              const store = useGoogleStore.getState();
+              store.setToken(tokenResponse);
+              console.log('[Auth] Silent token refresh succeeded');
+            })
+            .catch((err) => {
+              // Silent re-auth failed — this is normal after page refreshes.
+              // Keep userEmail so the user stays past the auth gate.
+              // They'll need to use the consent flow from LoginGate on next full sign-in.
+              console.log('[Auth] Silent token refresh unavailable:', err.message || err);
+            });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -292,17 +383,49 @@ export default function App() {
     }
   }, []); // run only on mount
 
-  // ── Auto-connect RingCentral after Google auth ────────────────────────────
+  // ── RingCentral connection ─────────────────────────────────────────────────
+  // RC no longer auto-redirects to OAuth after Google sign-in.
+  // If a refresh token exists, silent refresh handles it (see useEffect above).
+  // Otherwise, the user connects manually via the RC button in the header.
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
 
+  // ── Google Sheets Data Load ──────────────────────────────────────────────────
+  const sheetsLoaded = useInvestorStore((s) => s.sheetsLoaded);
+
   useEffect(() => {
-    // If Google is connected but RC is not (and no refresh token to auto-refresh),
-    // kick off the RC OAuth flow automatically
-    if (googleAuth && !rcAuth && !rcRefreshToken) {
-      startAuthFlow(window.location.pathname);
-    }
-  }, [googleAuth, rcAuth, rcRefreshToken]);
+    if (!googleAuth || !googleToken || sheetsLoaded) return;
+
+    console.log('[Sheets] Loading live data from Google Sheets...');
+    fetchAllSheetData()
+      .then((data) => {
+        console.log(`[Sheets] Loaded: ${data.positions.length} positions, ${data.compliance.length} compliance, ${data.distributions.length} distributions`);
+        useInvestorStore.getState().loadFromSheets(data.positions, data.investorLookup);
+        useFundStore.getState().loadFromSheets(data.funds, data.advisors, data.custodians, data.positions);
+        useComplianceStore.getState().loadFromSheets(data.compliance);
+        useDistributionStore.getState().loadFromSheets(data.distributions);
+        useTicStore.getState().loadFromSheets(data.ticProperties);
+        ensureContactsColumn();
+        ensureTicTab().then(() => {
+          if (!data.ticProperties || data.ticProperties.length === 0) {
+            populateTicTab(useTicStore.getState().ticProperties);
+          }
+        });
+        backfillContactInfo(CSV_CONTACT_MAP).then((updates) => {
+          if (updates && Object.keys(updates).length > 0) {
+            const invStore = useInvestorStore.getState();
+            Object.entries(updates).forEach(([invId, fields]) => {
+              if (invStore.investors[invId]) {
+                invStore.updateInvestorContact(invId, fields, 'system-backfill');
+              }
+            });
+          }
+        });
+      })
+      .catch((err) => {
+        console.error('[Sheets] Failed to load sheet data, using seed data:', err);
+      });
+  }, [googleAuth, googleToken, sheetsLoaded]);
 
   // ── 48h Unanswered Email Check ─────────────────────────────────────────────
   const googleTokenForCheck = useGoogleStore((s) => s.accessToken);

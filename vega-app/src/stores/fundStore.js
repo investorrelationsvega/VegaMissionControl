@@ -7,9 +7,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  funds,
-  advisors,
-  custodians,
+  funds as seedFunds,
+  advisors as seedAdvisors,
+  custodians as seedCustodians,
   fundDocuments,
 } from '../data/seedData';
 
@@ -17,13 +17,44 @@ const useFundStore = create(
   persist(
     (set, get) => ({
   // State
-  funds,
-  advisors,
-  custodians,
+  funds: seedFunds,
+  advisors: seedAdvisors,
+  custodians: seedCustodians,
   fundDocuments,
   commitmentAuditLog: [], // Tracks commitment status changes (committed → invested, close out)
   advisorAuditLog: [],    // Tracks advisor field changes
   custodianAuditLog: [],  // Tracks custodian field changes
+  sheetsLoaded: false,
+
+  // ── Google Sheets Sync ────────────────────────────────────────────────
+  loadFromSheets: (sheetFunds, sheetAdvisors, sheetCustodians, positions) => {
+    // Compute fund metrics from positions
+    const fundMetrics = {};
+    (positions || []).forEach((p) => {
+      const key = p.fund;
+      if (!fundMetrics[key]) fundMetrics[key] = { committed: 0, funded: 0, count: 0 };
+      fundMetrics[key].committed += p.amt || 0;
+      if (p.funded) fundMetrics[key].funded += p.amt || 0;
+      fundMetrics[key].count += 1;
+    });
+
+    const enrichedFunds = sheetFunds.map((f) => {
+      const metrics = fundMetrics[f.shortName] || {};
+      return {
+        ...f,
+        committed: metrics.committed || f.committed || 0,
+        funded: metrics.funded || f.funded || 0,
+        positionCount: metrics.count || f.positionCount || 0,
+      };
+    });
+
+    set({
+      funds: enrichedFunds,
+      advisors: sheetAdvisors.length > 0 ? sheetAdvisors : get().advisors,
+      custodians: sheetCustodians.length > 0 ? sheetCustodians : get().custodians,
+      sheetsLoaded: true,
+    });
+  },
 
   // ── Fund Getters ────────────────────────────────────────────────────────
   getAllFunds: () => get().funds,
@@ -165,7 +196,7 @@ const useFundStore = create(
     }),
     {
       name: 'vega-fund-store',
-      version: 1,
+      version: 2, // Bumped for Google Sheets integration
     },
   ),
 );

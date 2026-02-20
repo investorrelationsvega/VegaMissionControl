@@ -6,14 +6,21 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { complianceItems } from '../data/seedData';
+import { complianceItems as seedComplianceItems } from '../data/seedData';
+import { updateComplianceStatus, appendAuditLog } from '../services/sheetsService';
 
 const useComplianceStore = create(
   persist(
     (set, get) => ({
       // State
-      items: complianceItems,
+      items: seedComplianceItems,
       auditLog: [], // Global audit log for all compliance actions
+      sheetsLoaded: false,
+
+      // ── Google Sheets Sync ──────────────────────────────────────────────────
+      loadFromSheets: (sheetItems) => {
+        set({ items: sheetItems, sheetsLoaded: true });
+      },
 
       // ── Getters ─────────────────────────────────────────────────────────────
       getAll: () => get().items,
@@ -57,6 +64,21 @@ const useComplianceStore = create(
             timestamp: new Date().toISOString(),
             notes,
           };
+
+          // Write back to Google Sheet
+          updateComplianceStatus(id, 'resolved').catch((err) =>
+            console.error('Compliance sheet write-back failed:', err)
+          );
+          appendAuditLog({
+            id: logEntry.id,
+            recordType: 'compliance',
+            recordId: id,
+            action: 'Resolved',
+            notes: logEntry.detail,
+            user: email,
+            timestamp: logEntry.timestamp,
+          }).catch((err) => console.error('Audit log write-back failed:', err));
+
           return {
             items: state.items.map((i) =>
               i.id === id
@@ -86,6 +108,12 @@ const useComplianceStore = create(
             timestamp: new Date().toISOString(),
             notes,
           };
+
+          // Write back to Google Sheet
+          updateComplianceStatus(id, 'open').catch((err) =>
+            console.error('Compliance sheet write-back failed:', err)
+          );
+
           return {
             items: state.items.map((i) =>
               i.id === id
@@ -172,7 +200,7 @@ const useComplianceStore = create(
     }),
     {
       name: 'vega-compliance-store',
-      version: 1,
+      version: 2, // Bumped for Google Sheets integration
     },
   ),
 );

@@ -6,14 +6,21 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { distributions } from '../data/seedData';
+import { distributions as seedDistributions } from '../data/seedData';
+import { updateDistributionField, appendAuditLog } from '../services/sheetsService';
 
 const useDistributionStore = create(
   persist(
     (set, get) => ({
       // State
-      distributions,
+      distributions: seedDistributions,
       newInvestorFlags: [], // Track newly-added investors flagged for distribution review
+      sheetsLoaded: false,
+
+      // ── Google Sheets Sync ──────────────────────────────────────────────────
+      loadFromSheets: (sheetDistributions) => {
+        set({ distributions: sheetDistributions, sheetsLoaded: true });
+      },
 
       // ── Getters ─────────────────────────────────────────────────────────────
       getAll: () => get().distributions,
@@ -61,28 +68,41 @@ const useDistributionStore = create(
         }),
 
       updatePayment: (id, updates, user = 'j@vegarei.com') =>
-        set((state) => ({
-          distributions: state.distributions.map((d) => {
-            if (d.id !== id) return d;
-            const changes = Object.entries(updates)
-              .filter(([k, v]) => d[k] !== v && k !== 'auditLog' && k !== 'notes')
-              .map(([k, v]) => `${k}: ${d[k] || '(empty)'} → ${v}`)
-              .join('; ');
-            const logEntry = {
-              id: `DL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              action: 'Updated',
-              detail: changes || 'Notes updated',
-              user,
-              timestamp: new Date().toISOString(),
-              notes: updates.notes !== undefined ? updates.notes : '',
-            };
-            return {
-              ...d,
-              ...updates,
-              auditLog: [...(d.auditLog || []), logEntry],
-            };
-          }),
-        })),
+        set((state) => {
+          // Write back changed fields to Google Sheet
+          const fieldMap = { amt: 'amount', method: 'method', status: 'status', date: 'sent_date', notes: 'notes' };
+          Object.entries(updates).forEach(([k, v]) => {
+            const sheetField = fieldMap[k];
+            if (sheetField) {
+              updateDistributionField(id, sheetField, v).catch((err) =>
+                console.error(`Distribution sheet write-back failed for ${k}:`, err)
+              );
+            }
+          });
+
+          return {
+            distributions: state.distributions.map((d) => {
+              if (d.id !== id) return d;
+              const changes = Object.entries(updates)
+                .filter(([k, v]) => d[k] !== v && k !== 'auditLog' && k !== 'notes')
+                .map(([k, v]) => `${k}: ${d[k] || '(empty)'} → ${v}`)
+                .join('; ');
+              const logEntry = {
+                id: `DL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                action: 'Updated',
+                detail: changes || 'Notes updated',
+                user,
+                timestamp: new Date().toISOString(),
+                notes: updates.notes !== undefined ? updates.notes : '',
+              };
+              return {
+                ...d,
+                ...updates,
+                auditLog: [...(d.auditLog || []), logEntry],
+              };
+            }),
+          };
+        }),
 
       removePayment: (id) =>
         set((state) => ({
@@ -122,7 +142,7 @@ const useDistributionStore = create(
     }),
     {
       name: 'vega-distribution-store',
-      version: 1,
+      version: 2, // Bumped for Google Sheets integration
     },
   ),
 );

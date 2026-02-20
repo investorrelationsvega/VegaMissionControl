@@ -10,6 +10,7 @@ import useBlueskyStore from '../stores/blueskyStore';
 import useGoogleStore from '../stores/googleStore';
 import useRingCentralStore from '../stores/ringcentralStore';
 import { revokeToken } from '../services/googleAuth';
+import useResponsive from '../hooks/useResponsive';
 
 const CURRENT_USER = 'jjones@vegarei.com';
 
@@ -54,6 +55,7 @@ function timeAgo(ts) {
 
 export default function Home() {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -107,7 +109,7 @@ export default function Home() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 32px',
+          padding: isMobile ? '0 16px' : '0 32px',
           height: 56,
           borderBottom: '1px solid var(--blu)',
           background: 'var(--bg0)',
@@ -228,7 +230,7 @@ export default function Home() {
 
       {/* ── Hero Section ────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ textAlign: 'center', padding: '60px 32px 48px' }}>
+        <div style={{ textAlign: 'center', padding: isMobile ? '32px 16px 24px' : '60px 32px 48px' }}>
           {/* Vega V + Star Icon (large) */}
           <svg viewBox="0 0 366 576" style={{ width: 56, height: 88, fill: 'var(--t5)', marginBottom: 24, opacity: 0.4 }}>
             <path d="M182.77,0c-8.8,61.66-27.56,110.27-51.34,133.09,23.79,22.82,42.54,71.43,51.34,133.09,8.8-61.66,27.56-110.27,51.34-133.09-23.79-22.82-42.54-71.43-51.34-133.09Z" />
@@ -237,7 +239,7 @@ export default function Home() {
           <div className="mono" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'var(--grn)', marginBottom: 12 }}>
             Vega Companies
           </div>
-          <h1 className="mono" style={{ fontSize: 36, fontWeight: 400, color: 'var(--t1)', margin: '0 0 14px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <h1 className="mono" style={{ fontSize: isMobile ? 24 : 36, fontWeight: 400, color: 'var(--t1)', margin: '0 0 14px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Mission Control
           </h1>
           <p className="mono" style={{ fontSize: 11, color: 'var(--grn)', margin: 0, letterSpacing: '0.12em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -250,7 +252,7 @@ export default function Home() {
         </div>
 
         {/* ── Business Units Section ──────────────────────────────────────── */}
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 32px', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '0 16px' : '0 32px', width: '100%', boxSizing: 'border-box' }}>
           {/* Section divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
             <div style={{ flex: 1, height: 1, background: 'var(--bd)' }} />
@@ -261,7 +263,7 @@ export default function Home() {
           </div>
 
           {/* Cards grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 16, marginBottom: 48 }}>
             {BUSINESS_UNITS.map((unit) => (
               <div
                 key={unit.num}
@@ -312,7 +314,7 @@ export default function Home() {
         </div>
 
         {/* ── Footer ────────────────────────────────────────────────────────── */}
-        <div style={{ marginTop: 'auto', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginTop: 'auto', padding: isMobile ? '16px' : '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span className="mono" style={{ fontSize: 10, color: 'var(--t5)' }}>
             Vega &copy; 2025
           </span>

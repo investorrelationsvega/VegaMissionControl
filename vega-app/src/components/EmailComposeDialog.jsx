@@ -28,8 +28,7 @@ function buildRawEmail({ from, to, subject, body }) {
     .replace(/=+$/, '');
 }
 
-async function sendGmailMessage(accessToken, { to, subject, body }) {
-  const from = 'j@vegarei.com';
+async function sendGmailMessage(accessToken, { to, subject, body, from }) {
   const raw = buildRawEmail({ from, to, subject, body });
 
   const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
@@ -52,6 +51,7 @@ async function sendGmailMessage(accessToken, { to, subject, body }) {
 export default function EmailComposeDialog({ to, toName, onClose }) {
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const googleToken = useGoogleStore((s) => s.accessToken);
+  const userEmail = useGoogleStore((s) => s.userEmail);
   const setToken = useGoogleStore((s) => s.setToken);
   const showToast = useUiStore((s) => s.showToast);
 
@@ -83,6 +83,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
         to,
         subject: subject.trim(),
         body: body.trim(),
+        from: userEmail || 'j@vegarei.com',
       });
 
       showToast(`Email sent to ${toName || to}`);
@@ -195,7 +196,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   borderRadius: 4,
                 }}
               >
-                j@vegarei.com
+                {userEmail || 'j@vegarei.com'}
               </div>
             </div>
 

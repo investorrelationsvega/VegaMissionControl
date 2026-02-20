@@ -13,6 +13,7 @@ import useGoogleStore from '../stores/googleStore';
 import { fetchUpcomingEvents } from '../services/calendarService';
 import { fmt, fmtK } from '../utils/format';
 import DriveDocuments from '../components/DriveDocuments';
+import useResponsive from '../hooks/useResponsive';
 
 // ---------------------------------------------------------------------------
 // Activity data keyed by fund shortName
@@ -49,6 +50,7 @@ const overviewByFund = {
 // ---------------------------------------------------------------------------
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsive();
 
   // Stores
   const attentionItems = useUiStore((s) => s.attentionItems);
@@ -227,7 +229,7 @@ export default function Dashboard() {
         }}
       >
         {/* Top row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 8, height: 8, background: 'var(--ylw)', borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />
             <span className="section-label">Attention Needed</span>
@@ -303,7 +305,7 @@ export default function Dashboard() {
                   borderLeft: '2px solid var(--ylw)',
                   cursor: 'pointer',
                   transition: 'background 0.15s',
-                  minWidth: 'calc(33.333% - 11px)',
+                  minWidth: isMobile ? '100%' : isTablet ? 'calc(50% - 8px)' : 'calc(33.333% - 11px)',
                   flexShrink: 0,
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bgH)')}
@@ -334,7 +336,7 @@ export default function Dashboard() {
           marginBottom: 24,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 8, height: 8, background: 'var(--t5)', borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />
             <span className="section-label">Team Upcoming</span>
@@ -345,7 +347,7 @@ export default function Dashboard() {
               <span className="mono" style={{ fontSize: 10, color: 'var(--grn)' }}>Synced</span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {isGoogleAuth && (
               <button
                 onClick={syncCalendar}
@@ -384,7 +386,7 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
           {displayDates.map((item) => (
             <div
               key={item.id}
@@ -451,7 +453,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Quick Nav Cards ──────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 32 }}>
         {navCards.map((card, i) => (
           <div
             key={card.title}
@@ -492,7 +494,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Content Grid (2fr + 1fr) ─────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: 24 }}>
 
         {/* LEFT COLUMN */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -500,7 +502,7 @@ export default function Dashboard() {
           {/* Fund Selector */}
           <div>
             <div className="section-label" style={{ marginBottom: 16 }}>Select Fund</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16 }}>
               {funds.map((fund, idx) => {
                 const isActive = idx === selectedFundIdx;
                 const footer = getFundFooter(fund);
@@ -659,7 +661,7 @@ export default function Dashboard() {
             <div className="modal-body">
               {editDates.map((item, idx) => (
                 <div key={item.id || idx} style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--bd)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 10 }}>
                     <div>
                       <label className="form-label">Event</label>
                       <input
@@ -679,7 +681,7 @@ export default function Dashboard() {
                       />
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                     <div>
                       <label className="form-label">Primary Assignee</label>
                       <select
@@ -709,7 +711,7 @@ export default function Dashboard() {
               ))}
               {/* Empty row for adding new */}
               <div style={{ marginBottom: 0 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <div>
                     <label className="form-label">Event</label>
                     <input

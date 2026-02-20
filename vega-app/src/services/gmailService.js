@@ -217,7 +217,7 @@ export async function getThreadDetails(accessToken, threadId) {
 /**
  * Send a reply within an existing thread.
  */
-export async function sendReply(accessToken, { threadId, inReplyTo, to, subject, body, from = 'j@vegarei.com' }) {
+export async function sendReply(accessToken, { threadId, inReplyTo, to, subject, body, from }) {
   const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
   const lines = [
     `From: ${from}`,
