@@ -67,9 +67,10 @@ export default function Home() {
     if (googleAuth && googleToken) {
       try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
     }
-    // Nuke all localStorage and navigate — clears all Zustand persisted stores
+    // Nuke all localStorage then force full page reload
+    // (href='/' is a no-op when already at '/', so we must use reload())
     localStorage.clear();
-    window.location.href = '/';
+    window.location.reload();
   };
 
   const allNotifications = useUiStore((s) => s.notifications);

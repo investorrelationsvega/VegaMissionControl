@@ -198,9 +198,13 @@ export default function Header({ currentPage }) {
     if (googleAuth && googleToken) {
       try { revokeToken(googleToken); } catch (e) { /* GIS may not be loaded */ }
     }
-    // Nuke all localStorage and navigate — clears all Zustand persisted stores
+    // Nuke all localStorage then force full page reload to reset Zustand in-memory state
     localStorage.clear();
-    window.location.href = '/';
+    if (window.location.pathname === '/') {
+      window.location.reload();
+    } else {
+      window.location.href = '/';
+    }
   };
 
   // Derive back link: sub-pages go to their unit root, unit roots go to Mission Control

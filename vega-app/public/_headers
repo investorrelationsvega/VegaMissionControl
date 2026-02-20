@@ -1,0 +1,8 @@
+# Prevent caching of index.html to ensure latest deploy is always served
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+
+# Cache assets with hashed filenames forever (they have unique hashes)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
