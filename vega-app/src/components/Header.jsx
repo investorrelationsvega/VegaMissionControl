@@ -5,7 +5,7 @@ import useGoogleStore from '../stores/googleStore';
 import useRingCentralStore from '../stores/ringcentralStore';
 import useBlueskyStore from '../stores/blueskyStore';
 import useSalesforceStore from '../stores/salesforceStore';
-import { requestAccessTokenWithConsent, revokeToken } from '../services/googleAuth';
+import { requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from '../services/googleAuth';
 import { startAuthFlow } from '../services/ringcentralAuth';
 import { startSalesforceAuth } from '../services/salesforceAuth';
 import BlueskyFilingModal from './BlueskyFilingModal';
@@ -54,7 +54,15 @@ function ConnectionIndicators() {
     } else {
       try {
         const token = await requestAccessTokenWithConsent();
-        useGoogleStore.getState().setToken(token);
+        const email = await fetchUserEmail(token.access_token);
+        const domain = email.split('@')[1]?.toLowerCase();
+        if (domain !== 'vegarei.com') {
+          revokeToken(token.access_token);
+          return;
+        }
+        const store = useGoogleStore.getState();
+        store.setToken(token);
+        store.setUserEmail(email);
       } catch (err) {
         console.error('Google auth failed:', err);
       }
@@ -203,6 +211,8 @@ export default function Header({ currentPage }) {
     localStorage.removeItem('vega-ui-store');
     localStorage.removeItem('vega-google-store');
     localStorage.removeItem('vega-rc-store');
+    localStorage.removeItem('vega-sales-store');
+    localStorage.removeItem('vega-salesforce-store');
     // Reload to clear all in-memory state
     window.location.reload();
   };

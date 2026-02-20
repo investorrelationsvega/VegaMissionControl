@@ -4,6 +4,8 @@
 // ═══════════════════════════════════════════════
 
 const SCOPES = [
+  'openid',
+  'email',
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/documents.readonly',
   'https://www.googleapis.com/auth/spreadsheets',
@@ -164,4 +166,14 @@ export function revokeToken(accessToken) {
   if (accessToken && window.google?.accounts?.oauth2?.revoke) {
     window.google.accounts.oauth2.revoke(accessToken, () => {});
   }
+}
+
+/** Fetch the authenticated user's email from Google */
+export async function fetchUserEmail(accessToken) {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch user info');
+  const data = await res.json();
+  return data.email;
 }

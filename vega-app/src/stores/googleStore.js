@@ -101,9 +101,10 @@ const useGoogleStore = create(
     }),
     {
       name: 'vega-google-store',
-      // Only persist folder mappings — tokens and cache are ephemeral
+      // Persist folder mappings + verified email for auth gate
       partialize: (state) => ({
         folderMappings: state.folderMappings,
+        userEmail: state.userEmail,
       }),
     },
   ),
