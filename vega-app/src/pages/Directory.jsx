@@ -1271,7 +1271,8 @@ export default function Directory() {
                       }}
                     >
                       {[
-                        { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual', 'Entity', 'Joint', 'Trust'] },
+                        { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual or Joint Individuals', 'Trust', 'IRA or Other Tax-Exempt Retirement Plan', 'Entity'] },
+                        { label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true },
                         { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
                         { label: 'Phone', value: selectedInvestor.phone || '', key: 'phone', editable: true, isPhone: true },
                         { label: 'Email', value: selectedInvestor.email || '', key: 'email', editable: true, isEmail: true },
@@ -1351,14 +1352,22 @@ export default function Directory() {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
-                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                      if (field.key === 'name') {
+                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, 'j@vegarei.com')
+                                      } else {
+                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                      }
                                       setEditField(null)
                                     }
                                     if (e.key === 'Escape') setEditField(null)
                                   }}
                                   onBlur={() => {
                                     if (editValue !== field.value) {
-                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                      if (field.key === 'name') {
+                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, 'j@vegarei.com')
+                                      } else {
+                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                      }
                                     }
                                     setEditField(null)
                                   }}
@@ -1440,6 +1449,7 @@ export default function Directory() {
                               <input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Name" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} autoFocus />
                               <select value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}>
                                 <option value="">Role...</option>
+                                <option value="Primary Signer">Primary Signer</option>
                                 <option value="Owner">Owner</option>
                                 <option value="Trustee">Trustee</option>
                                 <option value="Authorized Signer">Authorized Signer</option>

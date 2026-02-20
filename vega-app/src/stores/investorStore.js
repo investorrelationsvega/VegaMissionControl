@@ -637,6 +637,148 @@ const useInvestorStore = create(
         timestamp: now,
       }).catch((err) => console.error('Audit log write-back failed:', err));
 
+      // Auto-add investor as primary signer in contacts if not already present
+      const existingContacts = newInvestors[invId]?.contacts || overrides[invId]?.contacts || [];
+      const hasPrimarySigner = existingContacts.some(
+        (c) => c.name === investor.name || c.role === 'Primary Signer',
+      );
+
+      if (!hasPrimarySigner && investor.name?.trim()) {
+        const updatedContacts = [
+          { name: investor.name, role: 'Primary Signer', phone: investor.phone || '', email: investor.email || '' },
+          ...existingContacts,
+        ];
+        newInvestors[invId].contacts = updatedContacts;
+
+        const updatedOverrides = {
+          ...overrides,
+          [invId]: { ...(overrides[invId] || {}), contacts: updatedContacts },
+        };
+
+        updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)).catch((err) =>
+          console.error('Contacts sheet write-back failed:', err),
+        );
+
+        return {
+          positions: updatedPositions,
+          investors: newInvestors,
+          contactOverrides: updatedOverrides,
+          auditLog: [...state.auditLog, auditEntry],
+        };
+      }
+
+      return {
+        positions: updatedPositions,
+        investors: newInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
+  // ── Investor Name ──────────────────────────────────────────────────
+  updateInvestorName: (invId, newName, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const oldName = investor.name;
+      const now = new Date().toISOString();
+
+      // Update all positions for this investor
+      const updatedPositions = state.positions.map((p) =>
+        p.invId === invId ? { ...p, name: newName } : p,
+      );
+
+      // Rebuild investors from updated positions
+      const newInvestors = buildInvestors(updatedPositions);
+
+      // Re-apply contact overrides
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([id, fields]) => {
+        if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+      });
+
+      // Write back to Investors sheet (name column B)
+      updateInvestorField(invId, 'name', newName).catch((err) =>
+        console.error('Name sheet write-back failed:', err),
+      );
+
+      // Write back to each Position sheet row (name column B)
+      investor.positions.forEach((p) => {
+        updatePositionField(p.id, 'name', newName).catch((err) =>
+          console.error(`Position name write-back failed for ${p.id}:`, err),
+        );
+      });
+
+      // Auto-add as primary signer in contacts if not already present
+      const existingContacts = newInvestors[invId]?.contacts || overrides[invId]?.contacts || [];
+      const alreadyHasSigner = existingContacts.some(
+        (c) => c.name === newName || c.role === 'Primary Signer',
+      );
+
+      let updatedContacts = existingContacts;
+      if (!alreadyHasSigner && newName.trim()) {
+        updatedContacts = [
+          { name: newName, role: 'Primary Signer', phone: investor.phone || '', email: investor.email || '' },
+          ...existingContacts,
+        ];
+        newInvestors[invId].contacts = updatedContacts;
+
+        // Persist contacts override
+        const updatedOverrides = {
+          ...overrides,
+          [invId]: { ...(overrides[invId] || {}), contacts: updatedContacts },
+        };
+
+        updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)).catch((err) =>
+          console.error('Contacts sheet write-back failed:', err),
+        );
+
+        const auditEntry = {
+          id: `AL-${Date.now()}-name`,
+          invId,
+          action: 'Name Changed',
+          detail: `Name: "${oldName}" → "${newName}" — added as Primary Signer`,
+          user,
+          timestamp: now,
+        };
+
+        appendAuditLog({
+          id: auditEntry.id,
+          recordType: 'investor',
+          recordId: invId,
+          action: auditEntry.action,
+          notes: auditEntry.detail,
+          user,
+          timestamp: now,
+        }).catch((err) => console.error('Audit log write-back failed:', err));
+
+        return {
+          positions: updatedPositions,
+          investors: newInvestors,
+          contactOverrides: updatedOverrides,
+          auditLog: [...state.auditLog, auditEntry],
+        };
+      }
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-name`,
+        invId,
+        action: 'Name Changed',
+        detail: `Name: "${oldName}" → "${newName}"`,
+        user,
+        timestamp: now,
+      };
+
+      appendAuditLog({
+        id: auditEntry.id,
+        recordType: 'investor',
+        recordId: invId,
+        action: auditEntry.action,
+        notes: auditEntry.detail,
+        user,
+        timestamp: now,
+      }).catch((err) => console.error('Audit log write-back failed:', err));
+
       return {
         positions: updatedPositions,
         investors: newInvestors,
