@@ -158,7 +158,8 @@ export default function Sales() {
 
   const subscriptions = useMemo(() => {
     // Get Fund II positions with active pipeline stages (not Accepted/Declined/New)
-    return positions
+    const posArr = Array.isArray(positions) ? positions : [];
+    return posArr
       .filter((p) => {
         if (!p.pipeline || !p.pipeline.stage) return false;
         const stage = p.pipeline.stage;
@@ -167,8 +168,8 @@ export default function Sales() {
         return true;
       })
       .map((p) => {
-        // Find the investor record for extra info
-        const inv = investors.find((i) => i.id === p.invId);
+        // Find the investor record for extra info (investors is a map keyed by invId)
+        const inv = investors?.[p.invId];
         const displayStage = p.pipeline.stage === 'Webform Sent' ? 'Pending' : p.pipeline.stage;
         const enteredDate = p.pipeline.enteredDate || p.pipeline.pendingDate || p.pipeline.webformSentDate;
         const signedCount = (p.signers || []).filter((s) => s.signed).length;
