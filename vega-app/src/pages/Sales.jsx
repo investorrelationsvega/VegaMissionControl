@@ -15,9 +15,11 @@ import useSalesStore, {
 } from '../stores/salesStore';
 import useSalesforceStore from '../stores/salesforceStore';
 import useUiStore from '../stores/uiStore';
+import useInvestorStore, { PIPELINE_STAGES, PIPELINE_STAGE_LABELS } from '../stores/investorStore';
 import useResponsive from '../hooks/useResponsive';
 import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
 import { startSalesforceAuth } from '../services/salesforceAuth';
+import PipelineTracker, { PipelineBadge } from '../components/PipelineTracker';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
 const USER = 'j@vegarei.com';
@@ -92,6 +94,11 @@ export default function Sales() {
   const sfEvents = useSalesforceStore((s) => s.events);
   const sfLastFetched = useSalesforceStore((s) => s.lastFetchedAt);
 
+  // ── Investor store (for subscriptions kanban) ───────────────────────────
+  const investors = useInvestorStore((s) => s.investors);
+  const positions = useInvestorStore((s) => s.positions);
+  const advancePipelineStage = useInvestorStore((s) => s.advancePipelineStage);
+
   // ── Tab / filter state ───────────────────────────────────────────────────
   const [tab, setTab] = useState('kpis');
   const [repFilter, setRepFilter] = useState('All');
@@ -144,6 +151,82 @@ export default function Sales() {
   const [showProspectModal, setShowProspectModal] = useState(false);
   const [showShipmentModal, setShowShipmentModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
+
+  // ── Subscription pipeline data ─────────────────────────────────────────
+  const SUB_STAGES = ['Pending', 'Webform Complete', 'DocuSign Out', 'Fully Executed', 'GP Countersign', 'Funded'];
+
+  const subscriptions = useMemo(() => {
+    // Get Fund II positions with active pipeline stages (not Accepted/Declined/New)
+    return positions
+      .filter((p) => {
+        if (!p.pipeline || !p.pipeline.stage) return false;
+        const stage = p.pipeline.stage;
+        if (stage === 'Accepted' || stage === 'Declined' || stage === 'New') return false;
+        // Map 'Webform Sent' to 'Pending' bucket for the kanban
+        return true;
+      })
+      .map((p) => {
+        // Find the investor record for extra info
+        const inv = investors.find((i) => i.id === p.invId);
+        const displayStage = p.pipeline.stage === 'Webform Sent' ? 'Pending' : p.pipeline.stage;
+        const enteredDate = p.pipeline.enteredDate || p.pipeline.pendingDate || p.pipeline.webformSentDate;
+        const signedCount = (p.signers || []).filter((s) => s.signed).length;
+        const totalSigners = (p.signers || []).length;
+        return {
+          positionId: p.id,
+          invId: p.invId,
+          name: p.name,
+          type: p.type || (inv?.types?.[0]) || '',
+          entity: p.entity || '',
+          stage: displayStage,
+          rawStage: p.pipeline.stage,
+          amount: p.amt || 0,
+          advisor: inv?.advisor || p.advisor || '',
+          email: inv?.email || p.email || '',
+          phone: inv?.phone || p.phone || '',
+          pipeline: p.pipeline,
+          signers: p.signers || [],
+          signedCount,
+          totalSigners,
+          enteredDate,
+          daysInStage: daysAgo(enteredDate),
+          fund: p.fund || 'Fund II',
+          contacts: inv?.contacts || [],
+        };
+      });
+  }, [positions, investors]);
+
+  const subsByStage = useMemo(() => {
+    const map = {};
+    SUB_STAGES.forEach((s) => { map[s] = []; });
+    subscriptions.forEach((sub) => {
+      if (map[sub.stage]) map[sub.stage].push(sub);
+    });
+    return map;
+  }, [subscriptions]);
+
+  const subMetrics = useMemo(() => {
+    const total = subscriptions.length;
+    const totalCapital = subscriptions.reduce((s, sub) => s + sub.amount, 0);
+    const stageCounts = {};
+    SUB_STAGES.forEach((stage) => {
+      stageCounts[stage] = (subsByStage[stage] || []).length;
+    });
+    // Avg days from Pending to Funded (only for Funded positions)
+    const funded = subscriptions.filter((s) => s.stage === 'Funded');
+    let avgDaysToFund = 0;
+    if (funded.length > 0) {
+      const totalDays = funded.reduce((s, f) => {
+        const start = f.pipeline.pendingDate || f.pipeline.webformSentDate || f.pipeline.enteredDate;
+        const end = f.pipeline.fundedDate;
+        if (start && end) return s + Math.round((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
+        return s;
+      }, 0);
+      avgDaysToFund = Math.round(totalDays / funded.length);
+    }
+    return { total, totalCapital, stageCounts, avgDaysToFund };
+  }, [subscriptions, subsByStage]);
 
   // ── KPI form state ───────────────────────────────────────────────────────
   const [kpiForm, setKpiForm] = useState({
@@ -346,6 +429,7 @@ export default function Sales() {
           { key: 'pipeline', label: `Pipeline (${prospects.length})` },
           { key: 'materials', label: `Materials (${shipments.length})` },
           { key: 'expenses', label: `Expenses (${expenses.length})` },
+          { key: 'subscriptions', label: `Subscriptions (${subscriptions.length})` },
         ].map((t, i, arr) => {
           const active = tab === t.key;
           return (
@@ -692,6 +776,157 @@ export default function Sales() {
       )}
 
       {/* ════════════════════════════════════════════════════
+          SUBSCRIPTIONS TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'subscriptions' && (
+        <>
+          {/* Subscription pipeline kanban columns */}
+          {subscriptions.length === 0 ? (
+            <div style={{ ...mono, fontSize: 12, color: 'var(--t5)', textAlign: 'center', padding: 48 }}>
+              No active subscriptions in the pipeline. Subscriptions appear here when investors submit the webform.
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${SUB_STAGES.length}, 1fr)`, gap: 8, marginBottom: 32, minWidth: SUB_STAGES.length * 180 }}>
+                  {SUB_STAGES.map((stage) => {
+                    const cards = subsByStage[stage] || [];
+                    const stageColor = stage === 'Funded' ? 'var(--grn)'
+                      : ['DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(stage) ? '#a855f7'
+                      : stage === 'Webform Complete' ? 'var(--blu)'
+                      : 'var(--ylw)';
+                    const stageCapital = cards.reduce((s, c) => s + c.amount, 0);
+                    return (
+                      <div key={stage} style={{ minWidth: 160 }}>
+                        {/* Column header */}
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: stageColor, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: stageColor, display: 'inline-block' }} />
+                            {PIPELINE_STAGE_LABELS[stage] || stage}
+                            <span style={{ color: 'var(--t5)' }}>({cards.length})</span>
+                          </div>
+                          {stageCapital > 0 && (
+                            <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginTop: 2, marginLeft: 12 }}>
+                              {fmtCurrency(stageCapital)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Cards */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {cards.map((sub) => (
+                            <div
+                              key={sub.positionId}
+                              onClick={() => setSelectedSubscription(sub)}
+                              style={{ background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px', fontSize: 12, cursor: 'pointer', transition: 'border-color 0.15s' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = stageColor; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bd)'; }}
+                            >
+                              {/* Name + type */}
+                              <div style={{ fontWeight: 500, color: 'var(--t1)', marginBottom: 3 }}>{sub.name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                                {sub.type && <TypeBadge type={sub.type} />}
+                                {sub.entity && (
+                                  <span style={{ ...mono, fontSize: 9, color: 'var(--t4)', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {sub.entity}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Capital commitment */}
+                              {sub.amount > 0 && (
+                                <div style={{ ...mono, fontSize: 11, fontWeight: 700, color: 'var(--grn)', marginBottom: 4 }}>
+                                  {fmtCurrency(sub.amount)}
+                                </div>
+                              )}
+
+                              {/* Advisor */}
+                              {sub.advisor && (
+                                <div style={{ ...mono, fontSize: 9, color: 'var(--t4)', marginBottom: 4 }}>
+                                  Advisor: {sub.advisor}
+                                </div>
+                              )}
+
+                              {/* Signer status for DocuSign stages */}
+                              {sub.totalSigners > 0 && ['DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(sub.stage) && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                                  {sub.signers.map((signer, idx) => (
+                                    <span
+                                      key={idx}
+                                      title={`${signer.name}: ${signer.signed ? 'Signed' : 'Pending'}`}
+                                      style={{
+                                        width: 8, height: 8, borderRadius: '50%',
+                                        background: signer.signed ? 'var(--grn)' : 'var(--ylw)',
+                                        border: `1px solid ${signer.signed ? 'rgba(52,211,153,0.4)' : 'rgba(251,191,36,0.4)'}`,
+                                      }}
+                                    />
+                                  ))}
+                                  <span style={{ ...mono, fontSize: 9, color: sub.signedCount === sub.totalSigners ? 'var(--grn)' : 'var(--ylw)' }}>
+                                    {sub.signedCount}/{sub.totalSigners}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Days in stage + advance */}
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+                                <span style={{ ...mono, fontSize: 9, color: sub.daysInStage > 14 ? 'var(--ylw)' : 'var(--t5)' }}>
+                                  {sub.daysInStage}d in stage
+                                </span>
+                                {stage !== 'Funded' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const idx = SUB_STAGES.indexOf(stage);
+                                      if (idx < SUB_STAGES.length - 1) {
+                                        advancePipelineStage(sub.positionId, SUB_STAGES[idx + 1], USER);
+                                        showToast(`${sub.name} → ${PIPELINE_STAGE_LABELS[SUB_STAGES[idx + 1]] || SUB_STAGES[idx + 1]}`);
+                                      }
+                                    }}
+                                    style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
+                                  >
+                                    Advance ▸
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pipeline Summary Metrics */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: 20, marginTop: 8 }}>
+                <div style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 16 }}>
+                  Subscription Pipeline
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
+                  <MetricCard label="In-Flight Subscriptions" value={subMetrics.total} />
+                  <MetricCard label="Capital in Pipeline" value={fmtCurrency(subMetrics.totalCapital)} color="var(--grn)" />
+                  <MetricCard label="Funded" value={subMetrics.stageCounts['Funded'] || 0} color="var(--grn)" />
+                  <MetricCard label="Avg Days to Fund" value={subMetrics.avgDaysToFund > 0 ? `${subMetrics.avgDaysToFund}d` : '-'} />
+                </div>
+
+                {/* Per-stage counts */}
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ ...mono, fontSize: 10, fontWeight: 700, color: 'var(--t5)', marginBottom: 8 }}>PER STAGE</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {SUB_STAGES.map((stage) => (
+                      <div key={stage} style={{ ...mono, fontSize: 10, color: 'var(--t4)', padding: '4px 10px', background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 4 }}>
+                        {PIPELINE_STAGE_LABELS[stage] || stage}: <span style={{ color: (subMetrics.stageCounts[stage] || 0) > 0 ? 'var(--t1)' : 'var(--t5)', fontWeight: 700 }}>{subMetrics.stageCounts[stage] || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ════════════════════════════════════════════════════
           MODALS
           ════════════════════════════════════════════════════ */}
 
@@ -817,6 +1052,112 @@ export default function Sales() {
             <FormField label="Notes" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} textarea />
           </div>
         </Modal>
+      )}
+
+      {/* ── Subscription Detail Modal ─────────────────────── */}
+      {selectedSubscription && (
+        <div onClick={() => setSelectedSubscription(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg1)', border: '1px solid var(--bdH)', borderRadius: 10, width: isMobile ? 'calc(100vw - 32px)' : 540, maxWidth: '100vw', maxHeight: '85vh', overflow: 'auto', boxShadow: '0 16px 64px rgba(0,0,0,0.8)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--bd)' }}>
+              <div>
+                <span style={{ ...mono, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--grn)' }}>
+                  Subscription Detail
+                </span>
+                <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginLeft: 10 }}>{selectedSubscription.positionId}</span>
+              </div>
+              <button onClick={() => setSelectedSubscription(null)} style={{ background: 'none', border: 'none', color: 'var(--t4)', cursor: 'pointer', fontSize: 18 }}>✕</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 20 }}>
+              {/* Investor info */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--t1)', marginBottom: 4 }}>{selectedSubscription.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {selectedSubscription.type && <TypeBadge type={selectedSubscription.type} />}
+                  {selectedSubscription.entity && (
+                    <span style={{ ...mono, fontSize: 10, color: 'var(--t3)' }}>{selectedSubscription.entity}</span>
+                  )}
+                  <span style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{selectedSubscription.fund}</span>
+                </div>
+              </div>
+
+              {/* Key details grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: 'rgba(30,58,64,0.5)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+                  <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)', marginBottom: 4 }}>Capital Commitment</div>
+                  <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: 'var(--grn)' }}>{fmtCurrency(selectedSubscription.amount)}</div>
+                </div>
+                <div style={{ background: 'rgba(30,58,64,0.5)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+                  <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)', marginBottom: 4 }}>Days in Stage</div>
+                  <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: selectedSubscription.daysInStage > 14 ? 'var(--ylw)' : 'var(--t1)' }}>{selectedSubscription.daysInStage}d</div>
+                </div>
+              </div>
+
+              {/* Contact info */}
+              <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+                {selectedSubscription.email && (
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--blu)' }}>
+                    {selectedSubscription.email}
+                  </div>
+                )}
+                {selectedSubscription.phone && (
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--t3)' }}>
+                    {selectedSubscription.phone}
+                  </div>
+                )}
+                {selectedSubscription.advisor && (
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>
+                    Advisor: {selectedSubscription.advisor}
+                  </div>
+                )}
+              </div>
+
+              {/* Pipeline tracker */}
+              <PipelineTracker pipeline={selectedSubscription.pipeline} signers={selectedSubscription.signers} />
+
+              {/* Quick actions */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--bd)' }}>
+                {selectedSubscription.stage !== 'Funded' && (
+                  <button
+                    onClick={() => {
+                      const idx = SUB_STAGES.indexOf(selectedSubscription.stage);
+                      if (idx < SUB_STAGES.length - 1) {
+                        advancePipelineStage(selectedSubscription.positionId, SUB_STAGES[idx + 1], USER);
+                        showToast(`${selectedSubscription.name} → ${PIPELINE_STAGE_LABELS[SUB_STAGES[idx + 1]] || SUB_STAGES[idx + 1]}`);
+                        setSelectedSubscription(null);
+                      }
+                    }}
+                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                  >
+                    Advance Stage ▸
+                  </button>
+                )}
+                {selectedSubscription.email && (
+                  <button
+                    onClick={() => {
+                      window.open(`mailto:${selectedSubscription.email}`, '_blank');
+                    }}
+                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.08)', color: 'var(--blu)', borderRadius: 4, cursor: 'pointer' }}
+                  >
+                    Send Email
+                  </button>
+                )}
+                {selectedSubscription.phone && (
+                  <button
+                    onClick={() => {
+                      window.open(`tel:${selectedSubscription.phone}`, '_blank');
+                    }}
+                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t3)', borderRadius: 4, cursor: 'pointer' }}
+                  >
+                    Call
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
