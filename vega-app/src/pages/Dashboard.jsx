@@ -13,6 +13,7 @@ import useGoogleStore from '../stores/googleStore';
 import { fetchUpcomingEvents } from '../services/calendarService';
 import { fmt, fmtK } from '../utils/format';
 import DriveDocuments from '../components/DriveDocuments';
+import UpcomingDetailModal from '../components/UpcomingDetailModal';
 import useResponsive from '../hooks/useResponsive';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editDates, setEditDates] = useState([]);
   const [hoveredNav, setHoveredNav] = useState(null);
+  const [selectedUpcoming, setSelectedUpcoming] = useState(null);
 
   const trackRef = useRef(null);
 
@@ -390,10 +392,13 @@ export default function Dashboard() {
           {displayDates.map((item) => (
             <div
               key={item.id}
+              onClick={() => setSelectedUpcoming(item)}
               style={{
                 background: 'var(--bgM3)',
                 borderRadius: 6,
                 padding: '12px 16px',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -750,6 +755,14 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Upcoming Detail Modal ──────────────────────────── */}
+      {selectedUpcoming && (
+        <UpcomingDetailModal
+          item={selectedUpcoming}
+          onClose={() => setSelectedUpcoming(null)}
+        />
       )}
     </div>
   );

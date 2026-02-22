@@ -163,6 +163,57 @@ function sheetSubIdToApp(sheetId) {
   return isNaN(num) ? sheetId : `S${String(num).padStart(2, '0')}`;
 }
 
+// ---------------------------------------------------------------------------
+// Doc type normalization: Maps common variations to canonical DOC_TYPES
+// used in the Compliance page chart
+// ---------------------------------------------------------------------------
+const DOC_TYPE_MAP = {
+  'investor questionnaire': 'Investor Questionnaire',
+  'iq': 'Investor Questionnaire',
+  'questionnaire': 'Investor Questionnaire',
+  'partnership agreement': 'Partnership Agreement',
+  'lpa': 'Partnership Agreement',
+  'lp agreement': 'Partnership Agreement',
+  'w-9': 'W-9',
+  'w9': 'W-9',
+  'subscription agreement': 'Subscription Agreement',
+  'sub agreement': 'Subscription Agreement',
+  'sub doc': 'Subscription Agreement',
+  'subdoc': 'Subscription Agreement',
+  'subscription': 'Subscription Agreement',
+  'schedule a': 'Schedule A',
+  'gp signature': 'GP Signature',
+  'gp sig': 'GP Signature',
+  'general': 'General',
+};
+
+function normalizeDocType(raw, issue) {
+  if (!raw) return 'General';
+  const lower = raw.toLowerCase().trim();
+  const mapped = DOC_TYPE_MAP[lower] || raw;
+
+  // When type is a catch-all like "subdoc", use the issue text to classify
+  if (mapped === 'Subscription Agreement' && issue) {
+    const issueLower = issue.toLowerCase();
+    // W-9 / CNSF issues
+    if (/\bw[- ]?9\b|\bcnsf\b/.test(issueLower)) return 'W-9';
+    // Partnership Agreement issues
+    if (/\bpartnership\b.*\b(agreement|signature)\b|\bsign.*partnership\b/.test(issueLower)) return 'Partnership Agreement';
+    // GP Signature issues
+    if (/\bcory\b.*\bsign(ature|ed)?\b|\bgp\b.*\bsign/.test(issueLower)) return 'GP Signature';
+    // Schedule A issues
+    if (/\bschedule\s*a\b/.test(issueLower)) return 'Schedule A';
+    // Investor Questionnaire issues (Part II, Part III, Part V, questionnaire, section)
+    if (/\bpart\s+(ii|iii|iv|v)\b|\bquestionnaire\b|\bsection\b|\bq\d/.test(issueLower)) return 'Investor Questionnaire';
+    // Trust Certificate / general document issues
+    if (/\btrust\s*certificate\b/.test(issueLower)) return 'General';
+    // Subscription Agreement issues (signature on sub ag, printed name, entity block)
+    if (/\bsub\s*ag\b|\bsubscription\b|\bsignature\s*(page|missing|needed)\b|\bprinted\s*name\b|\bentity\s*block\b|\btitle\b/.test(issueLower)) return 'Subscription Agreement';
+  }
+
+  return mapped;
+}
+
 /** Map app subscription id (S01) to sheet format (SUB001) */
 function appSubIdToSheet(appId) {
   if (!appId) return '';
@@ -309,7 +360,7 @@ export async function fetchAllSheetData() {
       name: String(row.name || '').trim(),
       entity: '',
       fund: normalizeFund(row.fund),
-      doc: String(row.type || '').trim(),
+      doc: normalizeDocType(String(row.type || '').trim(), String(row.issue || '').trim()),
       issue: String(row.issue || '').trim(),
       status: String(row.status || 'open').trim() === 'resolved' ? 'Resolved'
         : String(row.status || 'open').trim() === 'in-progress' ? 'Open'

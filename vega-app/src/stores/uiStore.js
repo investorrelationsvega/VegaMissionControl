@@ -99,6 +99,107 @@ const useUiStore = create(
       upcomingDates: state.upcomingDates.filter((d) => d.id !== id),
     })),
 
+  // ── Upcoming Item Mutations + Audit Log ────────────────────────────────
+  upcomingAuditLog: [],
+
+  updateUpcomingItem: (id, changes) =>
+    set((state) => {
+      const prev = state.upcomingDates.find((d) => d.id === id);
+      const updated = state.upcomingDates.map((d) =>
+        d.id === id ? { ...d, ...changes } : d
+      );
+      const entries = [];
+      Object.keys(changes).forEach((key) => {
+        if (prev && prev[key] !== changes[key] && key !== 'notes' && key !== 'documents') {
+          entries.push({
+            id: `UA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            itemId: id,
+            action: 'edit',
+            detail: `Changed ${key}: "${prev[key] || '(empty)'}" → "${changes[key]}"`,
+            user: 'j@vegarei.com',
+            timestamp: new Date().toISOString(),
+          });
+        }
+      });
+      return {
+        upcomingDates: updated,
+        upcomingAuditLog: [...entries, ...state.upcomingAuditLog],
+      };
+    }),
+
+  addUpcomingNote: (itemId, text) =>
+    set((state) => {
+      const note = {
+        id: `UN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        text,
+        user: 'j@vegarei.com',
+        timestamp: new Date().toISOString(),
+      };
+      const auditEntry = {
+        id: `UA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        itemId,
+        action: 'note',
+        detail: `Added note: "${text.slice(0, 60)}${text.length > 60 ? '...' : ''}"`,
+        user: 'j@vegarei.com',
+        timestamp: new Date().toISOString(),
+      };
+      return {
+        upcomingDates: state.upcomingDates.map((d) =>
+          d.id === itemId ? { ...d, notes: [...(d.notes || []), note] } : d
+        ),
+        upcomingAuditLog: [auditEntry, ...state.upcomingAuditLog],
+      };
+    }),
+
+  addUpcomingDocument: (itemId, docMeta) =>
+    set((state) => {
+      const doc = {
+        ...docMeta,
+        id: `UD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        uploadedBy: 'j@vegarei.com',
+        uploadedAt: new Date().toISOString(),
+      };
+      const auditEntry = {
+        id: `UA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        itemId,
+        action: 'upload',
+        detail: `Uploaded document: "${docMeta.name}"`,
+        user: 'j@vegarei.com',
+        timestamp: new Date().toISOString(),
+      };
+      return {
+        upcomingDates: state.upcomingDates.map((d) =>
+          d.id === itemId ? { ...d, documents: [...(d.documents || []), doc] } : d
+        ),
+        upcomingAuditLog: [auditEntry, ...state.upcomingAuditLog],
+      };
+    }),
+
+  removeUpcomingDocument: (itemId, docId) =>
+    set((state) => {
+      const existingDoc = state.upcomingDates
+        .find((d) => d.id === itemId)?.documents?.find((d) => d.id === docId);
+      const auditEntry = {
+        id: `UA-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        itemId,
+        action: 'remove_doc',
+        detail: `Removed document: "${existingDoc?.name || docId}"`,
+        user: 'j@vegarei.com',
+        timestamp: new Date().toISOString(),
+      };
+      return {
+        upcomingDates: state.upcomingDates.map((d) =>
+          d.id === itemId
+            ? { ...d, documents: (d.documents || []).filter((doc) => doc.id !== docId) }
+            : d
+        ),
+        upcomingAuditLog: [auditEntry, ...state.upcomingAuditLog],
+      };
+    }),
+
+  getAuditLogForItem: (itemId) =>
+    get().upcomingAuditLog.filter((e) => e.itemId === itemId),
+
   // ── Calendar Sync ─────────────────────────────────────────────────────
   calendarEvents: [],
   calendarSyncStatus: 'idle', // 'idle' | 'syncing' | 'synced' | 'error'
@@ -189,10 +290,11 @@ const useUiStore = create(
     }),
     {
       name: 'vega-ui-store',
-      version: 1,
+      version: 2,
       partialize: (state) => ({
         attentionItems: state.attentionItems,
         upcomingDates: state.upcomingDates,
+        upcomingAuditLog: state.upcomingAuditLog,
         quickLinks: state.quickLinks,
         notifications: state.notifications,
         sidebarOpen: state.sidebarOpen,

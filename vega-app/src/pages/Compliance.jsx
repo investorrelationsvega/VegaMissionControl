@@ -24,6 +24,45 @@ const DOC_TYPES = [
   'General',
 ]
 
+// Normalize doc type values from Sheets (handles case mismatches, abbreviations)
+const DOC_TYPE_NORM = {
+  'investor questionnaire': 'Investor Questionnaire',
+  'iq': 'Investor Questionnaire',
+  'questionnaire': 'Investor Questionnaire',
+  'partnership agreement': 'Partnership Agreement',
+  'lpa': 'Partnership Agreement',
+  'lp agreement': 'Partnership Agreement',
+  'w-9': 'W-9',
+  'w9': 'W-9',
+  'subscription agreement': 'Subscription Agreement',
+  'sub agreement': 'Subscription Agreement',
+  'sub doc': 'Subscription Agreement',
+  'subdoc': 'Subscription Agreement',
+  'subscription': 'Subscription Agreement',
+  'schedule a': 'Schedule A',
+  'gp signature': 'GP Signature',
+  'gp sig': 'GP Signature',
+  'general': 'General',
+}
+const normalizeDoc = (raw, issue) => {
+  if (!raw) return 'General'
+  const mapped = DOC_TYPE_NORM[raw.toLowerCase().trim()] || raw
+
+  // When type is a catch-all like "subdoc", use the issue text to classify
+  if (mapped === 'Subscription Agreement' && issue) {
+    const issueLower = issue.toLowerCase()
+    if (/\bw[- ]?9\b|\bcnsf\b/.test(issueLower)) return 'W-9'
+    if (/\bpartnership\b.*\b(agreement|signature)\b|\bsign.*partnership\b/.test(issueLower)) return 'Partnership Agreement'
+    if (/\bcory\b.*\bsign(ature|ed)?\b|\bgp\b.*\bsign/.test(issueLower)) return 'GP Signature'
+    if (/\bschedule\s*a\b/.test(issueLower)) return 'Schedule A'
+    if (/\bpart\s+(ii|iii|iv|v)\b|\bquestionnaire\b|\bsection\b|\bq\d/.test(issueLower)) return 'Investor Questionnaire'
+    if (/\btrust\s*certificate\b/.test(issueLower)) return 'General'
+    if (/\bsub\s*ag\b|\bsubscription\b|\bsignature\s*(page|missing|needed)\b|\bprinted\s*name\b|\bentity\s*block\b|\btitle\b/.test(issueLower)) return 'Subscription Agreement'
+  }
+
+  return mapped
+}
+
 const DOC_TYPE_COLORS = {
   'Investor Questionnaire': 'var(--blu)',
   'Partnership Agreement': 'var(--ylw)',
@@ -81,7 +120,7 @@ export default function Compliance() {
   const docTypeCounts = useMemo(() => {
     const counts = {}
     DOC_TYPES.forEach((dt) => {
-      counts[dt] = items.filter((i) => i.doc === dt && i.status === 'Open').length
+      counts[dt] = items.filter((i) => normalizeDoc(i.doc, i.issue) === dt && i.status === 'Open').length
     })
     return counts
   }, [items])
@@ -99,7 +138,7 @@ export default function Compliance() {
       list = list.filter((i) => i.name.toLowerCase().includes(q))
     }
     if (docFilter !== 'All') {
-      list = list.filter((i) => i.doc === docFilter)
+      list = list.filter((i) => normalizeDoc(i.doc, i.issue) === docFilter)
     }
     if (statusFilter !== 'All') {
       list = list.filter((i) => i.status === statusFilter)
@@ -829,13 +868,13 @@ export default function Compliance() {
                                 fontSize: 10,
                                 fontWeight: 700,
                                 textTransform: 'uppercase',
-                                color: DOC_TYPE_COLORS[item.doc] || 'var(--t4)',
+                                color: DOC_TYPE_COLORS[normalizeDoc(item.doc, item.issue)] || 'var(--t4)',
                                 padding: '2px 6px',
                                 borderRadius: 3,
-                                background: `color-mix(in srgb, ${DOC_TYPE_COLORS[item.doc] || 'var(--t4)'} 15%, transparent)`,
+                                background: `color-mix(in srgb, ${DOC_TYPE_COLORS[normalizeDoc(item.doc, item.issue)] || 'var(--t4)'} 15%, transparent)`,
                               }}
                             >
-                              {item.doc}
+                              {normalizeDoc(item.doc, item.issue)}
                             </span>
                             {isBlocking && isOpen && (
                               <span className="badge badge-red" style={{ fontSize: 9, padding: '1px 6px' }}>Blocking</span>
