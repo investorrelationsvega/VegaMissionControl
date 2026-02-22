@@ -217,7 +217,6 @@ export async function fetchAllSheetData() {
     `${TABS.COMPLIANCE}!A1:H100`,
     `${TABS.DISTRIBUTIONS}!A1:I100`,
     `${TABS.REFERENCE}!A1:G20`,
-    `${TABS.TIC}!A1:G50`,
     `${TABS.SUBSCRIPTIONS}!A1:L200`,
   ];
 
@@ -228,8 +227,8 @@ export async function fetchAllSheetData() {
   const complianceRows = rowsToObjects(results[2]?.values || []);
   const distributionRows = rowsToObjects(results[3]?.values || []);
   const referenceRows = results[4]?.values || [];
-  const ticRows = rowsToObjects(results[5]?.values || []);
-  const subscriptionRows = rowsToObjects(results[6]?.values || []);
+  const subscriptionRows = rowsToObjects(results[5]?.values || []);
+  const ticRows = []; // TIC_Properties tab not in sheet — seed data used as fallback
 
   // Build a lookup of investor data from the Investors tab
   const investorLookup = {};
