@@ -810,6 +810,30 @@ export async function ensureSubscriptionsTab() {
       ]]);
       console.log('[Sheets] Added Subscriptions header row');
     }
+
+    // Backfill: if no data rows exist, seed existing Fund II positions
+    const dataCheck = await readRange(`${TABS.SUBSCRIPTIONS}!A2:A10`);
+    if (!dataCheck.length || !dataCheck[0]?.length) {
+      console.log('[Sheets] Seeding Jeremiah Post subscription row...');
+      await appendRows(`${TABS.SUBSCRIPTIONS}!A:L`, [[
+        'SUB001',
+        'POS007',
+        'INV007',
+        'DocuSign Out',
+        '', // docusign_envelope_id
+        'direct',
+        JSON.stringify([
+          { name: 'Jeremiah Post', role: 'LP', email: 'jer@solidrenovationcompany.com', signed: true, signedDate: '2026-01-28' },
+          { name: 'Cory Waddoups', role: 'GP', email: 'cory@vegarei.com', signed: false, signedDate: null },
+        ]),
+        JSON.stringify({ pendingDate: '2026-01-20', webformCompleteDate: '2026-01-22', docusignSentDate: '2026-01-28' }),
+        '', // declined_reason
+        '2026-01-20T00:00:00.000Z',
+        new Date().toISOString(),
+        'Backfilled from seed data. $100K Individual, Fund II.',
+      ]]);
+      console.log('[Sheets] Seeded SUB001 for Jeremiah Post');
+    }
   } catch (err) {
     console.warn('[Sheets] Subscriptions tab not found (will use store data):', err.message);
   }
