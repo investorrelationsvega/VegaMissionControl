@@ -66,11 +66,11 @@
   --redM: rgba(229,62,62,0.08);
   --blu: #3182ce;
   --bluM: rgba(49,130,206,0.08);
-  --bgS: rgba(0,0,0,0.03);
-  --bgM: rgba(0,0,0,0.06);
-  --bgM3: rgba(0,0,0,0.04);
-  --bdS: rgba(0,0,0,0.08);
-  --bdS2: rgba(0,0,0,0.05);
+  --bgS: rgba(0,0,0,0.025);
+  --bgM: rgba(0,0,0,0.035);
+  --bgM3: rgba(0,0,0,0.025);
+  --bdS: rgba(0,0,0,0.06);
+  --bdS2: rgba(0,0,0,0.04);
 }
 [data-theme="light"] .btn-primary { color: #fff; }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c0c8d0; }
