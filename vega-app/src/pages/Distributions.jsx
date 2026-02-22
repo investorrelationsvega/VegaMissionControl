@@ -13,6 +13,7 @@ import useFundStore from '../stores/fundStore'
 import useTicStore from '../stores/ticStore'
 import useUiStore from '../stores/uiStore'
 import { fmt, fmtK } from '../utils/format'
+import DistributionKpis from '../components/DistributionKpis'
 
 // ── Inline style helpers ─────────────────────────────────────────────────────
 const mono = { fontFamily: "'Space Mono', monospace" }
@@ -27,7 +28,7 @@ function MethodBadge({ method }) {
     bg = 'var(--ylwM)'
     color = 'var(--ylw)'
   } else {
-    bg = 'rgba(52,92,99,0.5)'
+    bg = 'var(--bgM)'
     color = 'var(--t3)'
   }
   return (
@@ -133,6 +134,7 @@ export default function Distributions() {
   const showToast = useUiStore((s) => s.showToast)
 
   // ── State ───────────────────────────────────
+  const [distTab, setDistTab] = useState('distributions')
   const [selectedPeriod, setSelectedPeriod] = useState(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [editingPayment, setEditingPayment] = useState(null)
@@ -438,6 +440,44 @@ export default function Distributions() {
         <p className="page-subtitle">Payment Management</p>
       </div>
 
+      {/* ── Section Tabs ─────────────────────────── */}
+      <div style={{ display: 'flex', marginBottom: 24 }}>
+        {[
+          { key: 'distributions', label: 'Distributions', radius: '4px 0 0 4px' },
+          { key: 'kpis', label: 'KPIs', radius: '0 4px 4px 0' },
+        ].map((tab) => {
+          const active = distTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setDistTab(tab.key)}
+              style={{
+                ...mono,
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '10px 24px',
+                border: '1px solid',
+                borderColor: active ? 'rgba(52,211,153,0.5)' : 'var(--bd)',
+                borderLeft: tab.key === 'kpis' ? 'none' : undefined,
+                borderRadius: tab.radius,
+                background: active ? 'rgba(52,211,153,0.1)' : 'transparent',
+                color: active ? 'var(--grn)' : 'var(--t4)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── KPI Tab ──────────────────────────────── */}
+      {distTab === 'kpis' && <DistributionKpis />}
+
+      {/* ── Distributions Tab ────────────────────── */}
+      {distTab === 'distributions' && (<>
+
       {/* ── New Investor Flags ─────────────────── */}
       {pendingFlags.length > 0 && (
         <div
@@ -614,7 +654,7 @@ export default function Distributions() {
               <div
                 key={prop.name}
                 style={{
-                  background: 'rgba(52,92,99,0.3)',
+                  background: 'var(--bgM3)',
                   borderRadius: 4,
                   padding: '8px 12px',
                   minWidth: 120,
@@ -648,7 +688,7 @@ export default function Distributions() {
           <div
             key={i}
             style={{
-              background: 'rgba(30,58,64,0.5)',
+              background: 'var(--bgS)',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               padding: '14px 18px',
@@ -1057,7 +1097,7 @@ export default function Distributions() {
                           display: 'flex',
                           gap: 12,
                           padding: '6px 0',
-                          borderBottom: '1px solid rgba(52,92,99,0.2)',
+                          borderBottom: '1px solid var(--bdS)',
                           fontSize: 12,
                         }}
                       >
@@ -1424,6 +1464,8 @@ export default function Distributions() {
           </div>
         </div>
       )}
+
+      </>)}
     </div>
   )
 }

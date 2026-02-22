@@ -185,7 +185,7 @@ export default function Tasks() {
           <div
             key={i}
             style={{
-              background: 'rgba(30,58,64,0.5)',
+              background: 'var(--bgS)',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               padding: '14px 18px',

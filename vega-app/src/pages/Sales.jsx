@@ -21,6 +21,7 @@ import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesfo
 import { startSalesforceAuth } from '../services/salesforceAuth';
 import PipelineTracker, { PipelineBadge } from '../components/PipelineTracker';
 import useGoogleStore from '../stores/googleStore';
+import SalesOpsKpis from '../components/SalesOpsKpis';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
 const displayName = (email, currentUserEmail, currentUserName) => {
@@ -110,7 +111,7 @@ export default function Sales() {
   const USER = googleUserEmail || 'j@vegarei.com';
 
   // ── Tab / filter state ───────────────────────────────────────────────────
-  const [tab, setTab] = useState('kpis');
+  const [tab, setTab] = useState('activity');
   const [repFilter, setRepFilter] = useState('All');
   const [periodType, setPeriodType] = useState('weekly');
 
@@ -437,12 +438,13 @@ export default function Sales() {
       {/* ── Main Tabs ────────────────────────────────────── */}
       <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: 24 }}>
         {[
-          { key: 'kpis', label: 'KPIs' },
           { key: 'activity', label: `Activity (${callNotes.length})` },
           { key: 'pipeline', label: `Pipeline (${prospects.length})` },
           { key: 'materials', label: `Materials (${shipments.length})` },
           { key: 'expenses', label: `Expenses (${expenses.length})` },
           { key: 'subscriptions', label: `Subscriptions (${subscriptions.length})` },
+          { key: 'kpis', label: 'National Sales KPIs' },
+          { key: 'salesops', label: 'Sales Ops KPIs' },
         ].map((t, i, arr) => {
           const active = tab === t.key;
           return (
@@ -711,7 +713,7 @@ export default function Sales() {
               </div>
               {/* Rows */}
               {shipments.map((s) => (
-                <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid rgba(52,92,99,0.2)', fontSize: 12, color: 'var(--t2)' }}>
+                <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid var(--bdS)', fontSize: 12, color: 'var(--t2)' }}>
                   <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{fmtDate(s.date)}</div>
                   <div>{s.recipient}</div>
                   <div style={{ color: 'var(--t4)' }}>{s.recipientFirm || '-'}</div>
@@ -774,7 +776,7 @@ export default function Sales() {
                   ))}
                 </div>
                 {filtered.map((e) => (
-                  <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '80px 100px 1fr 100px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid rgba(52,92,99,0.2)', fontSize: 12, color: 'var(--t2)' }}>
+                  <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '80px 100px 1fr 100px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid var(--bdS)', fontSize: 12, color: 'var(--t2)' }}>
                     <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{fmtDate(e.date)}</div>
                     <div style={{ ...mono, fontSize: 10, textTransform: 'capitalize', color: 'var(--t3)' }}>{e.category}</div>
                     <div>{e.description}</div>
@@ -951,6 +953,11 @@ export default function Sales() {
       )}
 
       {/* ════════════════════════════════════════════════════
+          SALES OPS KPI TAB
+          ════════════════════════════════════════════════════ */}
+      {tab === 'salesops' && <SalesOpsKpis />}
+
+      {/* ════════════════════════════════════════════════════
           MODALS
           ════════════════════════════════════════════════════ */}
 
@@ -1109,11 +1116,11 @@ export default function Sales() {
 
               {/* Key details grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-                <div style={{ background: 'rgba(30,58,64,0.5)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+                <div style={{ background: 'var(--bgS)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
                   <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)', marginBottom: 4 }}>Capital Commitment</div>
                   <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: 'var(--grn)' }}>{fmtCurrency(selectedSubscription.amount)}</div>
                 </div>
-                <div style={{ background: 'rgba(30,58,64,0.5)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
+                <div style={{ background: 'var(--bgS)', border: '1px solid var(--bd)', borderRadius: 6, padding: '10px 12px' }}>
                   <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)', marginBottom: 4 }}>Days in Stage</div>
                   <div style={{ ...mono, fontSize: 16, fontWeight: 700, color: selectedSubscription.daysInStage > 14 ? 'var(--ylw)' : 'var(--t1)' }}>{selectedSubscription.daysInStage}d</div>
                 </div>
@@ -1278,7 +1285,7 @@ function RepBadge({ rep }) {
 
 function TypeBadge({ type }) {
   return (
-    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--t4)', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.3)' }}>
+    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--t4)', padding: '2px 6px', borderRadius: 3, background: 'var(--bgM3)' }}>
       {type}
     </span>
   );

@@ -391,7 +391,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
                             alignItems: 'flex-start',
                             gap: 10,
                             padding: '8px 12px',
-                            borderBottom: '1px solid rgba(52,92,99,0.3)',
+                            borderBottom: '1px solid var(--bgM3)',
                             cursor: 'pointer',
                             transition: 'background 0.1s',
                           }}
@@ -573,7 +573,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
               key={entry.id}
               style={{
                 padding: '6px 0',
-                borderBottom: '1px solid rgba(52,92,99,0.2)',
+                borderBottom: '1px solid var(--bdS)',
                 fontSize: 12,
               }}
             >

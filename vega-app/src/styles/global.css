@@ -32,7 +32,49 @@
   --redM: rgba(250,144,144,0.15);
   --blu: #75b1fb;
   --bluM: rgba(117,177,251,0.15);
+  --bgS: rgba(30,58,64,0.5);
+  --bgM: rgba(52,92,99,0.5);
+  --bgM3: rgba(52,92,99,0.3);
+  --bdS: rgba(52,92,99,0.2);
+  --bdS2: rgba(52,92,99,0.15);
 }
+
+/* ═══════════════════════════════════════════════
+   LIGHT THEME
+   ═══════════════════════════════════════════════ */
+[data-theme="light"] {
+  --bg0: #f8f9fb;
+  --bg1: #ffffff;
+  --bg2: #f1f3f5;
+  --bgH: #e9ecef;
+  --bgI: rgba(0,0,0,0.03);
+  --bg-card-half: rgba(255,255,255,0.8);
+  --bd: #dce1e6;
+  --bdH: #c0c8d0;
+  --t1: #1a1f2b;
+  --t2: #2d3748;
+  --t3: #4a5568;
+  --t4: #718096;
+  --t5: #a0aec0;
+  --grn: #0d9668;
+  --grnM: rgba(13,150,104,0.1);
+  --grnB: rgba(13,150,104,0.3);
+  --ylw: #d69e00;
+  --ylwM: rgba(214,158,0,0.1);
+  --ylwB: rgba(214,158,0,0.2);
+  --red: #e53e3e;
+  --redM: rgba(229,62,62,0.08);
+  --blu: #3182ce;
+  --bluM: rgba(49,130,206,0.08);
+  --bgS: rgba(0,0,0,0.03);
+  --bgM: rgba(0,0,0,0.06);
+  --bgM3: rgba(0,0,0,0.04);
+  --bdS: rgba(0,0,0,0.08);
+  --bdS2: rgba(0,0,0,0.05);
+}
+[data-theme="light"] .btn-primary { color: #fff; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c0c8d0; }
+[data-theme="light"] ::selection { background: rgba(13,150,104,0.2); }
 
 body {
   font-family: 'Akzidenz', 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -185,8 +227,8 @@ body {
 .badge-yellow { background: var(--ylwM); color: var(--ylw); }
 .badge-red { background: var(--redM); color: var(--red); }
 .badge-blue { background: var(--bluM); color: var(--blu); }
-.badge-muted { background: rgba(52,92,99,0.5); color: var(--t3); }
-.badge-closed { background: rgba(52,92,99,0.5); color: var(--t3); }
+.badge-muted { background: var(--bgM); color: var(--t3); }
+.badge-closed { background: var(--bgM); color: var(--t3); }
 .badge-open { background: var(--grnM); color: var(--grn); }
 .badge-pending { background: var(--ylwM); color: var(--ylw); }
 
@@ -417,7 +459,7 @@ th {
 td {
   font-size: 13px;
   padding: 10px;
-  border-bottom: 1px solid rgba(52,92,99,0.3);
+  border-bottom: 1px solid var(--bgM3);
   color: var(--t2);
 }
 th.right, td.right { text-align: right; }

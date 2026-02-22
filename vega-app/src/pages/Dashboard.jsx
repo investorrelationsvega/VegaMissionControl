@@ -391,7 +391,7 @@ export default function Dashboard() {
             <div
               key={item.id}
               style={{
-                background: 'rgba(52,92,99,0.3)',
+                background: 'var(--bgM3)',
                 borderRadius: 6,
                 padding: '12px 16px',
               }}
@@ -423,7 +423,7 @@ export default function Dashboard() {
                       textTransform: 'uppercase',
                       padding: '2px 6px',
                       borderRadius: 3,
-                      background: 'rgba(52,92,99,0.5)',
+                      background: 'var(--bgM)',
                       color: 'var(--t4)',
                     }}>
                       {item.secondary.split('@')[0]}
@@ -436,7 +436,7 @@ export default function Dashboard() {
           {overflowCount > 0 && (
             <div
               style={{
-                background: 'rgba(52,92,99,0.3)',
+                background: 'var(--bgM3)',
                 borderRadius: 6,
                 padding: '12px 16px',
                 display: 'flex',

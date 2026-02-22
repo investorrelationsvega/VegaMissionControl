@@ -23,6 +23,7 @@ import EmailComposeDialog from '../components/EmailComposeDialog'
 import { PipelineBadge, NewBadge } from '../components/PipelineTracker'
 import PipelineTracker from '../components/PipelineTracker'
 import { PIPELINE_STAGES } from '../stores/investorStore'
+import DirectoryKpis from '../components/DirectoryKpis'
 import useResponsive from '../hooks/useResponsive'
 
 // ── Inline style helpers ─────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ function MethodBadge({ method }) {
     bg = 'var(--ylwM)'
     color = 'var(--ylw)'
   } else {
-    bg = 'rgba(52,92,99,0.5)'
+    bg = 'var(--bgM)'
     color = 'var(--t3)'
   }
   return (
@@ -604,7 +605,8 @@ export default function Directory() {
         {[
           { key: 'investors', label: `Investors (${investors.length})`, radius: '4px 0 0 4px', noBorderLeft: false },
           { key: 'advisors', label: `Advisors (${advisors.length})`, radius: '0', noBorderLeft: true },
-          { key: 'custodians', label: `Custodians (${custodians.length})`, radius: '0 4px 4px 0', noBorderLeft: true },
+          { key: 'custodians', label: `Custodians (${custodians.length})`, radius: '0', noBorderLeft: true },
+          { key: 'kpis', label: 'KPIs', radius: '0 4px 4px 0', noBorderLeft: true },
         ].map((tab) => {
           const active = dirTab === tab.key
           return (
@@ -655,7 +657,7 @@ export default function Directory() {
                 onClick={stat.onClick}
                 style={{
                   flex: 1,
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: '14px 18px',
@@ -804,7 +806,7 @@ export default function Directory() {
                       justifyContent: 'space-between',
                       alignItems: 'flex-start',
                       padding: '12px 16px',
-                      borderBottom: '1px solid rgba(52,92,99,0.3)',
+                      borderBottom: '1px solid var(--bgM3)',
                       cursor: 'pointer',
                       background: isSelected ? 'rgba(52,211,153,0.04)' : 'transparent',
                       borderLeft: isSelected
@@ -1486,7 +1488,7 @@ export default function Directory() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{contact.name}</span>
                                 {contact.role && (
-                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.5)', color: 'var(--t3)' }}>
+                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'var(--bgM)', color: 'var(--t3)' }}>
                                     {contact.role}
                                   </span>
                                 )}
@@ -1609,7 +1611,7 @@ export default function Directory() {
                                     fontSize: 10,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    background: 'rgba(52,92,99,0.5)',
+                                    background: 'var(--bgM)',
                                     color: 'var(--t2)',
                                     padding: '3px 8px',
                                     borderRadius: 3,
@@ -1625,7 +1627,7 @@ export default function Directory() {
                                     fontSize: 10,
                                     fontWeight: 700,
                                     textTransform: 'uppercase',
-                                    background: 'rgba(52,92,99,0.5)',
+                                    background: 'var(--bgM)',
                                     color: 'var(--t2)',
                                     padding: '3px 8px',
                                     borderRadius: 3,
@@ -1690,7 +1692,7 @@ export default function Directory() {
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                    <span style={{ ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'rgba(52,92,99,0.5)', color: 'var(--t3)' }}>
+                                    <span style={{ ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'var(--bgM)', color: 'var(--t3)' }}>
                                       {c.doc}
                                     </span>
                                     {!resolved && isBlocking && (
@@ -1801,7 +1803,7 @@ export default function Directory() {
                               )}
 
                               {/* Audit trail toggle */}
-                              <div style={{ marginTop: 8, borderTop: '1px solid rgba(52,92,99,0.2)', paddingTop: 6 }}>
+                              <div style={{ marginTop: 8, borderTop: '1px solid var(--bdS)', paddingTop: 6 }}>
                                 <button
                                   onClick={() => setShowComplianceAudit((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
                                   style={{ ...mono, fontSize: 9, color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
@@ -1812,7 +1814,7 @@ export default function Directory() {
                                 {showComplianceAudit[c.id] && auditLog.length > 0 && (
                                   <div style={{ marginTop: 6 }}>
                                     {auditLog.map((entry) => (
-                                      <div key={entry.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 11, borderBottom: '1px solid rgba(52,92,99,0.15)' }}>
+                                      <div key={entry.id} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 11, borderBottom: '1px solid var(--bdS2)' }}>
                                         <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', width: 120, flexShrink: 0 }}>
                                           {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                         </span>
@@ -2380,7 +2382,7 @@ export default function Directory() {
                                 display: 'flex',
                                 gap: 12,
                                 padding: '8px 0',
-                                borderBottom: '1px solid rgba(52,92,99,0.2)',
+                                borderBottom: '1px solid var(--bdS)',
                                 fontSize: 12,
                                 alignItems: 'flex-start',
                               }}
@@ -2432,7 +2434,7 @@ export default function Directory() {
               <div
                 key={adv.id}
                 style={{
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: 20,
@@ -2635,7 +2637,7 @@ export default function Directory() {
                       padding: '6px 0',
                       fontSize: 14,
                       color: 'var(--t2)',
-                      borderBottom: '1px solid rgba(52,92,99,0.3)',
+                      borderBottom: '1px solid var(--bgM3)',
                       cursor: 'pointer',
                     }}
                   >
@@ -2678,7 +2680,7 @@ export default function Directory() {
               <div
                 key={cust.id}
                 style={{
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 6,
                   padding: 20,
@@ -2975,7 +2977,7 @@ export default function Directory() {
                       fontSize: 12,
                       width: '100%',
                       padding: '8px 10px',
-                      background: 'rgba(30,58,64,0.5)',
+                      background: 'var(--bgS)',
                       border: '1px solid var(--bd)',
                       borderRadius: 4,
                       color: 'var(--t1)',
@@ -3024,6 +3026,11 @@ export default function Directory() {
           </div>
         </>
       )}
+
+      {/* ═══════════════════════════════════════ */}
+      {/* KPIs TAB                              */}
+      {/* ═══════════════════════════════════════ */}
+      {dirTab === 'kpis' && <DirectoryKpis />}
 
       {/* ── Advance Stage Dialog ───────────────── */}
       {showAdvanceDialog && (() => {
@@ -3091,7 +3098,7 @@ export default function Directory() {
                           fontWeight: 600,
                           padding: '10px 14px',
                           border: '1px solid var(--bd)',
-                          background: 'rgba(30,58,64,0.5)',
+                          background: 'var(--bgS)',
                           color: 'var(--t2)',
                           borderRadius: 6,
                           cursor: 'pointer',
@@ -3099,7 +3106,7 @@ export default function Directory() {
                           transition: 'all 0.15s',
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--grn)'; e.currentTarget.style.background = 'rgba(52,211,153,0.04)' }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bd)'; e.currentTarget.style.background = 'rgba(30,58,64,0.5)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--bd)'; e.currentTarget.style.background = 'var(--bgS)' }}
                       >
                         &#9654; {stage}
                       </button>

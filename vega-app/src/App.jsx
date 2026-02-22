@@ -12,8 +12,8 @@ import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
 import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
-import { exchangeCodeForToken, getReturnPath } from './services/ringcentralAuth';
-import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken } from './services/salesforceAuth';
+import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
+import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken, startSalesforceAuth } from './services/salesforceAuth';
 import useRingCentralStore from './stores/ringcentralStore';
 import useSalesforceStore from './stores/salesforceStore';
 import useGoogleStore from './stores/googleStore';
@@ -28,6 +28,9 @@ import useFundStore from './stores/fundStore';
 import useComplianceStore from './stores/complianceStore';
 import useDistributionStore from './stores/distributionStore';
 import useTicStore from './stores/ticStore';
+import ChatPanel from './components/ChatPanel';
+import useChatStore from './stores/chatStore';
+import { listSpaces } from './services/chatService';
 
 // Contact data for backfill (from Contact_Report.xlsx + Company Dashboard CSV)
 // Keys match the 'name' column in Investors sheet for exact matching
@@ -174,7 +177,69 @@ const ALLOWED_DOMAIN = 'vegarei.com';
 
 function LoginGate() {
   const [loading, setLoading] = useState(false);
+  const [autoConnecting, setAutoConnecting] = useState(true); // start with auto-connect attempt
   const [error, setError] = useState(null);
+
+  // On mount, try silent refresh automatically (no click needed)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await Promise.all([initGapi(), initTokenClient()]);
+        const token = await requestAccessToken(); // silent refresh (prompt: '')
+        if (cancelled) return;
+        const { email, name } = await fetchUserEmail(token.access_token);
+        const domain = email.split('@')[1]?.toLowerCase();
+        if (domain !== ALLOWED_DOMAIN) {
+          revokeToken(token.access_token);
+          setAutoConnecting(false);
+          return;
+        }
+        const store = useGoogleStore.getState();
+        store.setToken(token);
+        store.setUserEmail(email);
+        store.setUserName(name);
+        console.log('[Auth] Auto-connect succeeded');
+        // Load sheets data
+        try {
+          console.log('[Sheets] Loading live data from Google Sheets...');
+          const data = await fetchAllSheetData();
+          console.log(`[Sheets] Loaded: ${data.positions.length} positions, ${data.compliance.length} compliance, ${data.distributions.length} distributions`);
+          useInvestorStore.getState().loadFromSheets(data.positions, data.investorLookup);
+          useFundStore.getState().loadFromSheets(data.funds, data.advisors, data.custodians, data.positions);
+          useComplianceStore.getState().loadFromSheets(data.compliance);
+          useDistributionStore.getState().loadFromSheets(data.distributions);
+          useTicStore.getState().loadFromSheets(data.ticProperties);
+          ensureContactsColumn();
+          ensureSubscriptionsTab();
+          ensureTicTab().then(() => {
+            if (!data.ticProperties || data.ticProperties.length === 0) {
+              populateTicTab(useTicStore.getState().ticProperties);
+            }
+          });
+          backfillContactInfo(CSV_CONTACT_MAP).then((updates) => {
+            if (updates && Object.keys(updates).length > 0) {
+              const invStore = useInvestorStore.getState();
+              Object.entries(updates).forEach(([invId, fields]) => {
+                if (invStore.investors[invId]) {
+                  invStore.updateInvestorContact(invId, fields, 'system-backfill');
+                }
+              });
+            }
+          });
+        } catch (sheetErr) {
+          console.error('[Sheets] Failed to load sheet data, using seed data:', sheetErr);
+        }
+      } catch (err) {
+        // Silent refresh failed — show the manual sign-in button
+        if (!cancelled) {
+          console.log('[Auth] Auto-connect unavailable, showing login:', err.message || err);
+          setAutoConnecting(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -233,6 +298,24 @@ function LoginGate() {
   };
 
   const mono = { fontFamily: "'Space Mono', monospace" };
+
+  // While auto-connecting, show a minimal loading state (not the full login page)
+  if (autoConnecting) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="grid-bg" />
+        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+          <svg viewBox="0 0 366 576" style={{ width: 48, height: 75, fill: 'var(--t5)', marginBottom: 24, opacity: 0.4 }}>
+            <path d="M182.77,0c-8.8,61.66-27.56,110.27-51.34,133.09,23.79,22.82,42.54,71.43,51.34,133.09,8.8-61.66,27.56-110.27,51.34-133.09-23.79-22.82-42.54-71.43-51.34-133.09Z" />
+            <path d="M0,133.09h64.04l115.63,361.8h1.24l123.09-361.8h61.54l-157.28,442.62h-60.3L0,133.09Z" />
+          </svg>
+          <div style={{ ...mono, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--grn)', marginTop: 8 }}>
+            Connecting…
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -298,6 +381,13 @@ export default function App() {
   const currentPage = getPageName(location.pathname);
   const isHomePage = location.pathname === '/';
 
+  // ── Theme Sync ───────────────────────────────────────────────────────────
+  const theme = useUiStore((s) => s.theme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
   // ── Auth Gate ─────────────────────────────────────────────────────────────
   const userEmail = useGoogleStore((s) => s.userEmail);
   const isAuthorized = userEmail && userEmail.split('@')[1]?.toLowerCase() === ALLOWED_DOMAIN;
@@ -335,10 +425,18 @@ export default function App() {
     const refreshIn = googleExpiry - Date.now() - 120000;
     if (refreshIn <= 0) return;
     const timer = setTimeout(() => {
-      if (!isTokenValid({ access_token: googleToken, expires_at: googleExpiry })) {
-        // Token expired — user will need to re-auth via popup
-        useGoogleStore.getState().clearAuth();
-      }
+      // Try silent re-auth instead of booting user to login gate
+      requestAccessToken()
+        .then((tokenResponse) => {
+          useGoogleStore.getState().setToken(tokenResponse);
+          console.log('[Auth] Google token auto-refreshed');
+        })
+        .catch(() => {
+          // Only clear token, NOT email/name — keeps user past the gate
+          // They'll get a fresh token on next page load via auto-connect
+          useGoogleStore.getState().setToken({ access_token: null, expires_at: null });
+          console.log('[Auth] Google token expired, will re-auth on next action');
+        });
     }, refreshIn);
     return () => clearTimeout(timer);
   }, [googleToken, googleExpiry]);
@@ -385,12 +483,40 @@ export default function App() {
     }
   }, []); // run only on mount
 
-  // ── RingCentral connection ─────────────────────────────────────────────────
-  // RC no longer auto-redirects to OAuth after Google sign-in.
-  // If a refresh token exists, silent refresh handles it (see useEffect above).
-  // Otherwise, the user connects manually via the RC button in the header.
+  // ── Auto-connect RingCentral & Salesforce after Google login ──────────────
+  // RC and SF already auto-reconnect via refresh tokens on subsequent loads.
+  // For first-time setup (no refresh token), auto-trigger the OAuth redirect
+  // so the user doesn't have to find and click the header buttons.
+  // Only one redirect at a time — RC first, then SF after RC returns.
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
+  const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (!googleAuth || !googleToken) return;
+    // Auto-redirect to RingCentral OAuth if never authorized
+    const rc = useRingCentralStore.getState();
+    if (!rc.isAuthenticated && !rc.refreshToken) {
+      const timer = setTimeout(() => {
+        console.log('[Auth] Auto-connecting RingCentral...');
+        startAuthFlow();
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [googleAuth, googleToken]);
+
+  useEffect(() => {
+    // After RC is connected, auto-redirect to Salesforce if never authorized
+    if (!googleAuth || !googleToken || !rcAuth) return;
+    const sf = useSalesforceStore.getState();
+    if (!sf.isAuthenticated && !sf.refreshToken) {
+      const timer = setTimeout(() => {
+        console.log('[Auth] Auto-connecting Salesforce...');
+        startSalesforceAuth();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [googleAuth, googleToken, rcAuth]);
 
   // ── Google Sheets Data Load ──────────────────────────────────────────────────
   const sheetsLoaded = useInvestorStore((s) => s.sheetsLoaded);
@@ -428,6 +554,12 @@ export default function App() {
       .catch((err) => {
         console.error('[Sheets] Failed to load sheet data, using seed data:', err);
       });
+
+    // Prefetch Google Chat spaces for unread badge
+    const userEmail = useGoogleStore.getState().userEmail;
+    listSpaces(googleToken, userEmail)
+      .then((spaces) => useChatStore.getState().setSpaces(spaces))
+      .catch(() => {}); // Silent — user can refresh when opening panel
   }, [googleAuth, googleToken, sheetsLoaded]);
 
   // ── 48h Unanswered Email Check ─────────────────────────────────────────────
@@ -540,6 +672,7 @@ export default function App() {
         <Route path="/auth/rc/callback" element={<RCCallback />} />
         <Route path="/auth/sf/callback" element={<SFCallback />} />
       </Routes>
+      <ChatPanel />
       <Toast />
     </>
   );

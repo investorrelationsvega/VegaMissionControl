@@ -11,6 +11,7 @@ import useUiStore from '../stores/uiStore'
 import useBlueskyStore from '../stores/blueskyStore'
 import BlueskyFilingModal from '../components/BlueskyFilingModal'
 import useResponsive from '../hooks/useResponsive'
+import ComplianceKpis from '../components/ComplianceKpis'
 
 // ── Document type list ──────────────────────────────────────────────────────
 const DOC_TYPES = [
@@ -58,6 +59,7 @@ export default function Compliance() {
   const [expandedFilings, setExpandedFilings] = useState({})
 
   // ── Local state ─────────────────────────────
+  const [compTab, setCompTab] = useState('checklist')
   const [search, setSearch] = useState('')
   const [docFilter, setDocFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('Open')
@@ -208,6 +210,44 @@ export default function Compliance() {
         <p className="page-subtitle">Subscription Document Tracker</p>
       </div>
 
+      {/* ── Section Tabs ─────────────────────────── */}
+      <div style={{ display: 'flex', marginBottom: 24 }}>
+        {[
+          { key: 'checklist', label: 'Checklist', radius: '4px 0 0 4px' },
+          { key: 'kpis', label: 'KPIs', radius: '0 4px 4px 0' },
+        ].map((tab) => {
+          const active = compTab === tab.key
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setCompTab(tab.key)}
+              style={{
+                fontFamily: "'Space Mono', monospace",
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '10px 24px',
+                border: '1px solid',
+                borderColor: active ? 'rgba(52,211,153,0.5)' : 'var(--bd)',
+                borderLeft: tab.key === 'kpis' ? 'none' : undefined,
+                borderRadius: tab.radius,
+                background: active ? 'rgba(52,211,153,0.1)' : 'transparent',
+                color: active ? 'var(--grn)' : 'var(--t4)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── KPI Tab ──────────────────────────────── */}
+      {compTab === 'kpis' && <ComplianceKpis />}
+
+      {/* ── Checklist Tab ────────────────────────── */}
+      {compTab === 'checklist' && (<>
+
       {/* ── Stats Row ─────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         {[
@@ -218,7 +258,7 @@ export default function Compliance() {
           <div
             key={i}
             style={{
-              background: 'rgba(30,58,64,0.5)',
+              background: 'var(--bgS)',
               border: '1px solid var(--bd)',
               borderRadius: 6,
               padding: '14px 18px',
@@ -292,7 +332,7 @@ export default function Compliance() {
                   <div
                     key={filing.id}
                     style={{
-                      background: 'rgba(30,58,64,0.5)',
+                      background: 'var(--bgS)',
                       border: `1px solid ${daysLeft < 0 ? 'var(--red)' : daysLeft <= 7 ? 'var(--ylwB)' : 'var(--bd)'}`,
                       borderRadius: 4,
                       marginBottom: 8,
@@ -381,7 +421,7 @@ export default function Compliance() {
                   <div
                     key={filing.id}
                     style={{
-                      background: 'rgba(30,58,64,0.5)',
+                      background: 'var(--bgS)',
                       border: '1px solid var(--bd)',
                       borderRadius: 4,
                       marginBottom: 8,
@@ -748,7 +788,7 @@ export default function Compliance() {
                           alignItems: 'flex-start',
                           gap: 12,
                           padding: '10px 0',
-                          borderBottom: '1px solid rgba(52,92,99,0.3)',
+                          borderBottom: '1px solid var(--bgM3)',
                         }}
                       >
                         {/* Checkbox */}
@@ -1041,7 +1081,7 @@ export default function Compliance() {
                             key={entry.id}
                             style={{
                               padding: '8px 0',
-                              borderBottom: '1px solid rgba(52,92,99,0.2)',
+                              borderBottom: '1px solid var(--bdS)',
                               fontSize: 12,
                             }}
                           >
@@ -1090,6 +1130,8 @@ export default function Compliance() {
           )
         })
       )}
+
+      </>)}
 
       {/* Bluesky Filing Modal */}
       {blueskyModalFilingId && (

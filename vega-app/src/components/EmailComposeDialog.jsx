@@ -191,7 +191,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t3)',
                   padding: '8px 10px',
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                 }}
@@ -222,7 +222,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                 }}
@@ -258,7 +258,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                   width: '100%',
@@ -296,7 +296,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   fontSize: 12,
                   color: 'var(--t1)',
                   padding: '8px 10px',
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: '1px solid var(--bd)',
                   borderRadius: 4,
                   width: '100%',
@@ -336,7 +336,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   color: 'var(--t4)',
                   marginBottom: 12,
                   padding: '8px 12px',
-                  background: 'rgba(52,92,99,0.2)',
+                  background: 'var(--bdS)',
                   borderRadius: 4,
                 }}
               >

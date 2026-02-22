@@ -22,6 +22,11 @@ const useUiStore = create(
   quickLinks,
   sidebarOpen: true,
 
+  // ── Theme ──────────────────────────────────────────────────────────────────
+  theme: 'dark', // 'dark' | 'light'
+  setTheme: (theme) => set({ theme }),
+  toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
   // ── Notifications ─────────────────────────────────────────────────────────
   notifications: [
     {
@@ -191,6 +196,7 @@ const useUiStore = create(
         quickLinks: state.quickLinks,
         notifications: state.notifications,
         sidebarOpen: state.sidebarOpen,
+        theme: state.theme,
         // Excluded: toast (ephemeral), calendarEvents/calendarSyncStatus/calendarLastSyncAt (fetched live)
       }),
     },

@@ -395,7 +395,7 @@ export default function FundOverview() {
                 key={i}
                 onClick={stat.clickable ? () => setShowCommittedModal(true) : undefined}
                 style={{
-                  background: 'rgba(30,58,64,0.5)',
+                  background: 'var(--bgS)',
                   border: `1px solid ${stat.clickable ? 'var(--bluM)' : 'var(--bd)'}`,
                   borderRadius: 6,
                   padding: '14px 18px',
@@ -452,7 +452,7 @@ export default function FundOverview() {
                 <div
                   key={`tic-${i}`}
                   style={{
-                    background: stat.highlight ? 'rgba(52,211,153,0.04)' : 'rgba(30,58,64,0.5)',
+                    background: stat.highlight ? 'rgba(52,211,153,0.04)' : 'var(--bgS)',
                     border: `1px solid ${stat.highlight ? 'var(--grn)' : 'var(--bd)'}`,
                     borderRadius: 6,
                     padding: '14px 18px',
@@ -547,7 +547,7 @@ export default function FundOverview() {
                                   fontSize: 10,
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
-                                  background: 'rgba(52,92,99,0.5)',
+                                  background: 'var(--bgM)',
                                   color: 'var(--t2)',
                                   padding: '3px 8px',
                                   borderRadius: 3,
@@ -563,7 +563,7 @@ export default function FundOverview() {
                                   fontSize: 10,
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
-                                  background: 'rgba(52,92,99,0.5)',
+                                  background: 'var(--bgM)',
                                   color: 'var(--t2)',
                                   padding: '3px 8px',
                                   borderRadius: 3,
@@ -782,7 +782,7 @@ export default function FundOverview() {
                           key={entry.id}
                           style={{
                             padding: '10px 0',
-                            borderBottom: '1px solid rgba(52,92,99,0.2)',
+                            borderBottom: '1px solid var(--bdS)',
                           }}
                         >
                           <div style={{ display: 'flex', gap: 12 }}>
@@ -841,7 +841,7 @@ export default function FundOverview() {
                     <div
                       key={idx}
                       style={{
-                        background: 'rgba(52,92,99,0.3)',
+                        background: 'var(--bgM3)',
                         borderRadius: 6,
                         padding: '12px 14px',
                         marginBottom: idx < keyDates.length - 1 ? 8 : 0,
@@ -930,7 +930,7 @@ export default function FundOverview() {
                           key={activity.id}
                           style={{
                             padding: '10px 12px',
-                            background: isNew ? 'rgba(251,191,36,0.04)' : 'rgba(52,92,99,0.3)',
+                            background: isNew ? 'rgba(251,191,36,0.04)' : 'var(--bgM3)',
                             border: `1px solid ${isNew ? 'rgba(251,191,36,0.15)' : 'transparent'}`,
                             borderRadius: 6,
                           }}
@@ -997,7 +997,7 @@ export default function FundOverview() {
                   <div
                     key={i}
                     style={{
-                      background: 'rgba(30,58,64,0.5)',
+                      background: 'var(--bgS)',
                       border: '1px solid var(--bd)',
                       borderRadius: 6,
                       padding: '14px 18px',
@@ -1144,7 +1144,7 @@ export default function FundOverview() {
                                     <tr
                                       key={owner.id}
                                       style={{
-                                        borderBottom: '1px solid rgba(52,92,99,0.15)',
+                                        borderBottom: '1px solid var(--bdS2)',
                                         background: owner.isFundII ? 'rgba(52,211,153,0.04)' : 'transparent',
                                       }}
                                     >
@@ -1340,7 +1340,7 @@ export default function FundOverview() {
                           fontSize: 9,
                           fontWeight: 700,
                           textTransform: 'uppercase',
-                          background: 'rgba(52,92,99,0.5)',
+                          background: 'var(--bgM)',
                           color: 'var(--t2)',
                           padding: '2px 6px',
                           borderRadius: 3,

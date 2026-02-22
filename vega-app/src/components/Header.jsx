@@ -9,6 +9,7 @@ import { requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from '../s
 import { startAuthFlow } from '../services/ringcentralAuth';
 import { startSalesforceAuth } from '../services/salesforceAuth';
 import BlueskyFilingModal from './BlueskyFilingModal';
+import useChatStore from '../stores/chatStore';
 import useResponsive from '../hooks/useResponsive';
 
 const NOTIF_TYPE_COLORS = {
@@ -222,6 +223,8 @@ export default function Header({ currentPage }) {
   const markAllNotificationsRead = useUiStore((s) => s.markAllNotificationsRead);
   const dismissNotification = useUiStore((s) => s.dismissNotification);
   const unreadCount = useUiStore((s) => s.getUnreadCount());
+  const chatUnread = useChatStore((s) => s.getUnreadCount());
+  const toggleChat = useChatStore((s) => s.togglePanel);
   const filings = useBlueskyStore((s) => s.filings);
 
   // Close dropdown on outside click
@@ -265,6 +268,48 @@ export default function Header({ currentPage }) {
 
           {/* Connection Status Indicators */}
           <ConnectionIndicators />
+
+          {/* Google Chat Toggle */}
+          <button
+            onClick={toggleChat}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              position: 'relative',
+              padding: 4,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="Team Chat"
+          >
+            <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: chatUnread > 0 ? 'var(--ylw)' : 'var(--t4)', transition: 'fill 0.2s' }}>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z" />
+            </svg>
+            {chatUnread > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: -2,
+                  width: 16,
+                  height: 16,
+                  borderRadius: '50%',
+                  background: 'var(--red)',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: "'Space Mono', monospace",
+                }}
+              >
+                {chatUnread}
+              </span>
+            )}
+          </button>
 
           {/* Notification Bell (Vega Star) */}
           <div ref={dropdownRef} style={{ position: 'relative' }}>
@@ -427,7 +472,7 @@ export default function Header({ currentPage }) {
                         display: 'flex',
                         gap: 12,
                         padding: '12px 16px',
-                        borderBottom: '1px solid rgba(52,92,99,0.3)',
+                        borderBottom: '1px solid var(--bgM3)',
                         cursor: notif.type === 'bluesky' ? 'default' : 'pointer',
                         background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)',
                         transition: 'background 0.1s',

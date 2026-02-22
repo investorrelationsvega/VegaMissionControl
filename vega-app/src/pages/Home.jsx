@@ -191,7 +191,7 @@ export default function Home() {
                   ) : (
                     notifications.map((notif) => (
                       <div key={notif.id} onClick={() => handleNotifClick(notif)}
-                        style={{ display: 'flex', gap: 12, padding: '12px 16px', borderBottom: '1px solid rgba(52,92,99,0.3)', cursor: 'pointer', background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)', transition: 'background 0.1s' }}
+                        style={{ display: 'flex', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--bgM3)', cursor: 'pointer', background: notif.read ? 'transparent' : 'rgba(52,211,153,0.02)', transition: 'background 0.1s' }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bgH)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = notif.read ? 'transparent' : 'rgba(52,211,153,0.02)')}>
                         <div style={{ flexShrink: 0, paddingTop: 5 }}>
