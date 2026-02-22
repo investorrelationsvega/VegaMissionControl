@@ -98,6 +98,7 @@ export default function Sales() {
   const investors = useInvestorStore((s) => s.investors);
   const positions = useInvestorStore((s) => s.positions);
   const advancePipelineStage = useInvestorStore((s) => s.advancePipelineStage);
+  const auditLog = useInvestorStore((s) => s.auditLog);
 
   // ── Tab / filter state ───────────────────────────────────────────────────
   const [tab, setTab] = useState('kpis');
@@ -875,7 +876,18 @@ export default function Sales() {
                                 <span style={{ ...mono, fontSize: 9, color: sub.daysInStage > 14 ? 'var(--ylw)' : 'var(--t5)' }}>
                                   {sub.daysInStage}d in stage
                                 </span>
-                                {stage !== 'Funded' && (
+                                {stage === 'Funded' ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      advancePipelineStage(sub.positionId, 'Accepted', USER);
+                                      showToast(`${sub.name} → Accepted ✓`);
+                                    }}
+                                    style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
+                                  >
+                                    Accept ✓
+                                  </button>
+                                ) : (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1125,9 +1137,48 @@ export default function Sales() {
               {/* Pipeline tracker */}
               <PipelineTracker pipeline={selectedSubscription.pipeline} signers={selectedSubscription.signers} />
 
+              {/* Audit trail */}
+              {(() => {
+                const entries = auditLog
+                  .filter((e) => e.invId === selectedSubscription.invId && (e.action === 'Pipeline Stage Changed' || e.action === 'Declined'))
+                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                if (entries.length === 0) return null;
+                return (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--bd)' }}>
+                    <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 10 }}>
+                      Audit Trail
+                    </div>
+                    <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                      {entries.map((e) => (
+                        <div key={e.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: e.action === 'Declined' ? 'var(--red)' : 'var(--grn)', marginTop: 4, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ ...mono, fontSize: 10, color: 'var(--t2)' }}>{e.detail}</div>
+                            <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginTop: 2 }}>
+                              {e.user} · {new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Quick actions */}
               <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--bd)' }}>
-                {selectedSubscription.stage !== 'Funded' && (
+                {selectedSubscription.stage === 'Funded' ? (
+                  <button
+                    onClick={() => {
+                      advancePipelineStage(selectedSubscription.positionId, 'Accepted', USER);
+                      showToast(`${selectedSubscription.name} → Accepted ✓`);
+                      setSelectedSubscription(null);
+                    }}
+                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                  >
+                    Accept ✓
+                  </button>
+                ) : (
                   <button
                     onClick={() => {
                       const idx = SUB_STAGES.indexOf(selectedSubscription.stage);
