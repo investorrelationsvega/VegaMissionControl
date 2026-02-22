@@ -14,6 +14,7 @@ const useGoogleStore = create(
       accessToken: null,
       tokenExpiresAt: null,
       userEmail: null,
+      userName: null,
       isLoading: false,
       error: null,
 
@@ -36,6 +37,7 @@ const useGoogleStore = create(
         }),
 
       setUserEmail: (email) => set({ userEmail: email }),
+      setUserName: (name) => set({ userName: name }),
 
       clearAuth: () =>
         set({
@@ -43,6 +45,7 @@ const useGoogleStore = create(
           accessToken: null,
           tokenExpiresAt: null,
           userEmail: null,
+          userName: null,
           error: null,
           fileCache: {},
         }),
@@ -105,6 +108,7 @@ const useGoogleStore = create(
       partialize: (state) => ({
         folderMappings: state.folderMappings,
         userEmail: state.userEmail,
+        userName: state.userName,
       }),
     },
   ),

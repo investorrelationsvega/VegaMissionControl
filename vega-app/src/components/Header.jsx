@@ -55,7 +55,7 @@ function ConnectionIndicators() {
     } else {
       try {
         const token = await requestAccessTokenWithConsent();
-        const email = await fetchUserEmail(token.access_token);
+        const { email, name } = await fetchUserEmail(token.access_token);
         const domain = email.split('@')[1]?.toLowerCase();
         if (domain !== 'vegarei.com') {
           revokeToken(token.access_token);
@@ -64,6 +64,7 @@ function ConnectionIndicators() {
         const store = useGoogleStore.getState();
         store.setToken(token);
         store.setUserEmail(email);
+        store.setUserName(name);
       } catch (err) {
         console.error('Google auth failed:', err);
       }

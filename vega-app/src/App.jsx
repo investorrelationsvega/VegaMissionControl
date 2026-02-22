@@ -181,7 +181,7 @@ function LoginGate() {
     setError(null);
     try {
       const token = await requestAccessTokenWithConsent();
-      const email = await fetchUserEmail(token.access_token);
+      const { email, name } = await fetchUserEmail(token.access_token);
       const domain = email.split('@')[1]?.toLowerCase();
       if (domain !== ALLOWED_DOMAIN) {
         revokeToken(token.access_token);
@@ -192,6 +192,7 @@ function LoginGate() {
       const store = useGoogleStore.getState();
       store.setToken(token);
       store.setUserEmail(email);
+      store.setUserName(name);
 
       // Load Google Sheets data before the app re-renders and triggers RC auto-connect
       try {

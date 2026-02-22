@@ -168,12 +168,12 @@ export function revokeToken(accessToken) {
   }
 }
 
-/** Fetch the authenticated user's email from Google */
+/** Fetch the authenticated user's email and display name from Google */
 export async function fetchUserEmail(accessToken) {
   const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) throw new Error('Failed to fetch user info');
   const data = await res.json();
-  return data.email;
+  return { email: data.email, name: data.name || '' };
 }

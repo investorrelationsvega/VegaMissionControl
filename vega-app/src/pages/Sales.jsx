@@ -20,17 +20,15 @@ import useResponsive from '../hooks/useResponsive';
 import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
 import { startSalesforceAuth } from '../services/salesforceAuth';
 import PipelineTracker, { PipelineBadge } from '../components/PipelineTracker';
+import useGoogleStore from '../stores/googleStore';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
-const USER = 'j@vegarei.com';
-
-const USER_DISPLAY_NAMES = {
-  'j@vegarei.com': 'J Jones',
-  'cory@vegacapital.com': 'Cory Johansen',
-  'system-backfill': 'System',
-  'System': 'System',
+const displayName = (email, currentUserEmail, currentUserName) => {
+  if (email === currentUserEmail && currentUserName) return currentUserName;
+  if (email === 'system-backfill' || email === 'System') return 'System';
+  // For other users, strip domain to get a readable fallback
+  return email;
 };
-const displayName = (email) => USER_DISPLAY_NAMES[email] || email;
 
 // ── Period helpers ──────────────────────────────────────────────────────────────
 function getWeekRange() {
@@ -107,6 +105,9 @@ export default function Sales() {
   const positions = useInvestorStore((s) => s.positions);
   const advancePipelineStage = useInvestorStore((s) => s.advancePipelineStage);
   const auditLog = useInvestorStore((s) => s.auditLog);
+  const googleUserEmail = useGoogleStore((s) => s.userEmail);
+  const googleUserName = useGoogleStore((s) => s.userName);
+  const USER = googleUserEmail || 'j@vegarei.com';
 
   // ── Tab / filter state ───────────────────────────────────────────────────
   const [tab, setTab] = useState('kpis');
@@ -1163,7 +1164,7 @@ export default function Sales() {
                           <div style={{ flex: 1 }}>
                             <div style={{ ...mono, fontSize: 10, color: 'var(--t2)' }}>{e.detail}</div>
                             <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginTop: 2 }}>
-                              {displayName(e.user)} · {new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              {displayName(e.user, googleUserEmail, googleUserName)} · {new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                             </div>
                           </div>
                         </div>
