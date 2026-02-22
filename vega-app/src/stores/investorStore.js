@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { positions as seedPositions, activityFeed as seedActivityFeed } from '../data/seedData';
-import { updateInvestorField, updatePositionField, appendAuditLog } from '../services/sheetsService';
+import { updateInvestorField, updatePositionField, appendAuditLog, updateSubscriptionField } from '../services/sheetsService';
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
 
@@ -423,6 +423,27 @@ const useInvestorStore = create(
       ],
     });
 
+    // Write pipeline change to Subscriptions sheet (fire-and-forget)
+    if (pos.subscriptionId) {
+      updateSubscriptionField(pos.subscriptionId, 'stage', newStage)
+        .catch((err) => console.error('Subscription stage write-back failed:', err));
+      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
+        .catch((err) => console.error('Subscription dates write-back failed:', err));
+      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
+        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+    }
+
+    // Write audit log to sheet (fire-and-forget)
+    appendAuditLog({
+      id: `AUD-${Date.now()}`,
+      recordType: 'subscription',
+      recordId: pos.subscriptionId || positionId,
+      action: 'Pipeline Stage Changed',
+      notes: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${newStage}`,
+      user,
+      timestamp: now,
+    }).catch((err) => console.error('Audit log write-back failed:', err));
+
     // Bluesky filing trigger: out-of-state investor reaches Webform Complete
     if (newStage === 'Webform Complete' && pos.state && pos.state !== 'UT') {
       const bluesky = useBlueskyStore.getState();
@@ -469,6 +490,29 @@ const useInvestorStore = create(
         date: now,
         read: false,
       };
+
+      // Write decline to Subscriptions sheet (fire-and-forget)
+      if (pos.subscriptionId) {
+        updateSubscriptionField(pos.subscriptionId, 'stage', 'Declined')
+          .catch((err) => console.error('Subscription decline write-back failed:', err));
+        updateSubscriptionField(pos.subscriptionId, 'declined_reason', reason)
+          .catch((err) => console.error('Subscription decline reason write-back failed:', err));
+        updateSubscriptionField(pos.subscriptionId, 'dates_json',
+          JSON.stringify({ ...(pos.pipeline || {}), stage: 'Declined', declinedDate: now }))
+          .catch((err) => console.error('Subscription dates write-back failed:', err));
+        updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
+          .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+      }
+
+      appendAuditLog({
+        id: `AUD-${Date.now()}`,
+        recordType: 'subscription',
+        recordId: pos.subscriptionId || positionId,
+        action: 'Declined',
+        notes: `${pos.fund} ${pos.entity || pos.name}: ${reason}`,
+        user,
+        timestamp: now,
+      }).catch((err) => console.error('Audit log write-back failed:', err));
 
       return {
         positions: updatedPositions,

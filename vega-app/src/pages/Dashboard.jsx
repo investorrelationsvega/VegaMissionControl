@@ -200,7 +200,7 @@ export default function Dashboard() {
       route: '/pe/compliance',
     },
     {
-      title: 'Sales',
+      title: 'Sales Operations',
       desc: 'Fund II capital raise pipeline',
       dotColor: 'var(--blu)',
       route: '/pe/sales',

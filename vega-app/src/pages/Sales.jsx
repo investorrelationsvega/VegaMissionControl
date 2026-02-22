@@ -194,6 +194,8 @@ export default function Sales() {
           daysInStage: daysAgo(enteredDate),
           fund: p.fund || 'Fund II',
           contacts: inv?.contacts || [],
+          subscriptionId: p.subscriptionId || null,
+          docusignEnvelopeId: p.docusignEnvelopeId || '',
         };
       });
   }, [positions, investors]);
@@ -337,7 +339,7 @@ export default function Sales() {
       {/* ── Page Header ──────────────────────────────────── */}
       <div className="page-header">
         <div className="page-header-dot"><span>Active Module</span></div>
-        <h1 className="page-title">Sales</h1>
+        <h1 className="page-title">Sales Operations</h1>
         <p className="page-subtitle">
           Fund II Capital Raise
           {pipelineHealth.activeProspects > 0 && (
@@ -1111,6 +1113,11 @@ export default function Sales() {
                 {selectedSubscription.advisor && (
                   <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>
                     Advisor: {selectedSubscription.advisor}
+                  </div>
+                )}
+                {selectedSubscription.docusignEnvelopeId && (
+                  <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', marginTop: 4 }}>
+                    DocuSign: {selectedSubscription.docusignEnvelopeId}
                   </div>
                 )}
               </div>

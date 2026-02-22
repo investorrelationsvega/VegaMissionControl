@@ -17,6 +17,7 @@ const TABS = {
   DISTRIBUTIONS: 'Distributions',
   REFERENCE: 'Reference',
   TIC: 'TIC_Properties',
+  SUBSCRIPTIONS: 'Subscriptions',
 };
 
 // Tab GIDs (for reference / URL construction)
@@ -28,6 +29,7 @@ const TAB_GIDS = {
   Distributions: 708162775,
   Reference: 1712479294,
   TIC_Properties: 0, // Will be set after tab is created
+  Subscriptions: 0,  // Will be set after tab is created
 };
 
 // ---------------------------------------------------------------------------
@@ -154,6 +156,20 @@ function sheetDistIdToApp(sheetId) {
   return isNaN(num) ? sheetId : `D${String(num).padStart(2, '0')}`;
 }
 
+/** Map sheet subscription_id (SUB001) to app id (S01) */
+function sheetSubIdToApp(sheetId) {
+  if (!sheetId) return '';
+  const num = parseInt(String(sheetId).replace(/^SUB0*/, ''), 10);
+  return isNaN(num) ? sheetId : `S${String(num).padStart(2, '0')}`;
+}
+
+/** Map app subscription id (S01) to sheet format (SUB001) */
+function appSubIdToSheet(appId) {
+  if (!appId) return '';
+  const num = parseInt(String(appId).replace(/^S0*/, ''), 10);
+  return isNaN(num) ? appId : `SUB${String(num).padStart(3, '0')}`;
+}
+
 /** Map fund short name: "Fund I" / "Fund II" used in both sheet and app */
 function normalizeFund(fund) {
   return String(fund || '').trim();
@@ -202,6 +218,7 @@ export async function fetchAllSheetData() {
     `${TABS.DISTRIBUTIONS}!A1:I100`,
     `${TABS.REFERENCE}!A1:G20`,
     `${TABS.TIC}!A1:G50`,
+    `${TABS.SUBSCRIPTIONS}!A1:L200`,
   ];
 
   const results = await batchRead(ranges);
@@ -212,6 +229,7 @@ export async function fetchAllSheetData() {
   const distributionRows = rowsToObjects(results[3]?.values || []);
   const referenceRows = results[4]?.values || [];
   const ticRows = rowsToObjects(results[5]?.values || []);
+  const subscriptionRows = rowsToObjects(results[6]?.values || []);
 
   // Build a lookup of investor data from the Investors tab
   const investorLookup = {};
@@ -356,6 +374,46 @@ export async function fetchAllSheetData() {
       isFundII: String(row.is_fund_ii || '').toLowerCase() === 'true' || String(row.is_fund_ii || '') === '1',
       distributions,
     };
+  });
+
+  // Transform subscription records and merge onto positions
+  const subscriptions = subscriptionRows.map((row) => {
+    let signers = [];
+    try { signers = JSON.parse(row.signers_json || '[]'); } catch { signers = []; }
+    let dates = {};
+    try { dates = JSON.parse(row.dates_json || '{}'); } catch { dates = {}; }
+
+    return {
+      id: sheetSubIdToApp(row.subscription_id),
+      positionId: sheetPosIdToApp(row.position_id),
+      investorId: sheetInvIdToApp(row.investor_id),
+      stage: String(row.stage || 'Pending').trim(),
+      docusignEnvelopeId: String(row.docusign_envelope_id || '').trim(),
+      docRouting: String(row.doc_routing || 'direct').trim(),
+      signers,
+      dates,
+      declinedReason: String(row.declined_reason || '').trim(),
+      createdAt: String(row.created_at || '').trim(),
+      updatedAt: String(row.updated_at || '').trim(),
+      notes: String(row.notes || '').trim(),
+    };
+  });
+
+  // Build subscription lookup by app position ID and merge onto positions
+  const subByPosId = {};
+  subscriptions.forEach((sub) => { subByPosId[sub.positionId] = sub; });
+
+  positions.forEach((pos) => {
+    const sub = subByPosId[pos.id];
+    if (sub) {
+      // Subscription tab overrides the basic pipeline derivation
+      pos.pipeline = { stage: sub.stage, ...sub.dates };
+      pos.signers = sub.signers;
+      pos.docRouting = sub.docRouting;
+      pos.declinedReason = sub.declinedReason || null;
+      pos.subscriptionId = sub.id;
+      pos.docusignEnvelopeId = sub.docusignEnvelopeId;
+    }
   });
 
   return { positions, compliance, distributions, funds, advisors, custodians, investorLookup, ticProperties };
@@ -517,6 +575,13 @@ const AUDIT_COLS = {
 const TIC_COLS = {
   tic_id: 'A', entity: 'B', property: 'C', ownership_pct: 'D',
   tic_funds: 'E', is_fund_ii: 'F', distributions_json: 'G',
+};
+
+const SUBSCRIPTION_COLS = {
+  subscription_id: 'A', position_id: 'B', investor_id: 'C',
+  stage: 'D', docusign_envelope_id: 'E', doc_routing: 'F',
+  signers_json: 'G', dates_json: 'H', declined_reason: 'I',
+  created_at: 'J', updated_at: 'K', notes: 'L',
 };
 
 /**
@@ -689,6 +754,68 @@ export async function updateTicField(appTicId, field, value) {
 }
 
 /**
+ * Update a subscription field in the Subscriptions tab.
+ */
+export async function updateSubscriptionField(appSubId, field, value) {
+  const sheetId = appSubIdToSheet(appSubId);
+  const row = await findRowById(TABS.SUBSCRIPTIONS, sheetId);
+  if (!row) {
+    console.warn(`Subscription ${sheetId} not found in sheet`);
+    return;
+  }
+
+  const col = SUBSCRIPTION_COLS[field];
+  if (!col) {
+    console.warn(`Unknown subscription field: ${field}`);
+    return;
+  }
+
+  return updateCell(TABS.SUBSCRIPTIONS, row, col, value);
+}
+
+/**
+ * Append a new subscription row to the Subscriptions tab.
+ */
+export async function appendSubscriptionRow(sub) {
+  const row = [
+    sub.subscription_id || '',
+    sub.position_id || '',
+    sub.investor_id || '',
+    sub.stage || 'Pending',
+    sub.docusign_envelope_id || '',
+    sub.doc_routing || 'direct',
+    sub.signers_json || '[]',
+    sub.dates_json || '{}',
+    sub.declined_reason || '',
+    sub.created_at || new Date().toISOString(),
+    sub.updated_at || new Date().toISOString(),
+    sub.notes || '',
+  ];
+  return appendRows(`${TABS.SUBSCRIPTIONS}!A:L`, [row]);
+}
+
+/**
+ * Ensure the Subscriptions tab exists with proper headers.
+ * Creates the header row if the tab exists but is empty.
+ */
+export async function ensureSubscriptionsTab() {
+  try {
+    const rows = await readRange(`${TABS.SUBSCRIPTIONS}!A1:L1`);
+    const headers = rows[0] || [];
+    if (!headers.length || String(headers[0] || '').trim() !== 'subscription_id') {
+      await updateRange(`${TABS.SUBSCRIPTIONS}!A1:L1`, [[
+        'subscription_id', 'position_id', 'investor_id', 'stage',
+        'docusign_envelope_id', 'doc_routing', 'signers_json', 'dates_json',
+        'declined_reason', 'created_at', 'updated_at', 'notes',
+      ]]);
+      console.log('[Sheets] Added Subscriptions header row');
+    }
+  } catch (err) {
+    console.warn('[Sheets] Subscriptions tab not found (will use store data):', err.message);
+  }
+}
+
+/**
  * Ensure the TIC_Properties tab exists with proper headers.
  * Creates the header row if the tab exists but is empty.
  * If the tab doesn't exist, the batch read will just return empty — seed data will be used.
@@ -844,5 +971,8 @@ export {
   appInvIdToSheet,
   sheetPosIdToApp,
   appPosIdToSheet,
+  sheetSubIdToApp,
+  appSubIdToSheet,
   TIC_COLS,
+  SUBSCRIPTION_COLS,
 };

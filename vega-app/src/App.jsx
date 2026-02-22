@@ -23,7 +23,7 @@ import useUiStore from './stores/uiStore';
 import { initGapi, initTokenClient, isTokenValid, requestAccessToken, requestAccessTokenWithConsent, revokeToken, fetchUserEmail } from './services/googleAuth';
 import { refreshAccessToken } from './services/ringcentralAuth';
 import { checkUnansweredEmails } from './services/gmailService';
-import { fetchAllSheetData, ensureContactsColumn, ensureTicTab, populateTicTab, backfillContactInfo } from './services/sheetsService';
+import { fetchAllSheetData, ensureContactsColumn, ensureTicTab, populateTicTab, backfillContactInfo, ensureSubscriptionsTab } from './services/sheetsService';
 import useFundStore from './stores/fundStore';
 import useComplianceStore from './stores/complianceStore';
 import useDistributionStore from './stores/distributionStore';
@@ -78,7 +78,7 @@ function getPageName(pathname) {
     '/pe/distributions': 'distributions',
     '/pe/funds': 'funds',
     '/pe/reports': 'reports',
-    '/pe/sales': 'sales',
+    '/pe/sales': 'sales-operations',
   };
   return map[pathname] || 'dashboard';
 }
@@ -204,6 +204,7 @@ function LoginGate() {
         useDistributionStore.getState().loadFromSheets(data.distributions);
         useTicStore.getState().loadFromSheets(data.ticProperties);
         ensureContactsColumn();
+        ensureSubscriptionsTab();
         ensureTicTab().then(() => {
           if (!data.ticProperties || data.ticProperties.length === 0) {
             populateTicTab(useTicStore.getState().ticProperties);
@@ -406,6 +407,7 @@ export default function App() {
         useDistributionStore.getState().loadFromSheets(data.distributions);
         useTicStore.getState().loadFromSheets(data.ticProperties);
         ensureContactsColumn();
+        ensureSubscriptionsTab();
         ensureTicTab().then(() => {
           if (!data.ticProperties || data.ticProperties.length === 0) {
             populateTicTab(useTicStore.getState().ticProperties);
