@@ -24,6 +24,14 @@ import PipelineTracker, { PipelineBadge } from '../components/PipelineTracker';
 const mono = { fontFamily: "'Space Mono', monospace" };
 const USER = 'j@vegarei.com';
 
+const USER_DISPLAY_NAMES = {
+  'j@vegarei.com': 'J Jones',
+  'cory@vegacapital.com': 'Cory Johansen',
+  'system-backfill': 'System',
+  'System': 'System',
+};
+const displayName = (email) => USER_DISPLAY_NAMES[email] || email;
+
 // ── Period helpers ──────────────────────────────────────────────────────────────
 function getWeekRange() {
   const now = new Date();
@@ -1155,7 +1163,7 @@ export default function Sales() {
                           <div style={{ flex: 1 }}>
                             <div style={{ ...mono, fontSize: 10, color: 'var(--t2)' }}>{e.detail}</div>
                             <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginTop: 2 }}>
-                              {e.user} · {new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              {displayName(e.user)} · {new Date(e.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                             </div>
                           </div>
                         </div>

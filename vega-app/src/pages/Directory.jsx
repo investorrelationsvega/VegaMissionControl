@@ -28,6 +28,14 @@ import useResponsive from '../hooks/useResponsive'
 // ── Inline style helpers ─────────────────────────────────────────────────────
 const mono = { fontFamily: "'Space Mono', monospace" }
 
+const USER_DISPLAY_NAMES = {
+  'j@vegarei.com': 'J Jones',
+  'cory@vegacapital.com': 'Cory Johansen',
+  'system-backfill': 'System',
+  'System': 'System',
+}
+const displayName = (email) => USER_DISPLAY_NAMES[email] || email
+
 const vegaIconSvg = (
   <svg viewBox="0 0 200 200" style={{ width: 48, height: 48, opacity: 0.15 }}>
     <path
@@ -1813,7 +1821,7 @@ export default function Directory() {
                                           {entry.action}
                                         </span>
                                         <span style={{ color: 'var(--t4)', flex: 1 }}>{entry.notes || ''}</span>
-                                        <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', flexShrink: 0 }}>{entry.user}</span>
+                                        <span style={{ ...mono, fontSize: 9, color: 'var(--t5)', flexShrink: 0 }}>{displayName(entry.user)}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -2392,7 +2400,7 @@ export default function Directory() {
                                 )}
                               </div>
                               <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', flexShrink: 0 }}>
-                                {entry.user}
+                                {displayName(entry.user)}
                               </div>
                             </div>
                           ))
