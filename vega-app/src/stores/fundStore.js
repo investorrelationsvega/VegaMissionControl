@@ -196,7 +196,7 @@ const useFundStore = create(
     }),
     {
       name: 'vega-fund-store',
-      version: 2, // Bumped for Google Sheets integration
+      version: 3, // Bumped for Fund II committed update
     },
   ),
 );

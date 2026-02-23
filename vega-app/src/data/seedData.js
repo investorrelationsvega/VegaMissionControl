@@ -240,7 +240,7 @@ export const distributions = [
 
 export const funds = [
   {id:"F01",name:"Vega Assisted Living Fund I",shortName:"Fund I",status:"Closed",target:1000000,committed:998000,funded:998000,vintage:"2024",closeDate:"Jul 31, 2025",positionCount:6,investorClass:"B",notes:""},
-  {id:"F02",name:"Vega Assisted Living Fund II",shortName:"Fund II",status:"Open",target:10000000,committed:5730551,funded:5630551,vintage:"2025",closeDate:"",positionCount:35,investorClass:"A",notes:""},
+  {id:"F02",name:"Vega Assisted Living Fund II",shortName:"Fund II",status:"Open",target:10000000,committed:6056051,funded:5956051,vintage:"2025",closeDate:"",positionCount:35,investorClass:"A",notes:""},
   {id:"F03",name:"Vega Assisted Living Fund III",shortName:"Fund III",status:"Pending",target:0,committed:0,funded:0,vintage:"",closeDate:"",positionCount:0,investorClass:"",notes:"Launch TBD"},
 ];
 

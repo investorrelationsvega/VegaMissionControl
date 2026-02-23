@@ -43,6 +43,14 @@ const seedTicProperties = [
   { id: 'TI17', entity: 'Summit Home Solutions', property: 'Sandy', ownership: 0, ticFunds: 52000, isFundII: false, distributions: {} },
   { id: 'TI18', entity: 'Utah Bankruptcy Inc.', property: 'Sandy', ownership: 0, ticFunds: 52000, isFundII: false, distributions: {} },
   { id: 'TI19', entity: 'Cory', property: 'Sandy', ownership: 0, ticFunds: 54846, isFundII: false, distributions: {} },
+
+  // ── Gilbert ────────────────────────────────────────────────────────────
+  { id: 'TI20', entity: 'Vega Property Holdings LLC', property: 'Gilbert', ownership: 0, ticFunds: 111000, isFundII: false, distributions: {} },
+  { id: 'TI21', entity: 'Vega Property Holdings LLC', property: 'Gilbert', ownership: 0, ticFunds: 115500, isFundII: false, distributions: {} },
+  { id: 'TI22', entity: 'Fund II', property: 'Gilbert', ownership: 0, ticFunds: 0, isFundII: true, distributions: {} },
+
+  // ── Riverton — VPH New Entry ──────────────────────────────────────────
+  { id: 'TI23', entity: 'Vega Property Holdings LLC', property: 'Riverton', ownership: 0, ticFunds: 99000, isFundII: false, distributions: {} },
 ];
 
 // ---------------------------------------------------------------------------
@@ -225,7 +233,7 @@ const useTicStore = create(
     }),
     {
       name: 'vega-tic-store',
-      version: 1,
+      version: 2,
     },
   ),
 );

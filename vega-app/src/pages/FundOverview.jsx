@@ -238,6 +238,27 @@ export default function FundOverview() {
     }
   }, [ticProperties, activeTicPeriod, ticStore.ticProperties])
 
+  // TIC entity breakdown for stacked bar chart (Fund II only)
+  const ticEntityBreakdown = useMemo(() => {
+    if (ticProperties.length === 0) return []
+    const map = {}
+    ticStore.getAll().forEach((t) => {
+      if (t.isFundII) return
+      if (t.ticFunds <= 0) return
+      if (!map[t.entity]) map[t.entity] = { entity: t.entity, total: 0, properties: new Set() }
+      map[t.entity].total += t.ticFunds
+      map[t.entity].properties.add(t.property)
+    })
+    return Object.values(map)
+      .map((e) => ({ ...e, properties: [...e.properties] }))
+      .sort((a, b) => b.total - a.total)
+  }, [ticProperties, ticStore.ticProperties])
+
+  const ticEntityTotal = useMemo(
+    () => ticEntityBreakdown.reduce((s, e) => s + e.total, 0),
+    [ticEntityBreakdown]
+  )
+
   // Fund-specific activity feed
   const fundActivityFeed = useMemo(() => {
     if (!selectedFund) return []
@@ -471,6 +492,110 @@ export default function FundOverview() {
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── TIC Capital Breakdown (Fund II only) ──── */}
+          {selectedFund.shortName === 'Fund II' && ticEntityBreakdown.length > 0 && (
+            <div
+              style={{
+                background: 'var(--bg-card-half)',
+                border: '1px solid var(--bd)',
+                borderRadius: 6,
+                padding: 20,
+                marginBottom: 24,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 8, height: 8, background: 'var(--blu)', borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />
+                  <span className="section-label" style={{ margin: 0 }}>TIC Capital Breakdown</span>
+                </div>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--blu)', fontWeight: 700 }}>
+                  {fmtK(ticEntityTotal)}
+                </span>
+              </div>
+
+              {/* Stacked horizontal bar */}
+              <div style={{ display: 'flex', width: '100%', height: 28, borderRadius: 4, overflow: 'hidden', marginBottom: 16, background: 'var(--bd)' }}>
+                {ticEntityBreakdown.map((entity, idx) => {
+                  const pct = ticEntityTotal > 0 ? (entity.total / ticEntityTotal) * 100 : 0
+                  const colors = ['#60a5fa', '#a78bfa', '#f59e0b', '#34d399', '#f472b6', '#38bdf8', '#fb923c', '#4ade80']
+                  return (
+                    <div
+                      key={entity.entity}
+                      title={`${entity.entity}: ${fmtK(entity.total)} (${pct.toFixed(1)}%)`}
+                      style={{
+                        width: `${pct}%`,
+                        height: '100%',
+                        background: colors[idx % colors.length],
+                        transition: 'width 0.4s ease',
+                        minWidth: pct > 0 ? 2 : 0,
+                        borderRight: idx < ticEntityBreakdown.length - 1 ? '1px solid var(--bg1)' : 'none',
+                      }}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 8 }}>
+                {ticEntityBreakdown.map((entity, idx) => {
+                  const pct = ticEntityTotal > 0 ? (entity.total / ticEntityTotal) * 100 : 0
+                  const colors = ['#60a5fa', '#a78bfa', '#f59e0b', '#34d399', '#f472b6', '#38bdf8', '#fb923c', '#4ade80']
+                  return (
+                    <div
+                      key={entity.entity}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 12px',
+                        background: 'var(--bgM3)',
+                        borderRadius: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          background: colors[idx % colors.length],
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                          <span
+                            className="mono"
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--t2)',
+                              fontWeight: 500,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {entity.entity}
+                          </span>
+                          <span className="mono" style={{ fontSize: 11, color: 'var(--t1)', fontWeight: 700, flexShrink: 0 }}>
+                            {fmtK(entity.total)}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                          <span className="mono" style={{ fontSize: 9, color: 'var(--t5)' }}>
+                            {entity.properties.join(', ')}
+                          </span>
+                          <span className="mono" style={{ fontSize: 9, color: 'var(--t4)', flexShrink: 0 }}>
+                            {pct.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
