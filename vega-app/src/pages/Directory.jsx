@@ -259,6 +259,14 @@ export default function Directory() {
           inv.entities.some((e) => e.toLowerCase().includes(q))
       )
     }
+    // Sort alphabetically by display name (entity name for entities, investor name otherwise)
+    list.sort((a, b) => {
+      const aIsEntity = a.entities.length > 0 && a.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
+      const bIsEntity = b.entities.length > 0 && b.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
+      const aName = (aIsEntity ? a.entities[0] : a.name).toLowerCase()
+      const bName = (bIsEntity ? b.entities[0] : b.name).toLowerCase()
+      return aName.localeCompare(bName)
+    })
     return list
   }, [investors, search, fundFilter])
 
