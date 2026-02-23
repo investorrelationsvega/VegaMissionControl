@@ -10,6 +10,7 @@ import useFundStore from '../stores/fundStore';
 import useInvestorStore from '../stores/investorStore';
 import useComplianceStore from '../stores/complianceStore';
 import useGoogleStore from '../stores/googleStore';
+import useTicStore from '../stores/ticStore';
 import { fetchUpcomingEvents } from '../services/calendarService';
 import { fmt, fmtK } from '../utils/format';
 import DriveDocuments from '../components/DriveDocuments';
@@ -40,11 +41,7 @@ const activityByFund = {
 // ---------------------------------------------------------------------------
 // Overview stats keyed by fund shortName
 // ---------------------------------------------------------------------------
-const overviewByFund = {
-  'Fund I': { raised: '$998,000', target: '$1,000,000', investors: '6', avg: '$166,333' },
-  'Fund II': { raised: '$5,730,551', target: '$10,000,000', investors: '30', avg: '$191,018' },
-  'Fund III': { raised: '$0', target: 'TBD', investors: '0', avg: '--' },
-};
+// overviewByFund is now computed dynamically inside the component from store data
 
 // ---------------------------------------------------------------------------
 // Component
@@ -61,6 +58,8 @@ export default function Dashboard() {
   const updateUpcoming = useUiStore((s) => s.updateUpcoming);
 
   const funds = useFundStore((s) => s.funds);
+  const investorStore = useInvestorStore();
+  const ticStore = useTicStore();
 
   const openCompliance = useComplianceStore((s) => s.getOpen);
 
@@ -85,8 +84,28 @@ export default function Dashboard() {
 
   // Derived
   const selectedFund = funds[selectedFundIdx];
-  const overview = overviewByFund[selectedFund?.shortName] || {};
   const activity = activityByFund[selectedFund?.shortName] || [];
+
+  // TIC outside capital
+  const ticOutsideCapital = useMemo(() => {
+    const props = ticStore.getProperties();
+    return props.reduce((s, p) => s + p.totalTicFunds, 0);
+  }, [ticStore.ticProperties]);
+
+  // Dynamic overview from store data
+  const overview = useMemo(() => {
+    if (!selectedFund) return {};
+    const fundInvestors = investorStore.getByFund(selectedFund.shortName);
+    const investorCount = fundInvestors.length;
+    const raised = selectedFund.committed || 0;
+    const avg = investorCount > 0 ? Math.round(raised / investorCount) : 0;
+    return {
+      raised: fmt(raised),
+      target: selectedFund.target > 0 ? fmt(selectedFund.target) : 'TBD',
+      investors: String(investorCount),
+      avg: avg > 0 ? fmtK(avg) : '--',
+    };
+  }, [selectedFund, investorStore.investors]);
 
   // Carousel calculations
   const visibleCards = 3;
@@ -537,21 +556,47 @@ export default function Dashboard() {
                     <div style={{ fontSize: 16, fontWeight: 300, color: 'var(--t1)', marginBottom: 6, lineHeight: 1.3 }}>
                       {fund.name}
                     </div>
-                    <div className="mono" style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
-                      {getFundAmountText(fund)}
-                    </div>
-                    {fund.target > 0 && (
-                      <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, marginBottom: 12, overflow: 'hidden' }}>
-                        <div
-                          style={{
-                            height: '100%',
-                            background: 'var(--grn)',
-                            borderRadius: 3,
-                            width: `${getFundProgress(fund)}%`,
-                            transition: 'width 0.4s ease',
-                          }}
-                        />
-                      </div>
+                    {fund.shortName === 'Fund II' && ticOutsideCapital > 0 ? (
+                      <>
+                        {/* LP Raised */}
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span className="mono" style={{ fontSize: 10, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>LP Raised</span>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--grn)' }}>{fmtK(fund.committed)}</span>
+                          </div>
+                          {fund.target > 0 && (
+                            <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', background: 'var(--grn)', borderRadius: 3, width: `${getFundProgress(fund)}%`, transition: 'width 0.4s ease' }} />
+                            </div>
+                          )}
+                        </div>
+                        {/* TIC Capital */}
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                            <span className="mono" style={{ fontSize: 10, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>TIC Capital</span>
+                            <span className="mono" style={{ fontSize: 11, color: 'var(--blu)' }}>{fmtK(ticOutsideCapital)}</span>
+                          </div>
+                          <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: 'var(--blu)', borderRadius: 3, width: fund.target > 0 ? `${Math.min(100, (ticOutsideCapital / fund.target) * 100)}%` : '0%', transition: 'width 0.4s ease' }} />
+                          </div>
+                        </div>
+                        {/* Total */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <span className="mono" style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Total</span>
+                          <span className="mono" style={{ fontSize: 12, color: 'var(--t1)', fontWeight: 500 }}>{fmtK(fund.committed + ticOutsideCapital)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mono" style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 12 }}>
+                          {getFundAmountText(fund)}
+                        </div>
+                        {fund.target > 0 && (
+                          <div style={{ width: '100%', height: 5, background: 'var(--bd)', borderRadius: 3, marginBottom: 12, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: 'var(--grn)', borderRadius: 3, width: `${getFundProgress(fund)}%`, transition: 'width 0.4s ease' }} />
+                          </div>
+                        )}
+                      </>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--t4)' }}>
                       <span>{footer.left}</span>
@@ -574,9 +619,21 @@ export default function Dashboard() {
           <div className="sidebar-box">
             <div className="sidebar-title">{selectedFund?.shortName} Overview</div>
             <div className="stat-row">
-              <div className="stat-row-label">Total Raised</div>
+              <div className="stat-row-label">{selectedFund?.shortName === 'Fund II' && ticOutsideCapital > 0 ? 'LP Raised' : 'Total Raised'}</div>
               <div className="stat-row-value">{overview.raised}</div>
             </div>
+            {selectedFund?.shortName === 'Fund II' && ticOutsideCapital > 0 && (
+              <>
+                <div className="stat-row">
+                  <div className="stat-row-label" style={{ color: 'var(--blu)' }}>TIC Capital</div>
+                  <div className="stat-row-value small" style={{ color: 'var(--blu)' }}>{fmt(ticOutsideCapital)}</div>
+                </div>
+                <div className="stat-row">
+                  <div className="stat-row-label">Combined Total</div>
+                  <div className="stat-row-value small">{fmt((selectedFund?.committed || 0) + ticOutsideCapital)}</div>
+                </div>
+              </>
+            )}
             <div className="stat-row">
               <div className="stat-row-label">Target</div>
               <div className="stat-row-value small">{overview.target}</div>
