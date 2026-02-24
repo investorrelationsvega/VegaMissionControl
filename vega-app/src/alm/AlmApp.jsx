@@ -10,22 +10,29 @@ import { Routes, Route } from 'react-router-dom';
 import AlmHeader from './components/AlmHeader';
 import AlmToast from './components/AlmToast';
 import AlmDashboard from './pages/AlmDashboard';
+import useAlmUiStore from './stores/almUiStore';
+import './alm-theme.css';
 
 export default function AlmApp() {
+  const theme = useAlmUiStore((s) => s.theme);
+
   return (
-    <>
+    <div className="alm-root" data-theme={theme}>
+      <div className="alm-grid-bg" />
       <AlmHeader />
-      <Routes>
-        <Route path="/" element={<AlmDashboard />} />
-        {/* Future ALM routes:
-        <Route path="/facilities" element={<Facilities />} />
-        <Route path="/staff" element={<Staff />} />
-        <Route path="/residents" element={<Residents />} />
-        <Route path="/compliance" element={<AlmCompliance />} />
-        <Route path="/reports" element={<AlmReports />} />
-        */}
-      </Routes>
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <Routes>
+          <Route path="/" element={<AlmDashboard />} />
+          {/* Future ALM routes:
+          <Route path="/facilities" element={<Facilities />} />
+          <Route path="/staff" element={<Staff />} />
+          <Route path="/residents" element={<Residents />} />
+          <Route path="/compliance" element={<AlmCompliance />} />
+          <Route path="/reports" element={<AlmReports />} />
+          */}
+        </Routes>
+      </div>
       <AlmToast />
-    </>
+    </div>
   );
 }
