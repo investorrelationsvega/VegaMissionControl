@@ -3,6 +3,7 @@
 // Assisted Living Management overview
 // Brand: Noto Serif Display headings, HK Grotesk
 // body, plum accents, cream/night sky backgrounds
+// Data: ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
 // ═══════════════════════════════════════════════
 
 import useResponsive from '../hooks/useResponsive';
@@ -22,24 +23,55 @@ function PlumStar({ size = 12, style = {} }) {
   );
 }
 
-// Placeholder homes data (will move to store/data later)
+// Format helpers
+const fmtK = (n) => {
+  if (n == null) return '--';
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+  return `$${n.toLocaleString()}`;
+};
+const fmtNum = (n) => (n == null ? '--' : n.toLocaleString());
+const fmtPct = (n) => (n == null ? '--' : `${n.toFixed(1)}%`);
+
+// ── Real Home Data ─────────────────────────────────────────
+// Source: Vega ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
+// NOI figures from P&L statements (Sept–Dec 2025 reporting period)
 const HOMES = [
-  { name: 'Riverton', lovedOnes: 16, caregivers: 12, status: 'Active' },
-  { name: 'Herriman', lovedOnes: 16, caregivers: 11, status: 'Active' },
-  { name: 'Magna', lovedOnes: 16, caregivers: 10, status: 'Active' },
-  { name: 'South Jordan', lovedOnes: 16, caregivers: 12, status: 'Active' },
-  { name: 'West Jordan', lovedOnes: 16, caregivers: 11, status: 'Active' },
-  { name: 'Taylorsville', lovedOnes: 16, caregivers: 10, status: 'Active' },
-  { name: 'Sandy', lovedOnes: 16, caregivers: 12, status: 'Active' },
-  { name: 'Draper', lovedOnes: 16, caregivers: 11, status: 'Pre-Open' },
+  // Fund II — Operational (with P&L data)
+  { name: 'Cedar City',        beds: 20, sqft: 12962, noi: 142667, margin: 43.5, acquired: "Aug '25", status: 'Active',         fund: 'II', state: 'UT' },
+  { name: 'Riverton',          beds: 18, sqft: 9180,  noi: 80565,  margin: 28.0, acquired: "Aug '25", status: 'Active',         fund: 'II', state: 'UT' },
+  { name: 'Elk Ridge',         beds: 29, sqft: 15896, noi: 71535,  margin: 48.8, acquired: "Oct '25", status: 'Active',         fund: 'II', state: 'UT' },
+  { name: 'Hearthstone Manor', beds: 35, sqft: 21323, noi: 134920, margin: 57.6, acquired: "Oct '25", status: 'Active',         fund: 'II', state: 'UT' },
+  // Fund II — Ramping / Pre-Revenue
+  { name: 'Sandy',             beds: 16, sqft: 7536,  noi: null,   margin: null, acquired: "Sep '25", status: 'Ramping',        fund: 'II', state: 'UT', note: 'Grand Opening Jan 23, 2026' },
+  // Fund II — Pipeline
+  { name: 'Riverton Phase II', beds: 20, sqft: null,  noi: null,   margin: null, acquired: null,      status: 'Development',    fund: 'II', state: 'UT', note: 'Construction Q2 2026' },
+  { name: 'Gilbert',           beds: null, sqft: null, noi: null,   margin: null, acquired: null,      status: 'Under Contract', fund: 'II', state: 'AZ', note: 'First out-of-state acquisition' },
+  // Fund I
+  { name: 'West Jordan',       beds: 16, sqft: null,  noi: null,   margin: null, acquired: null,      status: 'Active',         fund: 'I',  state: 'UT' },
 ];
+
+// Status → badge color mapping
+const STATUS_COLORS = {
+  Active:           { bg: 'var(--alm-neptune-bg)', color: 'var(--alm-neptune)' },
+  Ramping:          { bg: 'var(--alm-plum-bg)',    color: 'var(--alm-plum)' },
+  Development:      { bg: 'var(--alm-plum-bg)',    color: 'var(--alm-t4)' },
+  'Under Contract': { bg: 'var(--alm-plum-bg)',    color: 'var(--alm-t4)' },
+};
 
 export default function AlmDashboard() {
   const { isMobile, isTablet } = useResponsive();
 
-  const totalLovedOnes = HOMES.reduce((s, h) => s + h.lovedOnes, 0);
-  const totalCaregivers = HOMES.reduce((s, h) => s + h.caregivers, 0);
-  const activeHomes = HOMES.filter((h) => h.status === 'Active').length;
+  // ── Summary computations ──────────────────────────────
+  const operational = HOMES.filter((h) => ['Active', 'Ramping'].includes(h.status));
+  const totalBeds = operational.reduce((s, h) => s + (h.beds || 0), 0);
+  const homesWithNoi = HOMES.filter((h) => h.noi != null);
+  const totalNoi = homesWithNoi.reduce((s, h) => s + h.noi, 0);
+  const avgMargin =
+    homesWithNoi.length > 0
+      ? homesWithNoi.reduce((s, h) => s + h.margin, 0) / homesWithNoi.length
+      : 0;
+  const totalSqft = HOMES.reduce((s, h) => s + (h.sqft || 0), 0);
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? 16 : 32 }}>
@@ -79,10 +111,10 @@ export default function AlmDashboard() {
         }}
       >
         {[
-          { label: 'Homes', value: HOMES.length, accent: false },
-          { label: 'Active', value: activeHomes, accent: false },
-          { label: 'Loved Ones', value: totalLovedOnes, accent: true },
-          { label: 'Caregivers', value: totalCaregivers, accent: false },
+          { label: 'Homes', value: HOMES.length },
+          { label: 'Operational', value: operational.length },
+          { label: 'Total Beds', value: totalBeds, accent: true },
+          { label: 'Portfolio NOI', value: fmtK(totalNoi) },
         ].map((stat, i) => (
           <div
             key={i}
@@ -117,78 +149,130 @@ export default function AlmDashboard() {
             gap: 16,
           }}
         >
-          {HOMES.map((home) => (
-            <div
-              key={home.name}
-              className="alm-card"
-              style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
-            >
-              {/* Status badge */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span
-                  className="alm-badge"
+          {HOMES.map((home) => {
+            const sc = STATUS_COLORS[home.status] || STATUS_COLORS.Active;
+            return (
+              <div
+                key={home.name}
+                className="alm-card"
+                style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+              >
+                {/* Top row: status + fund/state badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <span
+                    className="alm-badge"
+                    style={{ background: sc.bg, color: sc.color }}
+                  >
+                    {home.status}
+                  </span>
+                  <span
+                    style={{
+                      ...sans,
+                      fontSize: 9,
+                      fontWeight: 400,
+                      color: 'var(--alm-t5)',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Fund {home.fund} · {home.state}
+                  </span>
+                </div>
+
+                {/* Home name */}
+                <div
                   style={{
-                    background: home.status === 'Active' ? 'var(--alm-neptune-bg)' : 'var(--alm-plum-bg)',
-                    color: home.status === 'Active' ? 'var(--alm-neptune)' : 'var(--alm-plum)',
+                    ...serif,
+                    fontSize: 20,
+                    color: 'var(--alm-t1)',
+                    marginBottom: 14,
+                    lineHeight: 1.2,
                   }}
                 >
-                  {home.status}
-                </span>
-                <PlumStar size={8} style={{ opacity: 0.3 }} />
-              </div>
-
-              {/* Home name */}
-              <div
-                style={{
-                  ...serif,
-                  fontSize: 20,
-                  color: 'var(--alm-t1)',
-                  marginBottom: 14,
-                  lineHeight: 1.2,
-                }}
-              >
-                {home.name}
-              </div>
-
-              {/* Stats */}
-              <div style={{ display: 'flex', gap: 20 }}>
-                <div>
-                  <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
-                    Loved Ones
-                  </div>
-                  <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
-                    {home.lovedOnes}
-                  </div>
+                  {home.name}
                 </div>
-                <div>
-                  <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
-                    Caregivers
+
+                {/* Primary stats: Beds + Sq Ft */}
+                <div style={{ display: 'flex', gap: 20 }}>
+                  {home.beds != null && (
+                    <div>
+                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                        Beds
+                      </div>
+                      <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
+                        {home.beds}
+                      </div>
+                    </div>
+                  )}
+                  {home.sqft != null && (
+                    <div>
+                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                        Sq Ft
+                      </div>
+                      <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
+                        {fmtNum(home.sqft)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Financial stats — only for homes with P&L data */}
+                {home.noi != null && (
+                  <div style={{ display: 'flex', gap: 20, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--alm-bd)' }}>
+                    <div>
+                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                        NOI
+                      </div>
+                      <div style={{ ...serif, fontSize: 16, color: 'var(--alm-neptune)' }}>
+                        {fmtK(home.noi)}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                        Margin
+                      </div>
+                      <div style={{ ...serif, fontSize: 16, color: 'var(--alm-neptune)' }}>
+                        {fmtPct(home.margin)}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
-                    {home.caregivers}
+                )}
+
+                {/* Note for pre-revenue / pipeline homes */}
+                {home.note && home.noi == null && (
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 10, fontStyle: 'italic' }}>
+                    {home.note}
                   </div>
+                )}
+
+                {/* Footer: acquired date + view link */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                  {home.acquired ? (
+                    <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+                      Acquired {home.acquired}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <span
+                    style={{
+                      ...sans,
+                      fontSize: 11,
+                      fontWeight: 400,
+                      color: 'var(--alm-plum)',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    View Home &rarr;
+                  </span>
                 </div>
               </div>
-
-              {/* Enter link */}
-              <div
-                style={{
-                  ...sans,
-                  fontSize: 11,
-                  fontWeight: 400,
-                  color: 'var(--alm-plum)',
-                  marginTop: 16,
-                  letterSpacing: '0.05em',
-                }}
-              >
-                View Home &rarr;
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* ── Two Column: Quick Look + Values ─────────────────── */}
+      {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
       <div
         style={{
           display: 'grid',
@@ -200,27 +284,27 @@ export default function AlmDashboard() {
         {/* Quick Look */}
         <div className="alm-card">
           <div className="alm-section-label" style={{ marginBottom: 16, color: 'var(--alm-plum)' }}>
-            Quick Look
+            Portfolio Quick Look
           </div>
           <div className="alm-stat-row">
-            <span className="alm-stat-label">Total Capacity</span>
-            <span className="alm-stat-value">{totalLovedOnes}</span>
+            <span className="alm-stat-label">Total Beds (Operational)</span>
+            <span className="alm-stat-value">{totalBeds}</span>
           </div>
           <div className="alm-stat-row">
-            <span className="alm-stat-label">Current Occupancy</span>
-            <span className="alm-stat-value">--</span>
+            <span className="alm-stat-label">Total Sq Ft</span>
+            <span className="alm-stat-value">{fmtNum(totalSqft)}</span>
           </div>
           <div className="alm-stat-row">
-            <span className="alm-stat-label">Caregiver Ratio</span>
-            <span className="alm-stat-value">--</span>
+            <span className="alm-stat-label">Q4 Portfolio NOI</span>
+            <span className="alm-stat-value">{fmtK(totalNoi)}</span>
           </div>
           <div className="alm-stat-row">
-            <span className="alm-stat-label">Open Positions</span>
-            <span className="alm-stat-value">--</span>
+            <span className="alm-stat-label">Avg Operating Margin</span>
+            <span className="alm-stat-value">{fmtPct(avgMargin)}</span>
           </div>
           <div className="alm-stat-row">
-            <span className="alm-stat-label">Family Satisfaction</span>
-            <span className="alm-stat-value">--</span>
+            <span className="alm-stat-label">Markets</span>
+            <span className="alm-stat-value">Utah · Arizona</span>
           </div>
         </div>
 
@@ -267,7 +351,7 @@ export default function AlmDashboard() {
           </span>
         </div>
         <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
-          Eight homes across Utah
+          {HOMES.length} homes across Utah &amp; Arizona
         </span>
       </div>
     </div>
