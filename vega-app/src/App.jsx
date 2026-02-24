@@ -12,6 +12,7 @@ import FundOverview from './pages/FundOverview';
 import Reports from './pages/Reports';
 import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
+import AlmApp from './alm/AlmApp';
 import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
 import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken, startSalesforceAuth } from './services/salesforceAuth';
 import useRingCentralStore from './stores/ringcentralStore';
@@ -416,6 +417,7 @@ export default function App() {
   const location = useLocation();
   const currentPage = getPageName(location.pathname);
   const isHomePage = location.pathname === '/';
+  const isAlmPage = location.pathname.startsWith('/alm');
 
   // ── Theme Sync ───────────────────────────────────────────────────────────
   const theme = useUiStore((s) => s.theme);
@@ -680,7 +682,7 @@ export default function App() {
   return (
     <>
       <div className="grid-bg" />
-      {!isHomePage && <Header currentPage={currentPage} />}
+      {!isHomePage && !isAlmPage && <Header currentPage={currentPage} />}
       <Routes>
         {/* Landing page */}
         <Route path="/" element={<Home />} />
@@ -696,7 +698,7 @@ export default function App() {
         <Route path="/pe/sales" element={<Sales />} />
 
         {/* Other business units (placeholder dashboards) */}
-        <Route path="/alm" element={<UnitPlaceholder name="Assisted Living Management" subtitle="Management & Operations" />} />
+        <Route path="/alm/*" element={<AlmApp />} />
         <Route path="/builders" element={<UnitPlaceholder name="Builders" subtitle="Construction" />} />
         <Route path="/capital-markets" element={<UnitPlaceholder name="Capital Markets" subtitle="Debt & Equity Financing" />} />
         <Route path="/development" element={<UnitPlaceholder name="Development" subtitle="Land Development" />} />
