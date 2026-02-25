@@ -329,13 +329,25 @@ export default function Sales() {
 
   const handleSaveShipment = () => {
     if (!shipForm.recipient.trim()) return;
+    const shipQty = Number(shipForm.quantity) || 1;
+    const shipMt = shipForm.materialType;
+    const prevStock = store.inventory?.[shipMt] ?? 0;
     store.addShipment({
       ...shipForm,
-      quantity: Number(shipForm.quantity) || 1,
+      quantity: shipQty,
       cost: Number(shipForm.cost) || 0,
     }, USER);
     setShowShipmentModal(false);
     showToast('Shipment logged');
+    // Check if inventory dropped to reorder threshold
+    if (INVENTORY_ITEMS.includes(shipMt)) {
+      const newStock = Math.max(0, prevStock - shipQty);
+      if (newStock <= 20 && prevStock > 20) {
+        setTimeout(() => showToast(`⚠ ${shipMt} is at ${newStock} — time to reorder`), 600);
+      } else if (newStock <= 20) {
+        setTimeout(() => showToast(`⚠ ${shipMt} is low (${newStock}) — reorder needed`), 600);
+      }
+    }
     setShipForm({ date: today, recipient: '', recipientFirm: '', recipientAddress: '', materialType: MATERIAL_TYPES[0], quantity: '1', trackingNumber: '', carrier: '', cost: '', scheduledDelivery: '', notes: '' });
   };
 
@@ -353,6 +365,8 @@ export default function Sales() {
     if (isNaN(qty) || qty < 0) return;
     store.setInventoryQty(materialType, qty, USER);
     setEditingInventory((prev) => { const n = { ...prev }; delete n[materialType]; return n; });
+    if (qty <= 20 && qty > 0) showToast(`⚠ ${materialType} is at ${qty} — time to reorder`);
+    if (qty === 0) showToast(`⚠ ${materialType} is out of stock`);
   };
 
   const handleSaveExpense = () => {
@@ -724,7 +738,7 @@ export default function Sales() {
               {INVENTORY_ITEMS.map((mt) => {
                 const qty = store.inventory?.[mt] ?? 0;
                 const isEditing = editingInventory[mt] !== undefined;
-                const low = qty > 0 && qty <= 10;
+                const low = qty > 0 && qty <= 20;
                 const out = qty === 0;
                 return (
                   <div key={mt} style={{ background: 'var(--bg1)', border: `1px solid ${out ? 'rgba(239,68,68,0.3)' : low ? 'rgba(234,179,8,0.3)' : 'var(--bd)'}`, borderRadius: 6, padding: '10px 12px', textAlign: 'center' }}>
@@ -752,7 +766,7 @@ export default function Sales() {
                       <button onClick={() => store.adjustInventory(mt, 1, USER)} style={{ ...mono, fontSize: 12, fontWeight: 700, width: 26, height: 26, border: '1px solid var(--bd)', background: 'var(--bg0)', color: 'var(--t2)', borderRadius: 4, cursor: 'pointer' }}>+</button>
                     </div>
                     {out && <div style={{ ...mono, fontSize: 8, color: 'var(--red)', marginTop: 4, fontWeight: 700 }}>OUT OF STOCK</div>}
-                    {low && !out && <div style={{ ...mono, fontSize: 8, color: 'var(--ylw)', marginTop: 4, fontWeight: 700 }}>LOW STOCK</div>}
+                    {low && !out && <div style={{ ...mono, fontSize: 8, color: 'var(--ylw)', marginTop: 4, fontWeight: 700 }}>REORDER — 20 OR BELOW</div>}
                   </div>
                 );
               })}
