@@ -13,6 +13,7 @@ import useDistributionStore from '../stores/distributionStore'
 import useFundStore from '../stores/fundStore'
 import useRingCentralStore from '../stores/ringcentralStore'
 import useGoogleStore from '../stores/googleStore'
+import useUiStore from '../stores/uiStore'
 import { fmt, fmtK } from '../utils/format'
 import { getCallLog, getMessageStore, sendSMS, formatPhoneForRC, formatPhoneForDisplay, formatDuration } from '../services/ringcentralService'
 import { getThreadsForContact, getThreadDetails, sendReply } from '../services/gmailService'
@@ -171,6 +172,7 @@ export default function Directory() {
   const complianceStore = useComplianceStore()
   const distributionStore = useDistributionStore()
   const fundStore = useFundStore()
+  const showToast = useUiStore((s) => s.showToast)
 
   // ── State ───────────────────────────────────
   const [dirTab, setDirTab] = useState('investors')
@@ -1619,6 +1621,12 @@ export default function Directory() {
                         <PipelineTracker
                           pipeline={selectedInvestor.pipeline}
                           signers={selectedInvestor.signers}
+                          docRouting={selectedInvestor.docRouting || 'direct'}
+                          positionId={selectedInvestor.positions[0]?.id}
+                          onDateChange={(posId, dateKey, newDate) => {
+                            useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
+                            showToast('Date updated')
+                          }}
                         />
                       </div>
                     )}
@@ -2407,6 +2415,7 @@ export default function Directory() {
                     const ACTION_COLORS = {
                       'Field Updated': 'var(--grn)',
                       'Pipeline Stage Changed': 'var(--ylw)',
+                      'Pipeline Date Updated': 'var(--blu)',
                       'Status Changed': 'var(--ylw)',
                       'Declined': 'var(--red)',
                       'Amount Changed': 'var(--blu)',
