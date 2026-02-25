@@ -16,7 +16,7 @@ import useSalesStore, {
 } from '../stores/salesStore';
 import useSalesforceStore from '../stores/salesforceStore';
 import useUiStore from '../stores/uiStore';
-import useInvestorStore, { PIPELINE_STAGES, PIPELINE_STAGE_LABELS } from '../stores/investorStore';
+import useInvestorStore, { PIPELINE_STAGES, PIPELINE_STAGE_LABELS, getPipelineStages, STAGE_DATE_KEYS } from '../stores/investorStore';
 import useResponsive from '../hooks/useResponsive';
 import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
 import { startSalesforceAuth } from '../services/salesforceAuth';
@@ -166,24 +166,33 @@ export default function Sales() {
   const [selectedSubscription, setSelectedSubscription] = useState(null);
 
   // ── Subscription pipeline data ─────────────────────────────────────────
-  const SUB_STAGES = ['Pending', 'Webform Complete', 'DocuSign Out', 'Fully Executed', 'GP Countersign', 'Funded'];
+  // Dynamic kanban stages — union of both routes, in display order
+  const ALL_KANBAN_STAGES = [
+    'Pending', 'Webform Sent', 'Webform Done', 'Out for Signatures', 'Signed by LP',
+    'Docs to Custodian', 'Delivered to Vega', 'Signed by GP/Vega',
+    'Funded', 'Reviewed by Attorney', 'Blue Sky Filing',
+  ];
+  // Stages that only appear if a subscription actually occupies them
+  const ROUTE_SPECIFIC = new Set([
+    'Webform Done', 'Out for Signatures', 'Signed by LP',
+    'Docs to Custodian', 'Delivered to Vega',
+  ]);
 
   const subscriptions = useMemo(() => {
-    // Get Fund II positions with active pipeline stages (not Accepted/Declined/New)
     const posArr = Array.isArray(positions) ? positions : [];
     return posArr
       .filter((p) => {
         if (!p.pipeline || !p.pipeline.stage) return false;
         const stage = p.pipeline.stage;
-        if (stage === 'Accepted' || stage === 'Declined' || stage === 'New') return false;
-        // Map 'Webform Sent' to 'Pending' bucket for the kanban
+        if (stage === 'Fully Accepted' || stage === 'Accepted' || stage === 'Declined' || stage === 'New') return false;
         return true;
       })
       .map((p) => {
-        // Find the investor record for extra info (investors is a map keyed by invId)
         const inv = investors?.[p.invId];
+        const routing = p.docRouting || 'direct';
         const displayStage = p.pipeline.stage === 'Webform Sent' ? 'Pending' : p.pipeline.stage;
-        const enteredDate = p.pipeline.enteredDate || p.pipeline.pendingDate || p.pipeline.webformSentDate;
+        const stageKey = STAGE_DATE_KEYS[p.pipeline.stage];
+        const enteredDate = stageKey ? p.pipeline[stageKey] : (p.pipeline.enteredDate || p.pipeline.pendingDate || p.pipeline.webformSentDate);
         const signedCount = (p.signers || []).filter((s) => s.signed).length;
         const totalSigners = (p.signers || []).length;
         return {
@@ -196,6 +205,8 @@ export default function Sales() {
           rawStage: p.pipeline.stage,
           amount: p.amt || 0,
           advisor: inv?.advisor || p.advisor || '',
+          custodian: inv?.custodian || p.custodian || '',
+          docRouting: routing,
           email: inv?.email || p.email || '',
           phone: inv?.phone || p.phone || '',
           pipeline: p.pipeline,
@@ -208,27 +219,35 @@ export default function Sales() {
           contacts: inv?.contacts || [],
           subscriptionId: p.subscriptionId || null,
           docusignEnvelopeId: p.docusignEnvelopeId || '',
+          state: p.state || inv?.state || '',
         };
       });
   }, [positions, investors]);
 
   const subsByStage = useMemo(() => {
     const map = {};
-    SUB_STAGES.forEach((s) => { map[s] = []; });
+    ALL_KANBAN_STAGES.forEach((s) => { map[s] = []; });
     subscriptions.forEach((sub) => {
       if (map[sub.stage]) map[sub.stage].push(sub);
     });
     return map;
   }, [subscriptions]);
 
+  // Dynamic visible columns: shared stages always show; route-specific only when occupied
+  const visibleKanbanStages = useMemo(() => {
+    return ALL_KANBAN_STAGES.filter((stage) => {
+      if (!ROUTE_SPECIFIC.has(stage)) return true; // shared stages always show
+      return (subsByStage[stage] || []).length > 0;  // route-specific only if populated
+    });
+  }, [subsByStage]);
+
   const subMetrics = useMemo(() => {
     const total = subscriptions.length;
     const totalCapital = subscriptions.reduce((s, sub) => s + sub.amount, 0);
     const stageCounts = {};
-    SUB_STAGES.forEach((stage) => {
+    ALL_KANBAN_STAGES.forEach((stage) => {
       stageCounts[stage] = (subsByStage[stage] || []).length;
     });
-    // Avg days from Pending to Funded (only for Funded positions)
     const funded = subscriptions.filter((s) => s.stage === 'Funded');
     let avgDaysToFund = 0;
     if (funded.length > 0) {
@@ -894,14 +913,16 @@ export default function Sales() {
           ) : (
             <>
               <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${SUB_STAGES.length}, 1fr)`, gap: 8, marginBottom: 32, minWidth: SUB_STAGES.length * 180 }}>
-                  {SUB_STAGES.map((stage) => {
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleKanbanStages.length}, 1fr)`, gap: 8, marginBottom: 32, minWidth: visibleKanbanStages.length * 180 }}>
+                  {visibleKanbanStages.map((stage) => {
                     const cards = subsByStage[stage] || [];
-                    const stageColor = stage === 'Funded' ? 'var(--grn)'
-                      : stage === 'GP Countersign' ? '#a855f7'
-                      : stage === 'Fully Executed' ? '#f97316'
-                      : stage === 'DocuSign Out' ? '#ec4899'
-                      : stage === 'Webform Complete' ? 'var(--blu)'
+                    const stageColor =
+                      stage === 'Funded' || stage === 'Reviewed by Attorney' ? 'var(--grn)'
+                      : stage === 'Signed by GP/Vega' ? '#a855f7'
+                      : stage === 'Out for Signatures' || stage === 'Signed by LP' ? '#a855f7'
+                      : stage === 'Docs to Custodian' || stage === 'Delivered to Vega' ? '#ec4899'
+                      : stage === 'Webform Done' || stage === 'Webform Sent' ? 'var(--blu)'
+                      : stage === 'Blue Sky Filing' ? '#f59e0b'
                       : 'var(--ylw)';
                     const stageCapital = cards.reduce((s, c) => s + c.amount, 0);
                     return (
@@ -955,8 +976,8 @@ export default function Sales() {
                                 </div>
                               )}
 
-                              {/* Signer status for DocuSign stages */}
-                              {sub.totalSigners > 0 && ['DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(sub.stage) && (
+                              {/* Signer status for signature stages */}
+                              {sub.totalSigners > 0 && ['Out for Signatures', 'Signed by LP', 'Signed by GP/Vega', 'Docs to Custodian', 'Delivered to Vega'].includes(sub.stage) && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
                                   {sub.signers.map((signer, idx) => (
                                     <span
@@ -975,37 +996,39 @@ export default function Sales() {
                                 </div>
                               )}
 
+                              {/* Custodian badge */}
+                              {sub.docRouting === 'custodian' && sub.custodian && (
+                                <div style={{ ...mono, fontSize: 9, color: '#ec4899', marginBottom: 4 }}>
+                                  Custodian: {sub.custodian}
+                                </div>
+                              )}
+
                               {/* Days in stage + advance */}
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
                                 <span style={{ ...mono, fontSize: 9, color: sub.daysInStage > 14 ? 'var(--ylw)' : 'var(--t5)' }}>
                                   {sub.daysInStage}d in stage
                                 </span>
-                                {stage === 'Funded' ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      advancePipelineStage(sub.positionId, 'Accepted', USER);
-                                      showToast(`${sub.name} → Accepted ✓`);
-                                    }}
-                                    style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
-                                  >
-                                    Accept ✓
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const idx = SUB_STAGES.indexOf(stage);
-                                      if (idx < SUB_STAGES.length - 1) {
-                                        advancePipelineStage(sub.positionId, SUB_STAGES[idx + 1], USER);
-                                        showToast(`${sub.name} → ${PIPELINE_STAGE_LABELS[SUB_STAGES[idx + 1]] || SUB_STAGES[idx + 1]}`);
-                                      }
-                                    }}
-                                    style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
-                                  >
-                                    Advance ▸
-                                  </button>
-                                )}
+                                {(() => {
+                                  const routeStages = getPipelineStages(sub.docRouting);
+                                  const currentIdx = routeStages.indexOf(sub.rawStage);
+                                  const nextStage = currentIdx >= 0 && currentIdx < routeStages.length - 1
+                                    ? routeStages[currentIdx + 1] : null;
+                                  if (sub.rawStage === 'Fully Accepted' || !nextStage) return null;
+                                  return (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (nextStage) {
+                                          advancePipelineStage(sub.positionId, nextStage, USER);
+                                          showToast(`${sub.name} → ${PIPELINE_STAGE_LABELS[nextStage] || nextStage}`);
+                                        }
+                                      }}
+                                      style={{ ...mono, fontSize: 8, fontWeight: 700, padding: '3px 8px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 3, cursor: 'pointer' }}
+                                    >
+                                      {nextStage === 'Fully Accepted' ? 'Accept ✓' : 'Advance ▸'}
+                                    </button>
+                                  );
+                                })()}
                               </div>
                             </div>
                           ))}
@@ -1032,7 +1055,7 @@ export default function Sales() {
                 <div style={{ marginTop: 16 }}>
                   <div style={{ ...mono, fontSize: 10, fontWeight: 700, color: 'var(--t5)', marginBottom: 8 }}>PER STAGE</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {SUB_STAGES.map((stage) => (
+                    {visibleKanbanStages.map((stage) => (
                       <div key={stage} style={{ ...mono, fontSize: 10, color: 'var(--t4)', padding: '4px 10px', background: 'var(--bg1)', border: '1px solid var(--bd)', borderRadius: 4 }}>
                         {PIPELINE_STAGE_LABELS[stage] || stage}: <span style={{ color: (subMetrics.stageCounts[stage] || 0) > 0 ? 'var(--t1)' : 'var(--t5)', fontWeight: 700 }}>{subMetrics.stageCounts[stage] || 0}</span>
                       </div>
@@ -1251,6 +1274,11 @@ export default function Sales() {
                     Advisor: {selectedSubscription.advisor}
                   </div>
                 )}
+                {selectedSubscription.docRouting === 'custodian' && selectedSubscription.custodian && (
+                  <div style={{ ...mono, fontSize: 11, color: '#ec4899' }}>
+                    Custodian: {selectedSubscription.custodian}
+                  </div>
+                )}
                 {selectedSubscription.docusignEnvelopeId && (
                   <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', marginTop: 4 }}>
                     DocuSign: {selectedSubscription.docusignEnvelopeId}
@@ -1259,12 +1287,29 @@ export default function Sales() {
               </div>
 
               {/* Pipeline tracker */}
-              <PipelineTracker pipeline={selectedSubscription.pipeline} signers={selectedSubscription.signers} />
+              <PipelineTracker
+                pipeline={selectedSubscription.pipeline}
+                signers={selectedSubscription.signers}
+                docRouting={selectedSubscription.docRouting}
+                positionId={selectedSubscription.positionId}
+                onDateChange={(posId, dateKey, newDate) => {
+                  useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, USER);
+                  // Refresh the selected subscription with updated pipeline
+                  const updated = useInvestorStore.getState().positions.find((p) => p.id === posId);
+                  if (updated) {
+                    setSelectedSubscription((prev) => ({
+                      ...prev,
+                      pipeline: updated.pipeline,
+                    }));
+                  }
+                  showToast('Date updated');
+                }}
+              />
 
               {/* Audit trail */}
               {(() => {
                 const entries = auditLog
-                  .filter((e) => e.invId === selectedSubscription.invId && (e.action === 'Pipeline Stage Changed' || e.action === 'Declined'))
+                  .filter((e) => e.invId === selectedSubscription.invId && (e.action === 'Pipeline Stage Changed' || e.action === 'Pipeline Date Updated' || e.action === 'Declined'))
                   .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                 if (entries.length === 0) return null;
                 return (
@@ -1291,32 +1336,25 @@ export default function Sales() {
 
               {/* Quick actions */}
               <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--bd)' }}>
-                {selectedSubscription.stage === 'Funded' ? (
-                  <button
-                    onClick={() => {
-                      advancePipelineStage(selectedSubscription.positionId, 'Accepted', USER);
-                      showToast(`${selectedSubscription.name} → Accepted ✓`);
-                      setSelectedSubscription(null);
-                    }}
-                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
-                  >
-                    Accept ✓
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const idx = SUB_STAGES.indexOf(selectedSubscription.stage);
-                      if (idx < SUB_STAGES.length - 1) {
-                        advancePipelineStage(selectedSubscription.positionId, SUB_STAGES[idx + 1], USER);
-                        showToast(`${selectedSubscription.name} → ${PIPELINE_STAGE_LABELS[SUB_STAGES[idx + 1]] || SUB_STAGES[idx + 1]}`);
+                {(() => {
+                  const routeStages = getPipelineStages(selectedSubscription.docRouting);
+                  const currentIdx = routeStages.indexOf(selectedSubscription.rawStage);
+                  const nextStage = currentIdx >= 0 && currentIdx < routeStages.length - 1
+                    ? routeStages[currentIdx + 1] : null;
+                  if (selectedSubscription.rawStage === 'Fully Accepted' || !nextStage) return null;
+                  return (
+                    <button
+                      onClick={() => {
+                        advancePipelineStage(selectedSubscription.positionId, nextStage, USER);
+                        showToast(`${selectedSubscription.name} → ${PIPELINE_STAGE_LABELS[nextStage] || nextStage}`);
                         setSelectedSubscription(null);
-                      }
-                    }}
-                    style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
-                  >
-                    Advance Stage ▸
-                  </button>
-                )}
+                      }}
+                      style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '8px 16px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                    >
+                      {nextStage === 'Fully Accepted' ? 'Accept ✓' : `Advance → ${PIPELINE_STAGE_LABELS[nextStage] || nextStage}`}
+                    </button>
+                  );
+                })()}
                 {selectedSubscription.email && (
                   <button
                     onClick={() => {

@@ -11,31 +11,94 @@ import { updateInvestorField, updatePositionField, appendAuditLog, updateSubscri
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
 
-// Pipeline stage order for display and validation
-export const PIPELINE_STAGES = [
-  'New',
-  'Pending',
-  'Webform Sent',
-  'Webform Complete',
-  'DocuSign Out',
-  'Fully Executed',
-  'GP Countersign',
-  'Funded',
-  'Accepted',
+// Pipeline stage order — route-aware (direct/advisor vs custodian)
+export const DIRECT_STAGES = [
+  'New', 'Pending', 'Webform Sent', 'Webform Done',
+  'Out for Signatures', 'Signed by LP', 'Signed by GP/Vega',
+  'Funded', 'Reviewed by Attorney', 'Blue Sky Filing', 'Fully Accepted',
 ];
+
+export const CUSTODIAN_STAGES = [
+  'New', 'Pending', 'Webform Sent', 'Docs to Custodian',
+  'Delivered to Vega', 'Signed by GP/Vega',
+  'Funded', 'Reviewed by Attorney', 'Blue Sky Filing', 'Fully Accepted',
+];
+
+// Backward-compat alias (default = direct flow)
+export const PIPELINE_STAGES = DIRECT_STAGES;
+
+export function getPipelineStages(docRouting) {
+  return docRouting === 'custodian' ? CUSTODIAN_STAGES : DIRECT_STAGES;
+}
 
 export const PIPELINE_STAGE_LABELS = {
   'New': 'New',
   'Pending': 'Pending',
   'Webform Sent': 'Webform Sent',
-  'Webform Complete': 'Webform Done',
-  'DocuSign Out': 'DocuSign Out',
-  'Fully Executed': 'Executed',
-  'GP Countersign': 'GP Sign',
+  'Webform Done': 'Webform Done',
+  'Out for Signatures': 'Out for Sigs',
+  'Signed by LP': 'Signed LP',
+  'Signed by GP/Vega': 'GP Signed',
+  'Docs to Custodian': 'To Custodian',
+  'Delivered to Vega': 'Delivered',
   'Funded': 'Funded',
-  'Accepted': 'Accepted',
+  'Reviewed by Attorney': 'Atty Review',
+  'Blue Sky Filing': 'Blue Sky',
+  'Fully Accepted': 'Accepted',
   'Declined': 'Declined',
 };
+
+// Map stage → date key for that stage
+export const STAGE_DATE_KEYS = {
+  'Pending': 'pendingDate',
+  'Webform Sent': 'webformSentDate',
+  'Webform Done': 'webformDoneDate',
+  'Out for Signatures': 'outForSignaturesDate',
+  'Signed by LP': 'signedByLpDate',
+  'Signed by GP/Vega': 'signedByGpDate',
+  'Docs to Custodian': 'docsToCustodianDate',
+  'Delivered to Vega': 'deliveredToVegaDate',
+  'Funded': 'fundedDate',
+  'Reviewed by Attorney': 'reviewedByAttorneyDate',
+  'Blue Sky Filing': 'blueSkyFilingDate',
+  'Fully Accepted': 'acceptedDate',
+};
+
+// ── Migration helpers (old stage names → new) ─────────────────────────────
+export function migrateStage(stage, docRouting) {
+  const mapping = {
+    'Webform Complete': docRouting === 'custodian' ? 'Docs to Custodian' : 'Webform Done',
+    'DocuSign Out': docRouting === 'custodian' ? 'Docs to Custodian' : 'Out for Signatures',
+    'Fully Executed': docRouting === 'custodian' ? 'Delivered to Vega' : 'Signed by LP',
+    'GP Countersign': 'Signed by GP/Vega',
+    'Accepted': 'Fully Accepted',
+  };
+  return mapping[stage] || stage;
+}
+
+export function migratePipeline(pipeline, docRouting) {
+  if (!pipeline) return pipeline;
+  const m = { ...pipeline };
+  // Migrate stage name
+  if (m.stage) m.stage = migrateStage(m.stage, docRouting);
+  // Migrate date keys
+  if (docRouting === 'custodian') {
+    if (m.webformCompleteDate && !m.docsToCustodianDate) m.docsToCustodianDate = m.webformCompleteDate;
+    if (m.fullyExecutedDate && !m.deliveredToVegaDate) m.deliveredToVegaDate = m.fullyExecutedDate;
+  } else {
+    if (m.webformCompleteDate && !m.webformDoneDate) m.webformDoneDate = m.webformCompleteDate;
+    if (m.docusignSentDate && !m.outForSignaturesDate) m.outForSignaturesDate = m.docusignSentDate;
+    if (m.fullyExecutedDate && !m.signedByLpDate) m.signedByLpDate = m.fullyExecutedDate;
+  }
+  if (m.gpCountersignDate && !m.signedByGpDate) m.signedByGpDate = m.gpCountersignDate;
+  return m;
+}
+
+function migratePosition(pos) {
+  if (!pos.pipeline) return pos;
+  const migrated = migratePipeline(pos.pipeline, pos.docRouting || 'direct');
+  return migrated !== pos.pipeline ? { ...pos, pipeline: migrated } : pos;
+}
 
 // ---------------------------------------------------------------------------
 // Build investor map from positions
@@ -97,7 +160,8 @@ function buildInvestors(positionList) {
 
     // Carry forward pipeline (use most recent / least advanced stage)
     if (p.pipeline) {
-      if (!inv.pipeline || PIPELINE_STAGES.indexOf(p.pipeline.stage) < PIPELINE_STAGES.indexOf(inv.pipeline.stage)) {
+      const stages = getPipelineStages(p.docRouting);
+      if (!inv.pipeline || stages.indexOf(p.pipeline.stage) < stages.indexOf(inv.pipeline.stage)) {
         inv.pipeline = p.pipeline;
       }
     }
@@ -123,10 +187,24 @@ function buildInvestors(positionList) {
     inv.positions.push(p);
   });
 
+  // Auto-populate contacts for Joint types from signers if contacts are empty
+  Object.values(map).forEach((inv) => {
+    const isJoint = inv.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals');
+    if (isJoint && inv.signers && inv.signers.length >= 2 && inv.contacts.length === 0) {
+      inv.contacts = inv.signers.map((s, i) => ({
+        name: s.name,
+        role: i === 0 ? 'Primary Signer' : 'Co-Signer',
+        phone: i === 0 ? (inv.phone || '') : '',
+        email: i === 0 ? (inv.email || '') : '',
+      }));
+    }
+  });
+
   return map;
 }
 
-const initialInvestors = buildInvestors(seedPositions);
+const migratedSeedPositions = seedPositions.map(migratePosition);
+const initialInvestors = buildInvestors(migratedSeedPositions);
 
 // ---------------------------------------------------------------------------
 // Store
@@ -136,7 +214,7 @@ const useInvestorStore = create(
     (set, get) => ({
   // State
   investors: initialInvestors,
-  positions: seedPositions,
+  positions: migratedSeedPositions,
   activityFeed: seedActivityFeed || [],
   sheetsLoaded: false, // Track if we've loaded from Google Sheets
   notes: {},       // { [invId]: [ { id, text, author, date } ] }
@@ -146,7 +224,8 @@ const useInvestorStore = create(
   // ── Google Sheets Sync ────────────────────────────────────────────────
   loadFromSheets: (sheetPositions, investorLookup) => {
     set((state) => {
-      const investors = buildInvestors(sheetPositions);
+      const migratedPositions = sheetPositions.map(migratePosition);
+      const investors = buildInvestors(migratedPositions);
       // Re-apply contact overrides so local edits survive
       const overrides = state.contactOverrides || {};
       Object.entries(overrides).forEach(([invId, fields]) => {
@@ -167,7 +246,7 @@ const useInvestorStore = create(
         });
       }
       return {
-        positions: sheetPositions,
+        positions: migratedPositions,
         investors,
         sheetsLoaded: true,
       };
@@ -371,24 +450,29 @@ const useInvestorStore = create(
     const pos = state.positions.find((p) => p.id === positionId);
     if (!pos) return;
 
+    // Utah residents skip Blue Sky Filing — advance straight to Fully Accepted
+    let effectiveStage = newStage;
+    if (newStage === 'Blue Sky Filing' && pos.state === 'UT') {
+      effectiveStage = 'Fully Accepted';
+    }
+
     const oldStage = pos.pipeline?.stage || 'New';
     const now = new Date().toISOString();
-    const dateKey = {
-      'Pending': 'pendingDate',
-      'Webform Sent': 'webformSentDate',
-      'Webform Complete': 'webformCompleteDate',
-      'DocuSign Out': 'docusignSentDate',
-      'Fully Executed': 'fullyExecutedDate',
-      'GP Countersign': 'gpCountersignDate',
-      'Funded': 'fundedDate',
-      'Accepted': 'acceptedDate',
-    }[newStage];
+    const dateKey = STAGE_DATE_KEYS[effectiveStage];
 
     const updatedPipeline = {
       ...(pos.pipeline || {}),
-      stage: newStage,
+      stage: effectiveStage,
       ...(dateKey ? { [dateKey]: now } : {}),
     };
+
+    // For Blue Sky Filing, calculate deadline (30 days from reviewedByAttorneyDate)
+    if (effectiveStage === 'Blue Sky Filing') {
+      const attyDate = updatedPipeline.reviewedByAttorneyDate || now;
+      const deadline = new Date(attyDate);
+      deadline.setDate(deadline.getDate() + 30);
+      updatedPipeline.blueSkyDeadline = deadline.toISOString().split('T')[0];
+    }
 
     const updatedPositions = state.positions.map((p) =>
       p.id === positionId ? { ...p, pipeline: updatedPipeline } : p,
@@ -401,7 +485,7 @@ const useInvestorStore = create(
       type: 'status_change',
       invId: pos.invId,
       fund: pos.fund,
-      message: `${pos.name} moved from ${oldStage} to ${newStage}`,
+      message: `${pos.name} moved from ${oldStage} to ${effectiveStage}`,
       date: now,
       read: false,
     };
@@ -416,7 +500,7 @@ const useInvestorStore = create(
           id: `AL-${Date.now()}`,
           invId: pos.invId,
           action: 'Pipeline Stage Changed',
-          detail: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${newStage}`,
+          detail: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${effectiveStage}`,
           user,
           timestamp: now,
         },
@@ -425,7 +509,7 @@ const useInvestorStore = create(
 
     // Write pipeline change to Subscriptions sheet (fire-and-forget)
     if (pos.subscriptionId) {
-      updateSubscriptionField(pos.subscriptionId, 'stage', newStage)
+      updateSubscriptionField(pos.subscriptionId, 'stage', effectiveStage)
         .catch((err) => console.error('Subscription stage write-back failed:', err));
       updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
         .catch((err) => console.error('Subscription dates write-back failed:', err));
@@ -439,28 +523,78 @@ const useInvestorStore = create(
       recordType: 'subscription',
       recordId: pos.subscriptionId || positionId,
       action: 'Pipeline Stage Changed',
-      notes: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${newStage}`,
+      notes: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${effectiveStage}`,
       user,
       timestamp: now,
     }).catch((err) => console.error('Audit log write-back failed:', err));
 
-    // Bluesky filing trigger: out-of-state investor reaches Webform Complete
-    if (newStage === 'Webform Complete' && pos.state && pos.state !== 'UT') {
+    // Blue Sky filing trigger: when entering Blue Sky Filing stage, create filing in bluesky store
+    if (effectiveStage === 'Blue Sky Filing' && pos.state && pos.state !== 'UT') {
       const bluesky = useBlueskyStore.getState();
       if (!bluesky.hasFiling(pos.invId)) {
         const updatedPos = { ...pos, pipeline: updatedPipeline };
         const filing = bluesky.addFiling(updatedPos);
         if (filing) {
+          const deadline = updatedPipeline.blueSkyDeadline || '30 days';
           useUiStore.getState().addNotification({
             type: 'bluesky',
             title: `Blue Sky Filing Required`,
-            detail: `${pos.name} (${pos.state}) — ${pos.fund}. File within 30 days.`,
+            detail: `${pos.name} (${pos.state}) — ${pos.fund}. Deadline: ${deadline}.`,
             link: '/pe/compliance',
             filingId: filing.id,
           });
         }
       }
     }
+  },
+
+  // ── Pipeline Date Editing ─────────────────────────────────────────────────
+  updatePipelineDate: (positionId, dateKey, newDate, user = 'System') => {
+    const state = get();
+    const pos = state.positions.find((p) => p.id === positionId);
+    if (!pos || !pos.pipeline) return;
+
+    const oldDate = pos.pipeline[dateKey] || '';
+    const now = new Date().toISOString();
+
+    const updatedPipeline = { ...pos.pipeline, [dateKey]: newDate };
+    const updatedPositions = state.positions.map((p) =>
+      p.id === positionId ? { ...p, pipeline: updatedPipeline } : p,
+    );
+    const newInvestors = buildInvestors(updatedPositions);
+
+    set({
+      positions: updatedPositions,
+      investors: newInvestors,
+      auditLog: [
+        ...state.auditLog,
+        {
+          id: `AL-${Date.now()}`,
+          invId: pos.invId,
+          action: 'Pipeline Date Updated',
+          detail: `${pos.fund} ${pos.entity || pos.name}: ${dateKey} "${oldDate || '(empty)'}" → "${newDate}"`,
+          user,
+          timestamp: now,
+        },
+      ],
+    });
+
+    // Write to Sheets (fire-and-forget)
+    if (pos.subscriptionId) {
+      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
+        .catch((err) => console.error('Subscription dates write-back failed:', err));
+      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
+        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+    }
+    appendAuditLog({
+      id: `AUD-${Date.now()}`,
+      recordType: 'subscription',
+      recordId: pos.subscriptionId || positionId,
+      action: 'Pipeline Date Updated',
+      notes: `${pos.fund} ${pos.entity || pos.name}: ${dateKey} changed`,
+      user,
+      timestamp: now,
+    }).catch((err) => console.error('Audit log write-back failed:', err));
   },
 
   declineInvestor: (positionId, reason, user = 'System') =>
@@ -559,7 +693,7 @@ const useInvestorStore = create(
 
   getPendingInvestors: () =>
     Object.values(get().investors).filter(
-      (inv) => inv.pipeline && !['Accepted', 'Declined'].includes(inv.pipeline.stage) && inv.pipeline.stage !== 'New',
+      (inv) => inv.pipeline && !['Fully Accepted', 'Accepted', 'Declined'].includes(inv.pipeline.stage) && inv.pipeline.stage !== 'New',
     ),
 
   getDeclinedInvestors: () =>
@@ -681,17 +815,30 @@ const useInvestorStore = create(
         timestamp: now,
       }).catch((err) => console.error('Audit log write-back failed:', err));
 
-      // Auto-add investor as primary signer in contacts if not already present
+      // Auto-add contacts if not already present
       const existingContacts = newInvestors[invId]?.contacts || overrides[invId]?.contacts || [];
       const hasPrimarySigner = existingContacts.some(
         (c) => c.name === investor.name || c.role === 'Primary Signer',
       );
 
       if (!hasPrimarySigner && investor.name?.trim()) {
-        const updatedContacts = [
-          { name: investor.name, role: 'Primary Signer', phone: investor.phone || '', email: investor.email || '' },
-          ...existingContacts,
-        ];
+        // Joint types: create separate contacts from signers array
+        const isJoint = newType === 'Joint' || newType === 'Individual or Joint Individuals';
+        const signers = newInvestors[invId]?.signers || investor.positions?.[0]?.signers || [];
+        let newContacts;
+        if (isJoint && signers.length >= 2) {
+          newContacts = signers.map((s, i) => ({
+            name: s.name,
+            role: i === 0 ? 'Primary Signer' : 'Co-Signer',
+            phone: i === 0 ? (investor.phone || '') : '',
+            email: i === 0 ? (investor.email || '') : '',
+          }));
+        } else {
+          newContacts = [
+            { name: investor.name, role: 'Primary Signer', phone: investor.phone || '', email: investor.email || '' },
+          ];
+        }
+        const updatedContacts = [...newContacts, ...existingContacts];
         newInvestors[invId].contacts = updatedContacts;
 
         const updatedOverrides = {
@@ -880,7 +1027,7 @@ const useInvestorStore = create(
     }),
     {
       name: 'vega-investor-store',
-      version: 2, // Bumped for Google Sheets integration
+      version: 3, // Bumped for route-aware pipeline stages
       partialize: (state) => ({
         positions: state.positions,
         notes: state.notes,
@@ -891,6 +1038,8 @@ const useInvestorStore = create(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // Migrate persisted positions to new stage names
+          state.positions = state.positions.map(migratePosition);
           const investors = buildInvestors(state.positions);
           // Re-apply contact overrides so edits survive rehydration
           const overrides = state.contactOverrides || {};

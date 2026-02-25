@@ -314,7 +314,7 @@ export default function Directory() {
     [investors]
   )
   const pendingPipelineCount = useMemo(
-    () => investors.filter((inv) => inv.pipeline && !['Accepted', 'Declined', 'New'].includes(inv.pipeline.stage)).length,
+    () => investors.filter((inv) => inv.pipeline && !['Fully Accepted', 'Accepted', 'Declined', 'New'].includes(inv.pipeline.stage)).length,
     [investors]
   )
   const declinedCount = useMemo(
@@ -322,7 +322,7 @@ export default function Directory() {
     [investors]
   )
   const acceptedCount = useMemo(
-    () => investors.filter((inv) => inv.pipeline?.stage === 'Accepted' || (!inv.pipeline && inv.status === 'Approved')).length,
+    () => investors.filter((inv) => inv.pipeline?.stage === 'Fully Accepted' || inv.pipeline?.stage === 'Accepted' || (!inv.pipeline && inv.status === 'Approved')).length,
     [investors]
   )
 
@@ -951,8 +951,19 @@ export default function Directory() {
                     <div>
                       {(() => {
                         const isEntity = selectedInvestor.entities.length > 0 && selectedInvestor.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
-                        const primaryName = isEntity ? selectedInvestor.entities[0] : selectedInvestor.name
-                        const secondaryName = isEntity ? selectedInvestor.name : null
+                        const isJoint = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals')
+                        let primaryName, secondaryName;
+                        if (isJoint) {
+                          // Joint: headliner = entity name (both names), no secondary
+                          primaryName = selectedInvestor.entities[0] || selectedInvestor.name;
+                          secondaryName = null;
+                        } else if (isEntity) {
+                          primaryName = selectedInvestor.entities[0];
+                          secondaryName = selectedInvestor.name;
+                        } else {
+                          primaryName = selectedInvestor.name;
+                          secondaryName = null;
+                        }
                         return (
                           <>
                             <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em' }}>
@@ -1053,7 +1064,7 @@ export default function Directory() {
                         </div>
                       )}
                       {/* Advance stage button (non-New, non-Accepted, non-Declined) */}
-                      {selectedInvestor.pipeline && !['New', 'Accepted', 'Declined'].includes(selectedInvestor.pipeline.stage) && selectedInvestor.positions.length > 0 && (
+                      {selectedInvestor.pipeline && !['New', 'Fully Accepted', 'Accepted', 'Declined'].includes(selectedInvestor.pipeline.stage) && selectedInvestor.positions.length > 0 && (
                         <div style={{ marginLeft: 8 }}>
                           <button
                             onClick={() => {
@@ -1287,20 +1298,23 @@ export default function Directory() {
                         gap: 14,
                       }}
                     >
-                      {[
+                      {(() => {
+                        const isJointType = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals');
+                        return [
                         { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual or Joint Individuals', 'Trust', 'IRA or Other Tax-Exempt Retirement Plan', 'Entity'] },
-                        { label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true },
+                        // For Joint types, Profile Name moves to Contacts section
+                        ...(!isJointType ? [{ label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true }] : []),
                         { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
                         { label: 'Phone', value: selectedInvestor.phone || '', key: 'phone', editable: true, isPhone: true },
                         { label: 'Email', value: selectedInvestor.email || '', key: 'email', editable: true, isEmail: true },
                         { label: 'State', value: selectedInvestor.state || '', key: 'state', editable: true },
                         { label: 'Advisor', value: selectedInvestor.advisor || '', key: 'advisor', editable: true, isSelect: true, options: advisors.map((a) => a.name) },
                         { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
-                        { label: 'Entities', value: selectedInvestor.entities.join(', ') || '-', key: 'entities' },
+                        ...(!isJointType ? [{ label: 'Entities', value: selectedInvestor.entities.join(', ') || '-', key: 'entities' }] : []),
                         { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
                         { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status' },
                         { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered' },
-                      ].map((field) => (
+                      ]})().map((field) => (
                         <div key={field.key}>
                           <div
                             style={{
@@ -1458,6 +1472,22 @@ export default function Directory() {
                         )}
                       </div>
 
+                      {/* Profile Name for Joint types (moved from overview grid) */}
+                      {selectedInvestor.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals') && (
+                        <div style={{ background: 'var(--bgI)', borderRadius: 5, padding: '10px 12px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ ...mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)', marginBottom: 3 }}>Profile Name</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{selectedInvestor.name || '-'}</div>
+                          </div>
+                          <svg
+                            onClick={(e) => { e.stopPropagation(); setEditField('name'); setEditValue(selectedInvestor.name || '') }}
+                            viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit"
+                          >
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                          </svg>
+                        </div>
+                      )}
+
                       {/* Contact cards */}
                       {(selectedInvestor.contacts || []).map((contact, idx) => (
                         editingContact === idx ? (
@@ -1494,9 +1524,14 @@ export default function Directory() {
                           <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: '10px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{contact.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>
+                                  {contact.role === 'Primary Signer' && (
+                                    <span style={{ color: 'var(--ylw)', marginRight: 4 }} title="Primary">★</span>
+                                  )}
+                                  {contact.name}
+                                </span>
                                 {contact.role && (
-                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: 'var(--bgM)', color: 'var(--t3)' }}>
+                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: contact.role === 'Primary Signer' ? 'var(--ylwM)' : 'var(--bgM)', color: contact.role === 'Primary Signer' ? 'var(--ylw)' : 'var(--t3)' }}>
                                     {contact.role}
                                   </span>
                                 )}

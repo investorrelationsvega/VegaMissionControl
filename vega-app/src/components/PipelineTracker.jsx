@@ -1,10 +1,11 @@
 // ═══════════════════════════════════════════════
 // VEGA MISSION CONTROL — Pipeline Status Tracker
-// Visual pipeline bar showing subscription doc
-// workflow stage for each investor
+// Route-aware timeline (direct vs custodian) with
+// editable dates on each stage
 // ═══════════════════════════════════════════════
 
-import { PIPELINE_STAGES, PIPELINE_STAGE_LABELS } from '../stores/investorStore';
+import { useState } from 'react';
+import { getPipelineStages, PIPELINE_STAGE_LABELS, STAGE_DATE_KEYS } from '../stores/investorStore';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
 
@@ -12,14 +13,44 @@ const STAGE_COLORS = {
   'New': { bg: 'var(--ylwM)', color: 'var(--ylw)', border: 'rgba(251,191,36,0.3)' },
   'Pending': { bg: 'var(--bluM)', color: 'var(--blu)', border: 'rgba(96,165,250,0.3)' },
   'Webform Sent': { bg: 'var(--bluM)', color: 'var(--blu)', border: 'rgba(96,165,250,0.3)' },
-  'Webform Complete': { bg: 'var(--bluM)', color: 'var(--blu)', border: 'rgba(96,165,250,0.3)' },
-  'DocuSign Out': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
-  'Fully Executed': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
-  'GP Countersign': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
+  'Webform Done': { bg: 'var(--bluM)', color: 'var(--blu)', border: 'rgba(96,165,250,0.3)' },
+  'Out for Signatures': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
+  'Signed by LP': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
+  'Signed by GP/Vega': { bg: 'rgba(168,85,247,0.12)', color: '#a855f7', border: 'rgba(168,85,247,0.3)' },
+  'Docs to Custodian': { bg: 'rgba(236,72,153,0.12)', color: '#ec4899', border: 'rgba(236,72,153,0.3)' },
+  'Delivered to Vega': { bg: 'rgba(236,72,153,0.12)', color: '#ec4899', border: 'rgba(236,72,153,0.3)' },
   'Funded': { bg: 'var(--grnM)', color: 'var(--grn)', border: 'rgba(52,211,153,0.3)' },
-  'Accepted': { bg: 'var(--grnM)', color: 'var(--grn)', border: 'rgba(52,211,153,0.3)' },
+  'Reviewed by Attorney': { bg: 'var(--grnM)', color: 'var(--grn)', border: 'rgba(52,211,153,0.3)' },
+  'Blue Sky Filing': { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
+  'Fully Accepted': { bg: 'var(--grnM)', color: 'var(--grn)', border: 'rgba(52,211,153,0.3)' },
   'Declined': { bg: 'var(--redM)', color: 'var(--red)', border: 'rgba(239,68,68,0.3)' },
+  // Legacy fallbacks
+  'Accepted': { bg: 'var(--grnM)', color: 'var(--grn)', border: 'rgba(52,211,153,0.3)' },
 };
+
+function getDateForStage(pipeline, stage) {
+  const dateKey = STAGE_DATE_KEYS[stage];
+  if (!dateKey || !pipeline) return null;
+  return pipeline[dateKey] || null;
+}
+
+function formatDateShort(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch { return null; }
+}
+
+function toInputDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 10);
+  } catch { return ''; }
+}
 
 // Compact badge for use in tables/lists
 export function PipelineBadge({ stage }) {
@@ -73,16 +104,33 @@ export function NewBadge() {
 }
 
 // Full pipeline tracker bar for investor detail view
-export default function PipelineTracker({ pipeline, signers, compact = false }) {
+// Props: pipeline, signers, docRouting, onDateChange(positionId, dateKey, newDate), positionId, compact
+export default function PipelineTracker({ pipeline, signers, docRouting = 'direct', onDateChange, positionId, compact = false }) {
+  const [editingStage, setEditingStage] = useState(null);
+
   if (!pipeline) return null;
 
   const currentStage = pipeline.stage;
   const isDeclined = currentStage === 'Declined';
-  const currentIdx = isDeclined ? -1 : PIPELINE_STAGES.indexOf(currentStage);
+  const stages = getPipelineStages(docRouting);
+  const currentIdx = isDeclined ? -1 : stages.indexOf(currentStage);
 
   if (compact) {
     return <PipelineBadge stage={currentStage} />;
   }
+
+  const handleDateClick = (stage) => {
+    if (!onDateChange) return;
+    setEditingStage(stage);
+  };
+
+  const handleDateCommit = (stage, value) => {
+    const dateKey = STAGE_DATE_KEYS[stage];
+    if (dateKey && onDateChange && positionId) {
+      onDateChange(positionId, dateKey, value);
+    }
+    setEditingStage(null);
+  };
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -90,16 +138,19 @@ export default function PipelineTracker({ pipeline, signers, compact = false }) 
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           gap: 0,
           marginBottom: 6,
         }}
       >
-        {PIPELINE_STAGES.map((stage, idx) => {
+        {stages.map((stage, idx) => {
           const isPast = idx < currentIdx;
           const isCurrent = idx === currentIdx;
           const isFuture = idx > currentIdx;
-          const colors = STAGE_COLORS[isCurrent ? stage : isPast ? 'Accepted' : 'Pending'];
+          const colors = STAGE_COLORS[isCurrent ? stage : isPast ? 'Fully Accepted' : 'Pending'];
+          const stageDate = getDateForStage(pipeline, stage);
+          const dateLabel = formatDateShort(stageDate);
+          const isEditing = editingStage === stage;
 
           return (
             <div
@@ -126,7 +177,7 @@ export default function PipelineTracker({ pipeline, signers, compact = false }) 
                   }}
                 />
               )}
-              {idx < PIPELINE_STAGES.length - 1 && (
+              {idx < stages.length - 1 && (
                 <div
                   style={{
                     position: 'absolute',
@@ -170,18 +221,75 @@ export default function PipelineTracker({ pipeline, signers, compact = false }) 
               <div
                 style={{
                   ...mono,
-                  fontSize: 8,
+                  fontSize: 7,
                   fontWeight: isCurrent ? 700 : 500,
                   color: isCurrent ? colors.color : isPast ? 'var(--t3)' : 'var(--t5)',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
+                  letterSpacing: '0.03em',
                   marginTop: 4,
                   textAlign: 'center',
                   lineHeight: 1.2,
+                  maxWidth: 60,
                 }}
               >
-                {PIPELINE_STAGE_LABELS[stage]}
+                {PIPELINE_STAGE_LABELS[stage] || stage}
               </div>
+
+              {/* Date display / editor */}
+              {(isPast || isCurrent) && stage !== 'New' && (
+                <div style={{ marginTop: 2, textAlign: 'center' }}>
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      autoFocus
+                      defaultValue={toInputDate(stageDate)}
+                      onBlur={(e) => handleDateCommit(stage, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleDateCommit(stage, e.target.value);
+                        if (e.key === 'Escape') setEditingStage(null);
+                      }}
+                      style={{
+                        ...mono,
+                        fontSize: 9,
+                        width: 90,
+                        padding: '1px 2px',
+                        border: '1px solid var(--blu)',
+                        borderRadius: 3,
+                        background: 'var(--bg0)',
+                        color: 'var(--t1)',
+                        textAlign: 'center',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onClick={(e) => { e.stopPropagation(); handleDateClick(stage); }}
+                      style={{
+                        ...mono,
+                        fontSize: 8,
+                        color: 'var(--t4)',
+                        cursor: onDateChange ? 'pointer' : 'default',
+                        borderBottom: onDateChange ? '1px dashed var(--t5)' : 'none',
+                        padding: '0 2px',
+                      }}
+                      title={onDateChange ? 'Click to edit date' : ''}
+                    >
+                      {dateLabel || (onDateChange ? '—' : '')}
+                    </span>
+                  )}
+                  {/* Blue Sky deadline indicator */}
+                  {stage === 'Blue Sky Filing' && isCurrent && pipeline.blueSkyDeadline && (
+                    <div style={{
+                      ...mono,
+                      fontSize: 7,
+                      fontWeight: 700,
+                      color: new Date(pipeline.blueSkyDeadline) < new Date() ? 'var(--red)' : '#f59e0b',
+                      marginTop: 2,
+                    }}>
+                      DUE {formatDateShort(pipeline.blueSkyDeadline)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
@@ -207,8 +315,8 @@ export default function PipelineTracker({ pipeline, signers, compact = false }) 
         </div>
       )}
 
-      {/* Signer status (when in DocuSign stage) */}
-      {signers && signers.length > 0 && ['DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(currentStage) && (
+      {/* Signer status (when in signature stages) */}
+      {signers && signers.length > 0 && ['Out for Signatures', 'Signed by LP', 'Signed by GP/Vega', 'Docs to Custodian', 'Delivered to Vega', 'DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(currentStage) && (
         <div
           style={{
             marginTop: 10,
