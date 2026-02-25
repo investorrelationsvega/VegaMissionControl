@@ -9,6 +9,7 @@ import useSalesStore, {
   FUNNEL_STAGES,
   EXPENSE_CATEGORIES,
   MATERIAL_TYPES,
+  INVENTORY_ITEMS,
   ACTIVITY_TYPES,
   OUTCOMES,
   getCurrentPeriodKey,
@@ -70,7 +71,7 @@ function fmtDate(dateStr) {
 
 function fmtCurrency(n) {
   if (!n && n !== 0) return '-';
-  return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtPct(n) {
@@ -270,10 +271,15 @@ export default function Sales() {
 
   // ── Shipment form state ──────────────────────────────────────────────────
   const [shipForm, setShipForm] = useState({
-    date: today, recipient: '', recipientFirm: '',
+    date: today, recipient: '', recipientFirm: '', recipientAddress: '',
     materialType: MATERIAL_TYPES[0], quantity: '1',
-    trackingNumber: '', carrier: '', cost: '', notes: '',
+    trackingNumber: '', carrier: '', cost: '', scheduledDelivery: '', notes: '',
   });
+
+  // ── Inventory / restock state ───────────────────────────────────────────
+  const [showRestockModal, setShowRestockModal] = useState(false);
+  const [restockForm, setRestockForm] = useState({ materialType: INVENTORY_ITEMS[0], quantity: '' });
+  const [editingInventory, setEditingInventory] = useState({}); // { materialType: tempValue }
 
   // ── Expense form state ───────────────────────────────────────────────────
   const [expForm, setExpForm] = useState({
@@ -330,7 +336,23 @@ export default function Sales() {
     }, USER);
     setShowShipmentModal(false);
     showToast('Shipment logged');
-    setShipForm({ date: today, recipient: '', recipientFirm: '', materialType: MATERIAL_TYPES[0], quantity: '1', trackingNumber: '', carrier: '', cost: '', notes: '' });
+    setShipForm({ date: today, recipient: '', recipientFirm: '', recipientAddress: '', materialType: MATERIAL_TYPES[0], quantity: '1', trackingNumber: '', carrier: '', cost: '', scheduledDelivery: '', notes: '' });
+  };
+
+  const handleRestock = () => {
+    const qty = Number(restockForm.quantity) || 0;
+    if (qty <= 0) return;
+    store.adjustInventory(restockForm.materialType, qty, USER);
+    setShowRestockModal(false);
+    showToast(`Restocked ${qty} × ${restockForm.materialType}`);
+    setRestockForm({ materialType: INVENTORY_ITEMS[0], quantity: '' });
+  };
+
+  const handleInventoryInput = (materialType, value) => {
+    const qty = Number(value);
+    if (isNaN(qty) || qty < 0) return;
+    store.setInventoryQty(materialType, qty, USER);
+    setEditingInventory((prev) => { const n = { ...prev }; delete n[materialType]; return n; });
   };
 
   const handleSaveExpense = () => {
@@ -436,11 +458,11 @@ export default function Sales() {
       </div>
 
       {/* ── Main Tabs ────────────────────────────────────── */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', marginBottom: 24 }}>
         {[
           { key: 'activity', label: `Activity (${callNotes.length})` },
           { key: 'pipeline', label: `Pipeline (${prospects.length})` },
-          { key: 'materials', label: `Materials (${shipments.length})` },
+          { key: 'materials', label: `Materials & Shipping (${shipments.length})` },
           { key: 'expenses', label: `Expenses (${expenses.length})` },
           { key: 'subscriptions', label: `Subscriptions (${subscriptions.length})` },
           { key: 'kpis', label: 'National Sales KPIs' },
@@ -452,7 +474,7 @@ export default function Sales() {
               key={t.key}
               onClick={() => setTab(t.key)}
               style={{
-                ...mono, fontSize: 12, fontWeight: 700, padding: '10px 24px',
+                ...mono, fontSize: 11, fontWeight: 700, padding: '8px 14px', whiteSpace: 'nowrap',
                 border: '1px solid', cursor: 'pointer', transition: 'all 0.15s',
                 borderColor: active ? 'var(--grnB)' : 'var(--bd)',
                 borderLeft: i > 0 ? 'none' : undefined,
@@ -690,6 +712,53 @@ export default function Sales() {
           ════════════════════════════════════════════════════ */}
       {tab === 'materials' && (
         <>
+          {/* ── Inventory Cards ─────────────────────────── */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ ...mono, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t4)' }}>Inventory On Hand</div>
+              <button onClick={() => setShowRestockModal(true)} style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 6, cursor: 'pointer' }}>
+                + Restock
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : `repeat(${INVENTORY_ITEMS.length}, 1fr)`, gap: 10 }}>
+              {INVENTORY_ITEMS.map((mt) => {
+                const qty = store.inventory?.[mt] ?? 0;
+                const isEditing = editingInventory[mt] !== undefined;
+                const low = qty > 0 && qty <= 10;
+                const out = qty === 0;
+                return (
+                  <div key={mt} style={{ background: 'var(--bg1)', border: `1px solid ${out ? 'rgba(239,68,68,0.3)' : low ? 'rgba(234,179,8,0.3)' : 'var(--bd)'}`, borderRadius: 6, padding: '10px 12px', textAlign: 'center' }}>
+                    <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--t4)', marginBottom: 6, lineHeight: 1.3 }}>{mt}</div>
+                    {isEditing ? (
+                      <input
+                        type="number" min="0" autoFocus
+                        value={editingInventory[mt]}
+                        onChange={(e) => setEditingInventory((prev) => ({ ...prev, [mt]: e.target.value }))}
+                        onBlur={() => handleInventoryInput(mt, editingInventory[mt])}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleInventoryInput(mt, editingInventory[mt]); if (e.key === 'Escape') setEditingInventory((prev) => { const n = { ...prev }; delete n[mt]; return n; }); }}
+                        style={{ ...mono, fontSize: 18, fontWeight: 700, width: 60, textAlign: 'center', background: 'var(--bg0)', border: '1px solid var(--blu)', borderRadius: 4, color: 'var(--t1)', outline: 'none', padding: '2px 4px' }}
+                      />
+                    ) : (
+                      <div
+                        onClick={() => setEditingInventory((prev) => ({ ...prev, [mt]: String(qty) }))}
+                        style={{ ...mono, fontSize: 18, fontWeight: 700, color: out ? 'var(--red)' : low ? 'var(--ylw)' : 'var(--t1)', cursor: 'pointer', marginBottom: 4 }}
+                        title="Click to edit"
+                      >
+                        {qty}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 4 }}>
+                      <button onClick={() => store.adjustInventory(mt, -1, USER)} disabled={qty === 0} style={{ ...mono, fontSize: 12, fontWeight: 700, width: 26, height: 26, border: '1px solid var(--bd)', background: 'var(--bg0)', color: qty === 0 ? 'var(--t5)' : 'var(--t2)', borderRadius: 4, cursor: qty === 0 ? 'default' : 'pointer', opacity: qty === 0 ? 0.4 : 1 }}>-</button>
+                      <button onClick={() => store.adjustInventory(mt, 1, USER)} style={{ ...mono, fontSize: 12, fontWeight: 700, width: 26, height: 26, border: '1px solid var(--bd)', background: 'var(--bg0)', color: 'var(--t2)', borderRadius: 4, cursor: 'pointer' }}>+</button>
+                    </div>
+                    {out && <div style={{ ...mono, fontSize: 8, color: 'var(--red)', marginTop: 4, fontWeight: 700 }}>OUT OF STOCK</div>}
+                    {low && !out && <div style={{ ...mono, fontSize: 8, color: 'var(--ylw)', marginTop: 4, fontWeight: 700 }}>LOW STOCK</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>
               Total Cost: <span style={{ color: 'var(--t1)', fontWeight: 700 }}>{fmtCurrency(shipments.reduce((s, sh) => s + (sh.cost || 0), 0))}</span>
@@ -704,23 +773,31 @@ export default function Sales() {
               No shipments logged yet. Click "Add Shipment" to track materials sent.
             </div>
           ) : (
-            <div className="r-scroll-table"><div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden', minWidth: 680 }}>
+            <div className="r-scroll-table"><div style={{ border: '1px solid var(--bd)', borderRadius: 6, overflow: 'hidden', minWidth: 820 }}>
               {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
-                {['Date', 'Recipient', 'Firm', 'Material', 'Qty', 'Tracking', 'Carrier', 'Cost'].map((h) => (
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1.2fr 1fr 1fr 50px 150px 60px 80px 80px', gap: 0, background: 'var(--bg1)', borderBottom: '1px solid var(--bd)', padding: '10px 14px' }}>
+                {['Date', 'Recipient', 'Firm', 'Material', 'Qty', 'Tracking', 'Carrier', 'Delivery', 'Cost'].map((h) => (
                   <div key={h} style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)' }}>{h}</div>
                 ))}
               </div>
               {/* Rows */}
               {shipments.map((s) => (
-                <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 50px 140px 60px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid var(--bdS)', fontSize: 12, color: 'var(--t2)' }}>
+                <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '80px 1.2fr 1fr 1fr 50px 150px 60px 80px 80px', gap: 0, padding: '10px 14px', borderBottom: '1px solid var(--bdS)', fontSize: 12, color: 'var(--t2)' }}>
                   <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{fmtDate(s.date)}</div>
-                  <div>{s.recipient}</div>
+                  <div>
+                    <div>{s.recipient}</div>
+                    {s.recipientAddress && <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginTop: 2 }}>{s.recipientAddress}</div>}
+                  </div>
                   <div style={{ color: 'var(--t4)' }}>{s.recipientFirm || '-'}</div>
                   <div>{s.materialType}</div>
                   <div style={{ ...mono, fontSize: 11 }}>{s.quantity}</div>
-                  <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{s.trackingNumber || '-'}</div>
+                  <div style={{ ...mono, fontSize: 10 }}>
+                    {s.trackingNumber ? (
+                      <a href={`https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(s.trackingNumber)}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--blu)', textDecoration: 'none' }}>{s.trackingNumber}</a>
+                    ) : '-'}
+                  </div>
                   <div style={{ ...mono, fontSize: 10, color: 'var(--t4)' }}>{s.carrier || '-'}</div>
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--t4)' }}>{s.scheduledDelivery ? fmtDate(s.scheduledDelivery) : '-'}</div>
                   <div style={{ ...mono, fontSize: 11, fontWeight: 700 }}>{fmtCurrency(s.cost)}</div>
                 </div>
               ))}
@@ -807,7 +884,9 @@ export default function Sales() {
                   {SUB_STAGES.map((stage) => {
                     const cards = subsByStage[stage] || [];
                     const stageColor = stage === 'Funded' ? 'var(--grn)'
-                      : ['DocuSign Out', 'Fully Executed', 'GP Countersign'].includes(stage) ? '#a855f7'
+                      : stage === 'GP Countersign' ? '#a855f7'
+                      : stage === 'Fully Executed' ? '#f97316'
+                      : stage === 'DocuSign Out' ? '#ec4899'
                       : stage === 'Webform Complete' ? 'var(--blu)'
                       : 'var(--ylw)';
                     const stageCapital = cards.reduce((s, c) => s + c.amount, 0);
@@ -1057,13 +1136,28 @@ export default function Sales() {
             <FormField label="Recipient *" value={shipForm.recipient} onChange={(v) => setShipForm({ ...shipForm, recipient: v })} />
             <FormField label="Recipient Firm" value={shipForm.recipientFirm} onChange={(v) => setShipForm({ ...shipForm, recipientFirm: v })} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <FormField label="Recipient Address" value={shipForm.recipientAddress} onChange={(v) => setShipForm({ ...shipForm, recipientAddress: v })} />
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 12, marginBottom: 12, marginTop: 12 }}>
             <FormField label="Quantity" value={shipForm.quantity} onChange={(v) => setShipForm({ ...shipForm, quantity: v })} type="number" />
             <FormField label="Tracking #" value={shipForm.trackingNumber} onChange={(v) => setShipForm({ ...shipForm, trackingNumber: v })} />
             <FormField label="Carrier" value={shipForm.carrier} onChange={(v) => setShipForm({ ...shipForm, carrier: v })} />
+            <FormField label="Scheduled Delivery" value={shipForm.scheduledDelivery} onChange={(v) => setShipForm({ ...shipForm, scheduledDelivery: v })} type="date" />
             <FormField label="Cost ($)" value={shipForm.cost} onChange={(v) => setShipForm({ ...shipForm, cost: v })} type="number" />
           </div>
           <FormField label="Notes" value={shipForm.notes} onChange={(v) => setShipForm({ ...shipForm, notes: v })} textarea />
+        </Modal>
+      )}
+
+      {/* ── Restock Modal ──────────────────────────────── */}
+      {showRestockModal && (
+        <Modal title="Restock Inventory" onClose={() => setShowRestockModal(false)} onSave={handleRestock} saveLabel="Add Stock" saveDisabled={!restockForm.quantity || Number(restockForm.quantity) <= 0}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <FormSelect label="Material Type" value={restockForm.materialType} options={INVENTORY_ITEMS} onChange={(v) => setRestockForm({ ...restockForm, materialType: v })} />
+            <FormField label="Quantity to Add" value={restockForm.quantity} onChange={(v) => setRestockForm({ ...restockForm, quantity: v })} type="number" />
+          </div>
+          <div style={{ ...mono, fontSize: 11, color: 'var(--t4)', marginTop: 8 }}>
+            Current stock of <strong style={{ color: 'var(--t2)' }}>{restockForm.materialType}</strong>: <strong style={{ color: 'var(--t1)' }}>{store.inventory?.[restockForm.materialType] ?? 0}</strong>
+          </div>
         </Modal>
       )}
 

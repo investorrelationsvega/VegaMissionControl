@@ -22,13 +22,19 @@ export const FUNNEL_STAGES = [
 export const EXPENSE_CATEGORIES = ['travel', 'marketing', 'materials', 'event', 'other'];
 
 export const MATERIAL_TYPES = [
+  'Marketing Kit',
   'Fund II Pitch Deck',
   'Tear Sheet',
+  'Fact Sheet',
+  'Brochure',
+  'Folder',
   'Fund Report',
   'PPM',
   'Subscription Docs',
   'Other',
 ];
+
+export const INVENTORY_ITEMS = ['Fact Sheet', 'Brochure', 'Folder'];
 
 export const ACTIVITY_TYPES = ['call', 'meeting', 'webinar', 'email', 'other'];
 
@@ -75,6 +81,7 @@ const useSalesStore = create(
   callNotes: [],
   prospects: [],
   auditLog: [],
+  inventory: { 'Fact Sheet': 0, 'Brochure': 0, 'Folder': 0 },
 
   // ═══════════════════════════════════════════════
   // KPI ENTRIES
@@ -193,15 +200,22 @@ const useSalesStore = create(
     set((state) => {
       const id = genId('SHP');
       const now = new Date().toISOString();
+      const qty = shipment.quantity || 1;
+      const mt = shipment.materialType;
+      const tracked = INVENTORY_ITEMS.includes(mt);
+      const prevStock = tracked ? (state.inventory[mt] ?? 0) : 0;
+      const newStock = Math.max(0, prevStock - qty);
+      const inventoryUpdate = tracked ? { [mt]: newStock } : {};
       return {
         shipments: [...state.shipments, {
           quantity: 1, carrier: '', trackingNumber: '',
           cost: 0, notes: '', sentBy: 'J',
           ...shipment, id, createdAt: now, createdBy: user,
         }],
+        inventory: { ...state.inventory, ...inventoryUpdate },
         auditLog: [...state.auditLog, {
           id: genId('SAL'), action: 'Shipment Added',
-          detail: `${shipment.materialType} to ${shipment.recipient}`,
+          detail: `${mt} ×${qty} to ${shipment.recipient}${tracked ? ` (stock: ${prevStock} → ${newStock})` : ''}`,
           user, timestamp: now,
         }],
       };
@@ -467,6 +481,39 @@ const useSalesStore = create(
       avgTouchpointsToClose,
     };
   },
+
+  // ═══════════════════════════════════════════════
+  // INVENTORY
+  // ═══════════════════════════════════════════════
+
+  setInventoryQty: (materialType, qty, user = 'System') =>
+    set((state) => {
+      const now = new Date().toISOString();
+      const prev = state.inventory[materialType] ?? 0;
+      return {
+        inventory: { ...state.inventory, [materialType]: Math.max(0, qty) },
+        auditLog: [...state.auditLog, {
+          id: genId('SAL'), action: 'Inventory Set',
+          detail: `${materialType}: ${prev} → ${qty}`,
+          user, timestamp: now,
+        }],
+      };
+    }),
+
+  adjustInventory: (materialType, delta, user = 'System') =>
+    set((state) => {
+      const now = new Date().toISOString();
+      const prev = state.inventory[materialType] ?? 0;
+      const next = Math.max(0, prev + delta);
+      return {
+        inventory: { ...state.inventory, [materialType]: next },
+        auditLog: [...state.auditLog, {
+          id: genId('SAL'), action: delta > 0 ? 'Inventory Restocked' : 'Inventory Adjusted',
+          detail: `${materialType}: ${prev} → ${next} (${delta > 0 ? '+' : ''}${delta})`,
+          user, timestamp: now,
+        }],
+      };
+    }),
 
   // ═══════════════════════════════════════════════
   // AUDIT LOG
