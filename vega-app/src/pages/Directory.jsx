@@ -36,6 +36,14 @@ const displayName = (email, currentUserEmail, currentUserName) => {
   return email
 }
 
+// Auto-format phone number as user types: 801-664-7803
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 // Vega 4-pointed star — used as primary contact indicator
 const VegaStar = ({ size = 12, color = 'var(--ylw)', title = 'Primary Contact', style = {} }) => (
   <svg viewBox="0 0 100 100" style={{ width: size, height: size, flexShrink: 0, ...style }} title={title}>
@@ -208,7 +216,7 @@ export default function Directory() {
   const [declineReason, setDeclineReason] = useState('')
   const [showAdvanceDialog, setShowAdvanceDialog] = useState(null) // { positionId, name, currentStage }
   const [editingContact, setEditingContact] = useState(null) // index or 'new'
-  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', role: '' })
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', role: '', notes: '' })
   const [resolveNotes, setResolveNotes] = useState({}) // { [complianceId]: string }
   const [resolveErrors, setResolveErrors] = useState({}) // { [complianceId]: true }
   const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
@@ -586,7 +594,7 @@ export default function Directory() {
   // Reset contact/compliance state when investor changes
   useEffect(() => {
     setEditingContact(null)
-    setContactForm({ name: '', phone: '', email: '', role: '' })
+    setContactForm({ name: '', phone: '', email: '', role: '', notes: '' })
     setResolveNotes({})
     setResolveErrors({})
     setReopenNotes({})
@@ -1461,7 +1469,7 @@ export default function Directory() {
                         </span>
                         {editingContact === null && (
                           <button
-                            onClick={() => { setEditingContact('new'); setContactForm({ name: '', phone: '', email: '', role: '' }) }}
+                            onClick={() => { setEditingContact('new'); setContactForm({ name: '', phone: '', email: '', role: '', notes: '' }) }}
                             style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
                           >
                             + Add Contact
@@ -1506,9 +1514,10 @@ export default function Directory() {
                                   <option value="Beneficiary">Beneficiary</option>
                                   <option value="Contact">Contact</option>
                                 </select>
-                                <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                                <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: formatPhone(e.target.value) })} placeholder="801-555-1234" maxLength={12} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                                 <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                               </div>
+                              <textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notes (optional)" rows={2} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none', width: '100%', marginTop: 8, resize: 'vertical', boxSizing: 'border-box' }} />
                               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
                                 <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
                                 <button
@@ -1543,10 +1552,15 @@ export default function Directory() {
                                   {contact.phone && <span>{contact.phone}</span>}
                                   {contact.email && <span>{contact.email}</span>}
                                 </div>
+                                {contact.notes && (
+                                  <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginTop: 4, fontStyle: 'italic', lineHeight: 1.4 }}>
+                                    {contact.notes}
+                                  </div>
+                                )}
                               </div>
                               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                                 <svg
-                                  onClick={() => { setEditingContact(idx); setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '', role: contact.role || '' }) }}
+                                  onClick={() => { setEditingContact(idx); setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '', role: contact.role || '', notes: contact.notes || '' }) }}
                                   viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit"
                                 >
                                   <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
@@ -1591,9 +1605,10 @@ export default function Directory() {
                               <option value="Beneficiary">Beneficiary</option>
                               <option value="Contact">Contact</option>
                             </select>
-                            <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                            <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: formatPhone(e.target.value) })} placeholder="801-555-1234" maxLength={12} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                             <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                           </div>
+                          <textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notes (optional)" rows={2} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none', width: '100%', marginTop: 8, resize: 'vertical', boxSizing: 'border-box' }} />
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
                             <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
                             <button
