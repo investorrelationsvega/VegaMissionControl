@@ -5,7 +5,7 @@
 // positions, and notes management
 // =============================================
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useInvestorStore from '../stores/investorStore'
 import useComplianceStore from '../stores/complianceStore'
@@ -208,6 +208,8 @@ export default function Directory() {
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
   const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
+  const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
+  const savedRef = useRef(false) // prevents double-save on Enter + blur
 
   // ── RingCentral Store ─────────────────────────
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated)
@@ -1709,24 +1711,32 @@ export default function Directory() {
                                   cursor: 'pointer',
                                   minWidth: 90,
                                 }}
-                                onClick={() => setEditingPosDate({ posId: p.id, field: 'signed' })}
+                                onClick={() => {
+                                  if (editingPosDate?.posId === p.id && editingPosDate?.field === 'signed') return
+                                  savedRef.current = false
+                                  setEditingDateValue(p.signed || '')
+                                  setEditingPosDate({ posId: p.id, field: 'signed' })
+                                }}
                               >
                                 {editingPosDate?.posId === p.id && editingPosDate?.field === 'signed' ? (
                                   <input
                                     type="text"
-                                    defaultValue={p.signed || ''}
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
                                     placeholder="e.g. Jan 7, 2025"
                                     autoFocus
+                                    onClick={(e) => e.stopPropagation()}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
-                                        investorStore.updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                        savedRef.current = true
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
                                         setEditingPosDate(null)
                                       }
                                       if (e.key === 'Escape') setEditingPosDate(null)
                                     }}
                                     onBlur={(e) => {
-                                      if (e.target.value !== (p.signed || '')) {
-                                        investorStore.updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                      if (!savedRef.current && e.target.value !== (p.signed || '')) {
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
                                       }
                                       setEditingPosDate(null)
                                     }}
@@ -1756,24 +1766,32 @@ export default function Directory() {
                                   cursor: 'pointer',
                                   minWidth: 90,
                                 }}
-                                onClick={() => setEditingPosDate({ posId: p.id, field: 'funded' })}
+                                onClick={() => {
+                                  if (editingPosDate?.posId === p.id && editingPosDate?.field === 'funded') return
+                                  savedRef.current = false
+                                  setEditingDateValue(p.funded || '')
+                                  setEditingPosDate({ posId: p.id, field: 'funded' })
+                                }}
                               >
                                 {editingPosDate?.posId === p.id && editingPosDate?.field === 'funded' ? (
                                   <input
                                     type="text"
-                                    defaultValue={p.funded || ''}
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
                                     placeholder="e.g. Jan 7, 2025"
                                     autoFocus
+                                    onClick={(e) => e.stopPropagation()}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
-                                        investorStore.updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                        savedRef.current = true
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
                                         setEditingPosDate(null)
                                       }
                                       if (e.key === 'Escape') setEditingPosDate(null)
                                     }}
                                     onBlur={(e) => {
-                                      if (e.target.value !== (p.funded || '')) {
-                                        investorStore.updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                      if (!savedRef.current && e.target.value !== (p.funded || '')) {
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
                                       }
                                       setEditingPosDate(null)
                                     }}
