@@ -225,7 +225,28 @@ const useInvestorStore = create(
   loadFromSheets: (sheetPositions, investorLookup) => {
     set((state) => {
       const migratedPositions = sheetPositions.map(migratePosition);
-      const investors = buildInvestors(migratedPositions);
+
+      // Preserve locally-edited signed/funded dates that may not have
+      // been written back to Sheets yet (fire-and-forget write-back race).
+      const localPosMap = {};
+      state.positions.forEach((p) => { localPosMap[p.id] = p; });
+      const mergedPositions = migratedPositions.map((sheetPos) => {
+        const local = localPosMap[sheetPos.id];
+        if (!local) return sheetPos;
+        const merged = { ...sheetPos };
+        // If local has a signed/funded value that differs from sheet, keep local
+        if (local.signed && local.signed !== sheetPos.signed) {
+          merged.signed = local.signed;
+          if (merged.pipeline) merged.pipeline = { ...merged.pipeline, signedByLpDate: local.signed };
+        }
+        if (local.funded && local.funded !== sheetPos.funded) {
+          merged.funded = local.funded;
+          if (merged.pipeline) merged.pipeline = { ...merged.pipeline, fundedDate: local.funded };
+        }
+        return merged;
+      });
+
+      const investors = buildInvestors(mergedPositions);
       // Re-apply contact overrides so local edits survive
       const overrides = state.contactOverrides || {};
       Object.entries(overrides).forEach(([invId, fields]) => {
@@ -246,7 +267,7 @@ const useInvestorStore = create(
         });
       }
       return {
-        positions: migratedPositions,
+        positions: mergedPositions,
         investors,
         sheetsLoaded: true,
       };
@@ -1040,7 +1061,17 @@ const useInvestorStore = create(
       auditLog: [...state.auditLog, ...auditEntries],
     });
 
-    // Write to Sheets (fire-and-forget)
+    // Write to Positions sheet (signed_date / funded_date columns)
+    if ('signed' in updates) {
+      updatePositionField(positionId, 'signed_date', updates.signed)
+        .catch((err) => console.error('Position signed_date write-back failed:', err));
+    }
+    if ('funded' in updates) {
+      updatePositionField(positionId, 'funded_date', updates.funded)
+        .catch((err) => console.error('Position funded_date write-back failed:', err));
+    }
+
+    // Write to Subscriptions sheet (dates_json)
     if (pos.subscriptionId) {
       updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
         .catch((err) => console.error('Subscription dates write-back failed:', err));
