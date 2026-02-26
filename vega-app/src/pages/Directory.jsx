@@ -36,6 +36,13 @@ const displayName = (email, currentUserEmail, currentUserName) => {
   return email
 }
 
+// Vega 4-pointed star — used as primary contact indicator
+const VegaStar = ({ size = 12, color = 'var(--ylw)', title = 'Primary Contact', style = {} }) => (
+  <svg viewBox="0 0 100 100" style={{ width: size, height: size, flexShrink: 0, ...style }} title={title}>
+    <path d="M50,0 C45.5,30.8 30.8,45.5 0,50 30.8,54.5 45.5,69.2 50,100 54.5,69.2 69.2,54.5 100,50 69.2,45.5 54.5,30.8 50,0Z" fill={color} />
+  </svg>
+)
+
 const vegaIconSvg = (
   <svg viewBox="0 0 200 200" style={{ width: 48, height: 48, opacity: 0.15 }}>
     <path
@@ -837,7 +844,7 @@ export default function Directory() {
                         return (
                           <>
                             <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-                              {primaryContact && <span style={{ color: 'var(--ylw)', fontSize: 12 }} title="Primary Contact">★</span>}
+                              {primaryContact && <VegaStar size={11} />}
                               {displayName}
                             </div>
                             {(typeLabel || entityLabel) && (
@@ -958,7 +965,7 @@ export default function Directory() {
                         return (
                           <>
                             <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {primaryContact && <span style={{ color: 'var(--ylw)', fontSize: 18 }} title="Primary Contact">★</span>}
+                              {primaryContact && <VegaStar size={16} />}
                               {displayName}
                             </div>
                             {(typeLabel || entityLabel) && (
@@ -1522,7 +1529,7 @@ export default function Directory() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>
                                     {contact.role === 'Primary Signer' && (
-                                      <span style={{ color: 'var(--ylw)', marginRight: 4 }} title="Primary Contact">★</span>
+                                      <VegaStar size={11} style={{ marginRight: 4 }} />
                                     )}
                                     {contact.name}
                                   </span>
