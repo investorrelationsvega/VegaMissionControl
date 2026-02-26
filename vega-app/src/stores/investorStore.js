@@ -125,6 +125,7 @@ function buildInvestors(positionList) {
         state: '',
         contacts: [],
         pipeline: null,
+        pipelinePositionId: null,
         signers: null,
         docRouting: null,
         declinedReason: null,
@@ -163,6 +164,7 @@ function buildInvestors(positionList) {
       const stages = getPipelineStages(p.docRouting);
       if (!inv.pipeline || stages.indexOf(p.pipeline.stage) < stages.indexOf(inv.pipeline.stage)) {
         inv.pipeline = p.pipeline;
+        inv.pipelinePositionId = p.id;
       }
     }
 
@@ -480,11 +482,15 @@ const useInvestorStore = create(
     const oldStage = pos.pipeline?.stage || 'New';
     const now = new Date().toISOString();
     const dateKey = STAGE_DATE_KEYS[effectiveStage];
+    // Use locale date string for pipeline dates to avoid UTC-vs-local display bugs
+    const localDateStr = new Date().toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
 
     const updatedPipeline = {
       ...(pos.pipeline || {}),
       stage: effectiveStage,
-      ...(dateKey ? { [dateKey]: now } : {}),
+      ...(dateKey ? { [dateKey]: localDateStr } : {}),
     };
 
     // For Blue Sky Filing, calculate deadline (30 days from reviewedByAttorneyDate)

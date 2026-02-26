@@ -1625,7 +1625,7 @@ export default function Directory() {
                           pipeline={selectedInvestor.pipeline}
                           signers={selectedInvestor.signers}
                           docRouting={selectedInvestor.docRouting || 'direct'}
-                          positionId={selectedInvestor.positions[0]?.id}
+                          positionId={selectedInvestor.pipelinePositionId || selectedInvestor.positions[0]?.id}
                           onDateChange={(posId, dateKey, newDate) => {
                             useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
                             showToast('Date updated')
