@@ -36,6 +36,21 @@ const displayName = (email, currentUserEmail, currentUserName) => {
   return email
 }
 
+// Auto-format phone number as user types: 801-664-7803
+function formatPhone(value) {
+  const digits = value.replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
+// Vega 4-pointed star — used as primary contact indicator
+const VegaStar = ({ size = 12, color = 'var(--ylw)', title = 'Primary Contact', style = {} }) => (
+  <svg viewBox="0 0 100 100" style={{ width: size, height: size, flexShrink: 0, ...style }} title={title}>
+    <path d="M50,0 C45.5,30.8 30.8,45.5 0,50 30.8,54.5 45.5,69.2 50,100 54.5,69.2 69.2,54.5 100,50 69.2,45.5 54.5,30.8 50,0Z" fill={color} />
+  </svg>
+)
+
 const vegaIconSvg = (
   <svg viewBox="0 0 200 200" style={{ width: 48, height: 48, opacity: 0.15 }}>
     <path
@@ -201,7 +216,7 @@ export default function Directory() {
   const [declineReason, setDeclineReason] = useState('')
   const [showAdvanceDialog, setShowAdvanceDialog] = useState(null) // { positionId, name, currentStage }
   const [editingContact, setEditingContact] = useState(null) // index or 'new'
-  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', role: '' })
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '', role: '', notes: '' })
   const [resolveNotes, setResolveNotes] = useState({}) // { [complianceId]: string }
   const [resolveErrors, setResolveErrors] = useState({}) // { [complianceId]: true }
   const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
@@ -579,7 +594,7 @@ export default function Directory() {
   // Reset contact/compliance state when investor changes
   useEffect(() => {
     setEditingContact(null)
-    setContactForm({ name: '', phone: '', email: '', role: '' })
+    setContactForm({ name: '', phone: '', email: '', role: '', notes: '' })
     setResolveNotes({})
     setResolveErrors({})
     setReopenNotes({})
@@ -830,17 +845,19 @@ export default function Directory() {
                   >
                     <div style={{ minWidth: 0 }}>
                       {(() => {
-                        const isEntity = inv.entities.length > 0 && inv.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
-                        const primaryName = isEntity ? inv.entities[0] : inv.name
-                        const secondaryName = isEntity ? inv.name : null
+                        const primaryContact = (inv.contacts || []).find((c) => c.role === 'Primary Signer')
+                        const displayName = primaryContact ? primaryContact.name : inv.name
+                        const entityLabel = inv.entities.length > 0 ? inv.entities[0] : null
+                        const typeLabel = inv.types[0] || ''
                         return (
                           <>
-                            <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500 }}>
-                              {primaryName}
+                            <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {primaryContact && <VegaStar size={11} />}
+                              {displayName}
                             </div>
-                            {secondaryName && (
+                            {(typeLabel || entityLabel) && (
                               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1 }}>
-                                {secondaryName}
+                                {typeLabel}{entityLabel ? ` · ${entityLabel}` : ''}
                               </div>
                             )}
                           </>
@@ -858,12 +875,6 @@ export default function Directory() {
                           gap: 4,
                         }}
                       >
-                        {inv.types.map((t) => (
-                          <span key={t} style={{ marginRight: 2 }}>
-                            {t}
-                          </span>
-                        ))}
-                        <span style={{ color: 'var(--t5)' }}>&middot;</span>
                         {inv.funds.map((f) => (
                           <FundBadge key={f} fund={f} />
                         ))}
@@ -955,28 +966,19 @@ export default function Directory() {
                   >
                     <div>
                       {(() => {
-                        const isEntity = selectedInvestor.entities.length > 0 && selectedInvestor.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
-                        const isJoint = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals')
-                        let primaryName, secondaryName;
-                        if (isJoint) {
-                          // Joint: headliner = entity name (both names), no secondary
-                          primaryName = selectedInvestor.entities[0] || selectedInvestor.name;
-                          secondaryName = null;
-                        } else if (isEntity) {
-                          primaryName = selectedInvestor.entities[0];
-                          secondaryName = selectedInvestor.name;
-                        } else {
-                          primaryName = selectedInvestor.name;
-                          secondaryName = null;
-                        }
+                        const primaryContact = (selectedInvestor.contacts || []).find((c) => c.role === 'Primary Signer')
+                        const displayName = primaryContact ? primaryContact.name : selectedInvestor.name
+                        const entityLabel = selectedInvestor.entities.length > 0 ? selectedInvestor.entities[0] : null
+                        const typeLabel = selectedInvestor.types[0] || ''
                         return (
                           <>
-                            <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em' }}>
-                              {primaryName}
+                            <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {primaryContact && <VegaStar size={16} />}
+                              {displayName}
                             </div>
-                            {secondaryName && (
+                            {(typeLabel || entityLabel) && (
                               <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 2 }}>
-                                {secondaryName}
+                                {typeLabel}{entityLabel ? ` · ${entityLabel}` : ''}
                               </div>
                             )}
                           </>
@@ -991,8 +993,6 @@ export default function Directory() {
                         }}
                       >
                         {selectedInvestor.id}
-                        {selectedInvestor.types.length > 0 &&
-                          ` \u00b7 ${selectedInvestor.types.join(', ')}`}
                         {selectedInvestor.advisor &&
                           ` \u00b7 ${selectedInvestor.advisor}`}
                         {selectedInvestor.custodian &&
@@ -1469,7 +1469,7 @@ export default function Directory() {
                         </span>
                         {editingContact === null && (
                           <button
-                            onClick={() => { setEditingContact('new'); setContactForm({ name: '', phone: '', email: '', role: '' }) }}
+                            onClick={() => { setEditingContact('new'); setContactForm({ name: '', phone: '', email: '', role: '', notes: '' }) }}
                             style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
                           >
                             + Add Contact
@@ -1493,79 +1493,104 @@ export default function Directory() {
                         </div>
                       )}
 
-                      {/* Contact cards */}
-                      {(selectedInvestor.contacts || []).map((contact, idx) => (
-                        editingContact === idx ? (
-                          <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: 12, marginBottom: 8, border: '1px solid var(--grn)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-                              <input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Name" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} autoFocus />
-                              <select value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}>
-                                <option value="">Role...</option>
-                                <option value="Primary Signer">Primary Signer</option>
-                                <option value="Owner">Owner</option>
-                                <option value="Trustee">Trustee</option>
-                                <option value="Authorized Signer">Authorized Signer</option>
-                                <option value="Beneficiary">Beneficiary</option>
-                                <option value="Contact">Contact</option>
-                              </select>
-                              <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
-                              <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                      {/* Contact cards — primary contacts first, then secondary owners */}
+                      {(() => {
+                        const contacts = selectedInvestor.contacts || []
+                        const primaryRoles = ['Primary Signer']
+                        const primaryContacts = contacts.map((c, i) => ({ ...c, _idx: i })).filter((c) => primaryRoles.includes(c.role))
+                        const secondaryContacts = contacts.map((c, i) => ({ ...c, _idx: i })).filter((c) => !primaryRoles.includes(c.role))
+
+                        const renderContactCard = ({ _idx: idx, ...contact }) => (
+                          editingContact === idx ? (
+                            <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: 12, marginBottom: 8, border: '1px solid var(--grn)' }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+                                <input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Name" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} autoFocus />
+                                <select value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}>
+                                  <option value="">Role...</option>
+                                  <option value="Primary Signer">Primary Signer</option>
+                                  <option value="Owner">Owner</option>
+                                  <option value="Trustee">Trustee</option>
+                                  <option value="Authorized Signer">Authorized Signer</option>
+                                  <option value="Beneficiary">Beneficiary</option>
+                                  <option value="Contact">Contact</option>
+                                </select>
+                                <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: formatPhone(e.target.value) })} placeholder="801-555-1234" maxLength={12} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                                <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                              </div>
+                              <textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notes (optional)" rows={2} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none', width: '100%', marginTop: 8, resize: 'vertical', boxSizing: 'border-box' }} />
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+                                <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
+                                <button
+                                  onClick={() => {
+                                    if (!contactForm.name.trim()) return
+                                    const updated = [...(selectedInvestor.contacts || [])]
+                                    updated[idx] = { ...contactForm }
+                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                    setEditingContact(null)
+                                  }}
+                                  style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
+                                >Save</button>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
-                              <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
-                              <button
-                                onClick={() => {
-                                  if (!contactForm.name.trim()) return
-                                  const updated = [...(selectedInvestor.contacts || [])]
-                                  updated[idx] = { ...contactForm }
-                                  investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
-                                  setEditingContact(null)
-                                }}
-                                style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
-                              >Save</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: '10px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>
-                                  {contact.role === 'Primary Signer' && (
-                                    <span style={{ color: 'var(--ylw)', marginRight: 4 }} title="Primary">★</span>
-                                  )}
-                                  {contact.name}
-                                </span>
-                                {contact.role && (
-                                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: contact.role === 'Primary Signer' ? 'var(--ylwM)' : 'var(--bgM)', color: contact.role === 'Primary Signer' ? 'var(--ylw)' : 'var(--t3)' }}>
-                                    {contact.role}
+                          ) : (
+                            <div key={idx} style={{ background: 'var(--bgI)', borderRadius: 5, padding: '10px 12px', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>
+                                    {contact.role === 'Primary Signer' && (
+                                      <VegaStar size={11} style={{ marginRight: 4 }} />
+                                    )}
+                                    {contact.name}
                                   </span>
+                                  {contact.role && (
+                                    <span style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 3, background: contact.role === 'Primary Signer' ? 'var(--ylwM)' : 'var(--bgM)', color: contact.role === 'Primary Signer' ? 'var(--ylw)' : 'var(--t3)' }}>
+                                      {contact.role}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ ...mono, fontSize: 11, color: 'var(--t4)', marginTop: 3, display: 'flex', gap: 12 }}>
+                                  {contact.phone && <span>{contact.phone}</span>}
+                                  {contact.email && <span>{contact.email}</span>}
+                                </div>
+                                {contact.notes && (
+                                  <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginTop: 4, fontStyle: 'italic', lineHeight: 1.4 }}>
+                                    {contact.notes}
+                                  </div>
                                 )}
                               </div>
-                              <div style={{ ...mono, fontSize: 11, color: 'var(--t4)', marginTop: 3, display: 'flex', gap: 12 }}>
-                                {contact.phone && <span>{contact.phone}</span>}
-                                {contact.email && <span>{contact.email}</span>}
+                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                <svg
+                                  onClick={() => { setEditingContact(idx); setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '', role: contact.role || '', notes: contact.notes || '' }) }}
+                                  viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit"
+                                >
+                                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                                </svg>
+                                <svg
+                                  onClick={() => {
+                                    const updated = (selectedInvestor.contacts || []).filter((_, i) => i !== idx)
+                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                  }}
+                                  viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--red)', cursor: 'pointer', opacity: 0.6 }} title="Remove"
+                                >
+                                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                                </svg>
                               </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                              <svg
-                                onClick={() => { setEditingContact(idx); setContactForm({ name: contact.name || '', phone: contact.phone || '', email: contact.email || '', role: contact.role || '' }) }}
-                                viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--t5)', cursor: 'pointer' }} title="Edit"
-                              >
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                              </svg>
-                              <svg
-                                onClick={() => {
-                                  const updated = (selectedInvestor.contacts || []).filter((_, i) => i !== idx)
-                                  investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
-                                }}
-                                viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--red)', cursor: 'pointer', opacity: 0.6 }} title="Remove"
-                              >
-                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                              </svg>
-                            </div>
-                          </div>
+                          )
                         )
-                      ))}
+
+                        return (
+                          <>
+                            {primaryContacts.map(renderContactCard)}
+                            {secondaryContacts.length > 0 && primaryContacts.length > 0 && (
+                              <div style={{ ...mono, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--t5)', padding: '8px 0 4px', marginTop: 4 }}>
+                                Secondary Owners / Contacts
+                              </div>
+                            )}
+                            {secondaryContacts.map(renderContactCard)}
+                          </>
+                        )
+                      })()}
 
                       {/* Add new contact form */}
                       {editingContact === 'new' && (
@@ -1580,9 +1605,10 @@ export default function Directory() {
                               <option value="Beneficiary">Beneficiary</option>
                               <option value="Contact">Contact</option>
                             </select>
-                            <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="Phone" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
+                            <input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: formatPhone(e.target.value) })} placeholder="801-555-1234" maxLength={12} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                             <input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="Email" style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }} />
                           </div>
+                          <textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notes (optional)" rows={2} style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none', width: '100%', marginTop: 8, resize: 'vertical', boxSizing: 'border-box' }} />
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
                             <button onClick={() => setEditingContact(null)} style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}>Cancel</button>
                             <button
