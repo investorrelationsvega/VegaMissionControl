@@ -32,6 +32,7 @@ import useTicStore from './stores/ticStore';
 import ChatPanel from './components/ChatPanel';
 import useChatStore from './stores/chatStore';
 import { listSpaces } from './services/chatService';
+import { registerToast, retryStaleEntries } from './services/sheetsWriteQueue';
 
 // Contact data for backfill (from Contact_Report.xlsx + Company Dashboard CSV)
 // Keys match the 'name' column in Investors sheet for exact matching
@@ -426,6 +427,12 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // ── Write Queue: register toast so failed saves show errors ──────────────
+  const showToast = useUiStore((s) => s.showToast);
+  useEffect(() => {
+    registerToast(showToast);
+  }, [showToast]);
+
   // ── Auth Gate ─────────────────────────────────────────────────────────────
   const userEmail = useGoogleStore((s) => s.userEmail);
   const isAuthorized = userEmail && userEmail.split('@')[1]?.toLowerCase() === ALLOWED_DOMAIN;
@@ -588,6 +595,8 @@ export default function App() {
             });
           }
         });
+        // Check for any writes that were queued from a previous session
+        retryStaleEntries();
       })
       .catch((err) => {
         console.error('[Sheets] Failed to load sheet data, using seed data:', err);

@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { distributions as seedDistributions } from '../data/seedData';
 import { updateDistributionField, appendAuditLog } from '../services/sheetsService';
+import { reliableWrite } from '../services/sheetsWriteQueue';
 
 const useDistributionStore = create(
   persist(
@@ -69,14 +70,13 @@ const useDistributionStore = create(
 
       updatePayment: (id, updates, user = 'j@vegarei.com') =>
         set((state) => {
-          // Write back changed fields to Google Sheet
+          // Write back changed fields to Google Sheet (with retry)
           const fieldMap = { amt: 'amount', method: 'method', status: 'status', date: 'sent_date', notes: 'notes' };
           Object.entries(updates).forEach(([k, v]) => {
             const sheetField = fieldMap[k];
             if (sheetField) {
-              updateDistributionField(id, sheetField, v).catch((err) =>
-                console.error(`Distribution sheet write-back failed for ${k}:`, err)
-              );
+              reliableWrite(`Distribution ${id} ${k}`, () =>
+                updateDistributionField(id, sheetField, v));
             }
           });
 

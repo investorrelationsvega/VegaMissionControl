@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { positions as seedPositions, activityFeed as seedActivityFeed } from '../data/seedData';
 import { updateInvestorField, updatePositionField, appendAuditLog, updateSubscriptionField } from '../services/sheetsService';
+import { reliableWrite } from '../services/sheetsWriteQueue';
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
 
@@ -534,26 +535,27 @@ const useInvestorStore = create(
       ],
     });
 
-    // Write pipeline change to Subscriptions sheet (fire-and-forget)
+    // Write pipeline change to Subscriptions sheet (with retry)
     if (pos.subscriptionId) {
-      updateSubscriptionField(pos.subscriptionId, 'stage', effectiveStage)
-        .catch((err) => console.error('Subscription stage write-back failed:', err));
-      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
-        .catch((err) => console.error('Subscription dates write-back failed:', err));
-      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
-        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+      reliableWrite(`Pipeline stage → ${effectiveStage} for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'stage', effectiveStage));
+      reliableWrite(`Pipeline dates for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline)));
+      reliableWrite(`Subscription timestamp for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'updated_at', now));
     }
 
-    // Write audit log to sheet (fire-and-forget)
-    appendAuditLog({
-      id: `AUD-${Date.now()}`,
-      recordType: 'subscription',
-      recordId: pos.subscriptionId || positionId,
-      action: 'Pipeline Stage Changed',
-      notes: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${effectiveStage}`,
-      user,
-      timestamp: now,
-    }).catch((err) => console.error('Audit log write-back failed:', err));
+    // Write audit log to sheet (with retry)
+    reliableWrite(`Audit: pipeline ${oldStage} → ${effectiveStage}`, () =>
+      appendAuditLog({
+        id: `AUD-${Date.now()}`,
+        recordType: 'subscription',
+        recordId: pos.subscriptionId || positionId,
+        action: 'Pipeline Stage Changed',
+        notes: `${pos.fund} ${pos.entity || pos.name}: ${oldStage} → ${effectiveStage}`,
+        user,
+        timestamp: now,
+      }));
 
     // Blue Sky filing trigger: when entering Blue Sky Filing stage, create filing in bluesky store
     if (effectiveStage === 'Blue Sky Filing' && pos.state && pos.state !== 'UT') {
@@ -606,22 +608,23 @@ const useInvestorStore = create(
       ],
     });
 
-    // Write to Sheets (fire-and-forget)
+    // Write to Sheets (with retry)
     if (pos.subscriptionId) {
-      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
-        .catch((err) => console.error('Subscription dates write-back failed:', err));
-      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
-        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+      reliableWrite(`Pipeline date ${dateKey} for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline)));
+      reliableWrite(`Subscription timestamp for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'updated_at', now));
     }
-    appendAuditLog({
-      id: `AUD-${Date.now()}`,
-      recordType: 'subscription',
-      recordId: pos.subscriptionId || positionId,
-      action: 'Pipeline Date Updated',
-      notes: `${pos.fund} ${pos.entity || pos.name}: ${dateKey} changed`,
-      user,
-      timestamp: now,
-    }).catch((err) => console.error('Audit log write-back failed:', err));
+    reliableWrite(`Audit: pipeline date ${dateKey} updated`, () =>
+      appendAuditLog({
+        id: `AUD-${Date.now()}`,
+        recordType: 'subscription',
+        recordId: pos.subscriptionId || positionId,
+        action: 'Pipeline Date Updated',
+        notes: `${pos.fund} ${pos.entity || pos.name}: ${dateKey} changed`,
+        user,
+        timestamp: now,
+      }));
   },
 
   declineInvestor: (positionId, reason, user = 'System') =>
@@ -652,28 +655,29 @@ const useInvestorStore = create(
         read: false,
       };
 
-      // Write decline to Subscriptions sheet (fire-and-forget)
+      // Write decline to Subscriptions sheet (with retry)
       if (pos.subscriptionId) {
-        updateSubscriptionField(pos.subscriptionId, 'stage', 'Declined')
-          .catch((err) => console.error('Subscription decline write-back failed:', err));
-        updateSubscriptionField(pos.subscriptionId, 'declined_reason', reason)
-          .catch((err) => console.error('Subscription decline reason write-back failed:', err));
-        updateSubscriptionField(pos.subscriptionId, 'dates_json',
-          JSON.stringify({ ...(pos.pipeline || {}), stage: 'Declined', declinedDate: now }))
-          .catch((err) => console.error('Subscription dates write-back failed:', err));
-        updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
-          .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+        reliableWrite(`Decline ${pos.name}`, () =>
+          updateSubscriptionField(pos.subscriptionId, 'stage', 'Declined'));
+        reliableWrite(`Decline reason for ${pos.name}`, () =>
+          updateSubscriptionField(pos.subscriptionId, 'declined_reason', reason));
+        reliableWrite(`Decline dates for ${pos.name}`, () =>
+          updateSubscriptionField(pos.subscriptionId, 'dates_json',
+            JSON.stringify({ ...(pos.pipeline || {}), stage: 'Declined', declinedDate: now })));
+        reliableWrite(`Subscription timestamp for ${pos.name}`, () =>
+          updateSubscriptionField(pos.subscriptionId, 'updated_at', now));
       }
 
-      appendAuditLog({
-        id: `AUD-${Date.now()}`,
-        recordType: 'subscription',
-        recordId: pos.subscriptionId || positionId,
-        action: 'Declined',
-        notes: `${pos.fund} ${pos.entity || pos.name}: ${reason}`,
-        user,
-        timestamp: now,
-      }).catch((err) => console.error('Audit log write-back failed:', err));
+      reliableWrite(`Audit: ${pos.name} declined`, () =>
+        appendAuditLog({
+          id: `AUD-${Date.now()}`,
+          recordType: 'subscription',
+          recordId: pos.subscriptionId || positionId,
+          action: 'Declined',
+          notes: `${pos.fund} ${pos.entity || pos.name}: ${reason}`,
+          user,
+          timestamp: now,
+        }));
 
       return {
         positions: updatedPositions,
@@ -755,24 +759,28 @@ const useInvestorStore = create(
       // Merge into contactOverrides so edits survive position-based rehydration
       const existingOverrides = state.contactOverrides[invId] || {};
 
-      // Write back to Google Sheet (fire-and-forget)
+      // Write back to Google Sheet (with retry queue)
       Object.entries(updates).forEach(([field, newValue]) => {
-        updateInvestorField(invId, field, newValue).catch((err) =>
-          console.error(`Sheet write-back failed for ${field}:`, err)
+        reliableWrite(
+          `Update ${field} for ${investor.name}`,
+          () => updateInvestorField(invId, field, newValue),
         );
       });
 
       // Append to sheet audit log
       newAuditEntries.forEach((entry) => {
-        appendAuditLog({
-          id: entry.id,
-          recordType: 'investor',
-          recordId: invId,
-          action: entry.action,
-          notes: entry.detail,
-          user: entry.user || user,
-          timestamp: entry.timestamp,
-        }).catch((err) => console.error('Audit log write-back failed:', err));
+        reliableWrite(
+          `Audit log: ${entry.action}`,
+          () => appendAuditLog({
+            id: entry.id,
+            recordType: 'investor',
+            recordId: invId,
+            action: entry.action,
+            notes: entry.detail,
+            user: entry.user || user,
+            timestamp: entry.timestamp,
+          }),
+        );
       });
 
       return {
@@ -812,15 +820,13 @@ const useInvestorStore = create(
       });
 
       // Write back to Investors sheet (profile_type column C)
-      updateInvestorField(invId, 'profile_type', newType).catch((err) =>
-        console.error('Profile type sheet write-back failed:', err),
-      );
+      reliableWrite(`Profile type → ${newType} for ${investor.name}`, () =>
+        updateInvestorField(invId, 'profile_type', newType));
 
       // Write back to each Position sheet row (profile_type column F)
       investor.positions.forEach((p) => {
-        updatePositionField(p.id, 'profile_type', newType).catch((err) =>
-          console.error(`Position profile_type write-back failed for ${p.id}:`, err),
-        );
+        reliableWrite(`Position profile type for ${p.id}`, () =>
+          updatePositionField(p.id, 'profile_type', newType));
       });
 
       const auditEntry = {
@@ -832,15 +838,16 @@ const useInvestorStore = create(
         timestamp: now,
       };
 
-      appendAuditLog({
-        id: auditEntry.id,
-        recordType: 'investor',
-        recordId: invId,
-        action: auditEntry.action,
-        notes: auditEntry.detail,
-        user,
-        timestamp: now,
-      }).catch((err) => console.error('Audit log write-back failed:', err));
+      reliableWrite(`Audit: profile type changed for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id,
+          recordType: 'investor',
+          recordId: invId,
+          action: auditEntry.action,
+          notes: auditEntry.detail,
+          user,
+          timestamp: now,
+        }));
 
       // Auto-add contacts if not already present
       const existingContacts = newInvestors[invId]?.contacts || overrides[invId]?.contacts || [];
@@ -873,9 +880,8 @@ const useInvestorStore = create(
           [invId]: { ...(overrides[invId] || {}), contacts: updatedContacts },
         };
 
-        updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)).catch((err) =>
-          console.error('Contacts sheet write-back failed:', err),
-        );
+        reliableWrite(`Contacts for ${investor.name}`, () =>
+          updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)));
 
         return {
           positions: updatedPositions,
@@ -916,15 +922,13 @@ const useInvestorStore = create(
       });
 
       // Write back to Investors sheet (name column B)
-      updateInvestorField(invId, 'name', newName).catch((err) =>
-        console.error('Name sheet write-back failed:', err),
-      );
+      reliableWrite(`Name → ${newName}`, () =>
+        updateInvestorField(invId, 'name', newName));
 
       // Write back to each Position sheet row (name column B)
       investor.positions.forEach((p) => {
-        updatePositionField(p.id, 'name', newName).catch((err) =>
-          console.error(`Position name write-back failed for ${p.id}:`, err),
-        );
+        reliableWrite(`Position name for ${p.id}`, () =>
+          updatePositionField(p.id, 'name', newName));
       });
 
       // Auto-add as primary signer in contacts if not already present
@@ -947,9 +951,8 @@ const useInvestorStore = create(
           [invId]: { ...(overrides[invId] || {}), contacts: updatedContacts },
         };
 
-        updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)).catch((err) =>
-          console.error('Contacts sheet write-back failed:', err),
-        );
+        reliableWrite(`Contacts for ${newName}`, () =>
+          updateInvestorField(invId, 'contacts_json', JSON.stringify(updatedContacts)));
 
         const auditEntry = {
           id: `AL-${Date.now()}-name`,
@@ -960,15 +963,16 @@ const useInvestorStore = create(
           timestamp: now,
         };
 
-        appendAuditLog({
-          id: auditEntry.id,
-          recordType: 'investor',
-          recordId: invId,
-          action: auditEntry.action,
-          notes: auditEntry.detail,
-          user,
-          timestamp: now,
-        }).catch((err) => console.error('Audit log write-back failed:', err));
+        reliableWrite(`Audit: name changed for ${newName}`, () =>
+          appendAuditLog({
+            id: auditEntry.id,
+            recordType: 'investor',
+            recordId: invId,
+            action: auditEntry.action,
+            notes: auditEntry.detail,
+            user,
+            timestamp: now,
+          }));
 
         return {
           positions: updatedPositions,
@@ -987,15 +991,16 @@ const useInvestorStore = create(
         timestamp: now,
       };
 
-      appendAuditLog({
-        id: auditEntry.id,
-        recordType: 'investor',
-        recordId: invId,
-        action: auditEntry.action,
-        notes: auditEntry.detail,
-        user,
-        timestamp: now,
-      }).catch((err) => console.error('Audit log write-back failed:', err));
+      reliableWrite(`Audit: name changed to ${newName}`, () =>
+        appendAuditLog({
+          id: auditEntry.id,
+          recordType: 'investor',
+          recordId: invId,
+          action: auditEntry.action,
+          notes: auditEntry.detail,
+          user,
+          timestamp: now,
+        }));
 
       return {
         positions: updatedPositions,
@@ -1069,31 +1074,32 @@ const useInvestorStore = create(
 
     // Write to Positions sheet (signed_date / funded_date columns)
     if ('signed' in updates) {
-      updatePositionField(positionId, 'signed_date', updates.signed)
-        .catch((err) => console.error('Position signed_date write-back failed:', err));
+      reliableWrite(`Signed date for ${pos.name}`, () =>
+        updatePositionField(positionId, 'signed_date', updates.signed));
     }
     if ('funded' in updates) {
-      updatePositionField(positionId, 'funded_date', updates.funded)
-        .catch((err) => console.error('Position funded_date write-back failed:', err));
+      reliableWrite(`Funded date for ${pos.name}`, () =>
+        updatePositionField(positionId, 'funded_date', updates.funded));
     }
 
     // Write to Subscriptions sheet (dates_json)
     if (pos.subscriptionId) {
-      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
-        .catch((err) => console.error('Subscription dates write-back failed:', err));
-      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
-        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+      reliableWrite(`Subscription dates for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline)));
+      reliableWrite(`Subscription timestamp for ${pos.name}`, () =>
+        updateSubscriptionField(pos.subscriptionId, 'updated_at', now));
     }
     auditEntries.forEach((entry) => {
-      appendAuditLog({
-        id: entry.id,
-        recordType: 'subscription',
-        recordId: pos.subscriptionId || positionId,
-        action: entry.action,
-        notes: entry.detail,
-        user,
-        timestamp: now,
-      }).catch((err) => console.error('Audit log write-back failed:', err));
+      reliableWrite(`Audit: ${entry.action}`, () =>
+        appendAuditLog({
+          id: entry.id,
+          recordType: 'subscription',
+          recordId: pos.subscriptionId || positionId,
+          action: entry.action,
+          notes: entry.detail,
+          user,
+          timestamp: now,
+        }));
     });
   },
 
@@ -1105,10 +1111,9 @@ const useInvestorStore = create(
 
       const now = new Date().toISOString();
 
-      // Write JSON to Investors sheet column K
-      updateInvestorField(invId, 'contacts_json', JSON.stringify(contacts)).catch((err) =>
-        console.error('Contacts sheet write-back failed:', err),
-      );
+      // Write JSON to Investors sheet column K (with retry)
+      reliableWrite(`Contacts for ${investor.name}`, () =>
+        updateInvestorField(invId, 'contacts_json', JSON.stringify(contacts)));
 
       // Persist in contactOverrides so contacts survive rehydration
       const existingOverrides = state.contactOverrides[invId] || {};
@@ -1122,15 +1127,16 @@ const useInvestorStore = create(
         timestamp: now,
       };
 
-      appendAuditLog({
-        id: auditEntry.id,
-        recordType: 'investor',
-        recordId: invId,
-        action: auditEntry.action,
-        notes: auditEntry.detail,
-        user,
-        timestamp: now,
-      }).catch((err) => console.error('Audit log write-back failed:', err));
+      reliableWrite(`Audit: contacts updated for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id,
+          recordType: 'investor',
+          recordId: invId,
+          action: auditEntry.action,
+          notes: auditEntry.detail,
+          user,
+          timestamp: now,
+        }));
 
       return {
         investors: {

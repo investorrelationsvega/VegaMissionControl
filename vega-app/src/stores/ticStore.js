@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { updateTicField, appendAuditLog } from '../services/sheetsService';
+import { reliableWrite } from '../services/sheetsWriteQueue';
 
 // ---------------------------------------------------------------------------
 // Seed Data — TIC ownership records from Company Dashboard CSV
@@ -138,23 +139,22 @@ const useTicStore = create(
             return { ...t, distributions: newDist };
           });
 
-          // Write back to sheet — store entire distributions JSON
+          // Write back to sheet (with retry)
           const record = updated.find((t) => t.id === id);
           if (record) {
-            updateTicField(id, 'distributions_json', JSON.stringify(record.distributions)).catch((err) =>
-              console.error(`TIC sheet write-back failed for distribution:`, err)
-            );
+            reliableWrite(`TIC distribution ${record.entity} / ${record.property}`, () =>
+              updateTicField(id, 'distributions_json', JSON.stringify(record.distributions)));
 
-            // Audit log
-            appendAuditLog({
-              id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              recordType: 'TIC',
-              recordId: id,
-              action: 'Distribution Updated',
-              notes: `${record.entity} / ${record.property}: ${period} = $${Number(amount).toLocaleString()}`,
-              user,
-              timestamp: new Date().toISOString(),
-            }).catch(() => {});
+            reliableWrite(`Audit: TIC distribution updated`, () =>
+              appendAuditLog({
+                id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                recordType: 'TIC',
+                recordId: id,
+                action: 'Distribution Updated',
+                notes: `${record.entity} / ${record.property}: ${period} = $${Number(amount).toLocaleString()}`,
+                user,
+                timestamp: new Date().toISOString(),
+              }));
           }
 
           return { ticProperties: updated };
@@ -169,15 +169,16 @@ const useTicStore = create(
             distributions: record.distributions || {},
           };
 
-          appendAuditLog({
-            id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            recordType: 'TIC',
-            recordId: newRecord.id,
-            action: 'Created',
-            notes: `TIC record created: ${newRecord.entity} / ${newRecord.property} (${newRecord.ownership}%)`,
-            user,
-            timestamp: new Date().toISOString(),
-          }).catch(() => {});
+          reliableWrite(`Audit: TIC record created`, () =>
+            appendAuditLog({
+              id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              recordType: 'TIC',
+              recordId: newRecord.id,
+              action: 'Created',
+              notes: `TIC record created: ${newRecord.entity} / ${newRecord.property} (${newRecord.ownership}%)`,
+              user,
+              timestamp: new Date().toISOString(),
+            }));
 
           return { ticProperties: [...state.ticProperties, newRecord] };
         }),
@@ -196,9 +197,8 @@ const useTicStore = create(
           Object.entries(updates).forEach(([k, v]) => {
             const sheetField = fieldMap[k];
             if (sheetField) {
-              updateTicField(id, sheetField, v).catch((err) =>
-                console.error(`TIC sheet write-back failed for ${k}:`, err)
-              );
+              reliableWrite(`TIC ${id} ${k}`, () =>
+                updateTicField(id, sheetField, v));
             }
           });
 
@@ -209,15 +209,16 @@ const useTicStore = create(
               .map(([k, v]) => `${k}: ${t[k] || '(empty)'} → ${v}`)
               .join('; ');
 
-            appendAuditLog({
-              id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              recordType: 'TIC',
-              recordId: id,
-              action: 'Updated',
-              notes: changes || 'TIC record updated',
-              user,
-              timestamp: new Date().toISOString(),
-            }).catch(() => {});
+            reliableWrite(`Audit: TIC ${id} updated`, () =>
+              appendAuditLog({
+                id: `AUD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                recordType: 'TIC',
+                recordId: id,
+                action: 'Updated',
+                notes: changes || 'TIC record updated',
+                user,
+                timestamp: new Date().toISOString(),
+              }));
 
             return { ...t, ...updates };
           });
