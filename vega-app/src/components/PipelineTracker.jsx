@@ -48,7 +48,7 @@ function formatDateShort(dateStr) {
   try {
     const d = parseLocalDate(dateStr);
     if (!d) return null;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch { return null; }
 }
 
@@ -417,7 +417,7 @@ export default function PipelineTracker({ pipeline, signers, docRouting = 'direc
                 {/* Date */}
                 <div style={{ ...mono, fontSize: 10, color: signer.signed ? 'var(--grn)' : 'var(--ylw)' }}>
                   {signer.signed && signer.signedDate
-                    ? new Date(signer.signedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    ? new Date(signer.signedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                     : 'Pending'}
                 </div>
               </div>
