@@ -1607,7 +1607,7 @@ export default function Directory() {
                     </div>
 
                     {/* Pipeline Tracker */}
-                    {selectedInvestor.pipeline && (
+                    {selectedInvestor.positions.filter((p) => p.pipeline).length > 0 && (
                       <div style={{ marginTop: 20 }}>
                         <div
                           style={{
@@ -1621,16 +1621,31 @@ export default function Directory() {
                         >
                           Subscription Pipeline
                         </div>
-                        <PipelineTracker
-                          pipeline={selectedInvestor.pipeline}
-                          signers={selectedInvestor.signers}
-                          docRouting={selectedInvestor.docRouting || 'direct'}
-                          positionId={selectedInvestor.pipelinePositionId || selectedInvestor.positions[0]?.id}
-                          onDateChange={(posId, dateKey, newDate) => {
-                            useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
-                            showToast('Date updated')
-                          }}
-                        />
+                        {selectedInvestor.positions.filter((p) => p.pipeline).map((pos) => (
+                          <div key={pos.id} style={{ marginBottom: 14 }}>
+                            {selectedInvestor.positions.filter((p) => p.pipeline).length > 1 && (
+                              <div style={{
+                                ...mono,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                color: 'var(--t3)',
+                                marginBottom: 4,
+                              }}>
+                                {pos.fund}{pos.entity ? ` · ${pos.entity}` : ''}
+                              </div>
+                            )}
+                            <PipelineTracker
+                              pipeline={pos.pipeline}
+                              signers={pos.signers}
+                              docRouting={pos.docRouting || 'direct'}
+                              positionId={pos.id}
+                              onDateChange={(posId, dateKey, newDate) => {
+                                useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
+                                showToast('Date updated')
+                              }}
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
                   </>
