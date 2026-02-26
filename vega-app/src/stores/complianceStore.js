@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { complianceItems as seedComplianceItems } from '../data/seedData';
 import { updateComplianceStatus, appendAuditLog } from '../services/sheetsService';
+import { reliableWrite } from '../services/sheetsWriteQueue';
 
 const useComplianceStore = create(
   persist(
@@ -65,19 +66,19 @@ const useComplianceStore = create(
             notes,
           };
 
-          // Write back to Google Sheet
-          updateComplianceStatus(id, 'resolved').catch((err) =>
-            console.error('Compliance sheet write-back failed:', err)
-          );
-          appendAuditLog({
-            id: logEntry.id,
-            recordType: 'compliance',
-            recordId: id,
-            action: 'Resolved',
-            notes: logEntry.detail,
-            user: email,
-            timestamp: logEntry.timestamp,
-          }).catch((err) => console.error('Audit log write-back failed:', err));
+          // Write back to Google Sheet (with retry)
+          reliableWrite(`Resolve compliance ${id}`, () =>
+            updateComplianceStatus(id, 'resolved'));
+          reliableWrite(`Audit: compliance ${id} resolved`, () =>
+            appendAuditLog({
+              id: logEntry.id,
+              recordType: 'compliance',
+              recordId: id,
+              action: 'Resolved',
+              notes: logEntry.detail,
+              user: email,
+              timestamp: logEntry.timestamp,
+            }));
 
           return {
             items: state.items.map((i) =>
@@ -109,10 +110,9 @@ const useComplianceStore = create(
             notes,
           };
 
-          // Write back to Google Sheet
-          updateComplianceStatus(id, 'open').catch((err) =>
-            console.error('Compliance sheet write-back failed:', err)
-          );
+          // Write back to Google Sheet (with retry)
+          reliableWrite(`Reopen compliance ${id}`, () =>
+            updateComplianceStatus(id, 'open'));
 
           return {
             items: state.items.map((i) =>
