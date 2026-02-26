@@ -14,12 +14,12 @@ const useBlueskyStore = create(
       filings: [],
 
       // ── Add Filing ─────────────────────────────────────────────────────────────
-      // Creates a new Bluesky filing with 30-day deadline from webformCompleteDate
+      // Creates a new Bluesky filing with 30-day deadline from webformDoneDate
       addFiling: (position) => {
         if (get().hasFiling(position.invId)) return; // one per investor
 
-        const triggerDate = position.pipeline?.webformCompleteDate
-          ? new Date(position.pipeline.webformCompleteDate)
+        const triggerDate = position.pipeline?.webformDoneDate
+          ? new Date(position.pipeline.webformDoneDate)
           : new Date();
 
         const deadlineDate = new Date(triggerDate);

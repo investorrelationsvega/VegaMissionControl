@@ -142,7 +142,7 @@ const useDistributionStore = create(
     }),
     {
       name: 'vega-distribution-store',
-      version: 2, // Bumped for Google Sheets integration
+      version: 3, // Bumped for real distribution data (Dec 2025, Jan 2026, Feb 2026)
     },
   ),
 );

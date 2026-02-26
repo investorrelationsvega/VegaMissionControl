@@ -145,6 +145,8 @@ export default function Distributions() {
   const [showCalcModal, setShowCalcModal] = useState(false)
   const [calcPercent, setCalcPercent] = useState('')
   const [calcFund, setCalcFund] = useState('Fund II')
+  const [expandedId, setExpandedId] = useState(null)
+  const [inlineEdit, setInlineEdit] = useState(null) // { id, field, value }
 
   // Payment form state
   const [formData, setFormData] = useState({
@@ -285,6 +287,34 @@ export default function Distributions() {
 
   const handleFormChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // ── Inline edit helpers ──────────────────────
+  const startInlineEdit = (id, field, currentValue) => {
+    setInlineEdit({ id, field, value: String(currentValue ?? '') })
+  }
+
+  const saveInlineEdit = () => {
+    if (!inlineEdit) return
+    const { id, field, value } = inlineEdit
+    const current = distributionStore.getById(id)
+    if (!current) { setInlineEdit(null); return }
+
+    let parsedValue = value
+    if (field === 'amt') parsedValue = parseFloat(value) || 0
+
+    if (String(current[field] ?? '') !== String(parsedValue)) {
+      distributionStore.updatePayment(id, { [field]: parsedValue })
+      showToast(`${field === 'amt' ? 'Amount' : field === 'date' ? 'Date' : field === 'notes' ? 'Notes' : field} updated`)
+    }
+    setInlineEdit(null)
+  }
+
+  const cancelInlineEdit = () => setInlineEdit(null)
+
+  const handleInlineKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveInlineEdit() }
+    if (e.key === 'Escape') cancelInlineEdit()
   }
 
   // ── Add Period ──────────────────────────────
@@ -733,22 +763,20 @@ export default function Distributions() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                <th>Investor</th>
-                <th>Entity</th>
-                <th className="right">Amount</th>
-                <th>Method</th>
-                <th>Status</th>
-                <th>Sent Date</th>
-                <th>Tracking Ref</th>
-                <th>Reported In Portal</th>
-                <th>Reconciliation</th>
-                <th></th>
+                <th style={{ minWidth: 180 }}>Entity / Investor</th>
+                <th className="right" style={{ minWidth: 100 }}>Amount</th>
+                <th style={{ minWidth: 70 }}>Method</th>
+                <th style={{ minWidth: 70 }}>Status</th>
+                <th style={{ minWidth: 90 }}>Paid Date</th>
+                <th>Portal</th>
+                <th>Recon</th>
+                <th style={{ minWidth: 40 }}></th>
               </tr>
             </thead>
             <tbody>
               {periodPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--t4)' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '40px 0', color: 'var(--t4)' }}>
                     <span className="mono" style={{ fontSize: 13 }}>
                       No payments for this period
                     </span>
@@ -757,127 +785,382 @@ export default function Distributions() {
               ) : (
                 periodPayments.map((d) => {
                   const isSkipped = d.status === 'Skipped'
-                  return (
+                  const isExpanded = expandedId === d.id
+                  const editingThis = inlineEdit?.id === d.id
+                  const committed = positions
+                    .filter((p) => p.invId === d.invId && p.fund === d.fund)
+                    .reduce((s, p) => s + p.amt, 0)
+
+                  return [
+                    /* ── Main Row ───────────────────────────── */
                     <tr
                       key={d.id}
                       style={{
                         transition: 'background 0.1s',
                         opacity: isSkipped ? 0.45 : 1,
+                        borderBottom: isExpanded ? 'none' : undefined,
+                        background: isExpanded ? 'var(--bgH)' : undefined,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bgH)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.background = 'var(--bgH)' }}
+                      onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
                     >
+                      {/* ── Entity / Investor ──────────── */}
                       <td
-                        onClick={() => navigate('/pe/directory')}
-                        style={{
-                          color: 'var(--grn)',
-                          cursor: 'pointer',
-                          fontSize: 14,
-                          fontWeight: 500,
-                          textDecoration: isSkipped ? 'line-through' : 'none',
-                        }}
+                        style={{ cursor: 'pointer', padding: '10px 14px' }}
+                        onClick={() => setExpandedId(isExpanded ? null : d.id)}
                       >
-                        {d.name}
-                      </td>
-                      <td style={{ color: 'var(--t3)', fontSize: 13 }}>{d.entity || '-'}</td>
-                      <td
-                        className="right"
-                        style={{ fontWeight: 700, color: isSkipped ? 'var(--t5)' : 'var(--t1)' }}
-                      >
-                        {fmt(d.amt)}
-                      </td>
-                      <td><MethodBadge method={d.method} /></td>
-                      <td>
-                        {isSkipped ? (
-                          <span className="badge badge-muted" style={{ textDecoration: 'line-through' }}>Skipped</span>
-                        ) : (
-                          <StatusBadge status={d.status} />
-                        )}
-                      </td>
-                      <td
-                        className="mono"
-                        style={{ fontSize: 12, color: 'var(--t3)' }}
-                      >
-                        {d.date || '-'}
-                      </td>
-                      <td
-                        className="mono"
-                        style={{ fontSize: 12, color: 'var(--t3)' }}
-                      >
-                        {d.trackingRef || '-'}
-                      </td>
-                      <td><PortalBadge value={d.reportedInPortal} /></td>
-                      <td><ReconciliationBadge value={d.reconciliation} /></td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <button
-                            onClick={() => openEditPayment(d)}
-                            className="mono"
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              border: '1px solid var(--bd)',
-                              background: 'transparent',
-                              color: 'var(--t4)',
-                              borderRadius: 4,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s',
-                            }}
-                          >
-                            Edit
-                          </button>
-                          {!isSkipped && d.status === 'Prep' && (
-                            <button
-                              onClick={() => {
-                                distributionStore.updatePayment(d.id, { status: 'Skipped' })
-                                showToast(`${d.name} skipped for this period`)
-                              }}
-                              className="mono"
-                              style={{
-                                fontSize: 9,
-                                fontWeight: 700,
-                                padding: '4px 8px',
-                                border: '1px solid rgba(248,113,113,0.3)',
-                                background: 'transparent',
-                                color: 'var(--red)',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s',
-                              }}
-                              title="Skip this investor for this period"
-                            >
-                              Skip
-                            </button>
-                          )}
-                          {isSkipped && (
-                            <button
-                              onClick={() => {
-                                distributionStore.updatePayment(d.id, { status: 'Prep' })
-                                showToast(`${d.name} restored to prep`)
-                              }}
-                              className="mono"
-                              style={{
-                                fontSize: 9,
-                                fontWeight: 700,
-                                padding: '4px 8px',
-                                border: '1px solid var(--grnB)',
-                                background: 'transparent',
-                                color: 'var(--grn)',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                                transition: 'all 0.15s',
-                              }}
-                              title="Restore this payment"
-                            >
-                              Restore
-                            </button>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                          <span style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: isSkipped ? 'var(--t5)' : 'var(--t1)',
+                            textDecoration: isSkipped ? 'line-through' : 'none',
+                            lineHeight: 1.3,
+                          }}>
+                            {d.entity || d.name}
+                          </span>
+                          {committed > 0 && (
+                            <span className="mono" style={{ fontSize: 10, color: 'var(--t5)', fontWeight: 400 }}>
+                              {fmt(committed)}
+                            </span>
                           )}
                         </div>
+                        {d.entity && (
+                          <div
+                            className="mono"
+                            style={{ fontSize: 11, color: 'var(--t4)', marginTop: 1, cursor: 'pointer' }}
+                            onClick={(e) => { e.stopPropagation(); navigate('/pe/directory') }}
+                          >
+                            {d.name}
+                          </div>
+                        )}
+                        {!d.entity && (
+                          <div
+                            className="mono"
+                            style={{ fontSize: 11, color: 'var(--t5)', marginTop: 1 }}
+                          >
+                            Individual
+                          </div>
+                        )}
+                        {d.notes && (
+                          <div style={{
+                            display: 'inline-block',
+                            width: 6, height: 6,
+                            borderRadius: '50%',
+                            background: 'var(--ylw)',
+                            marginLeft: 6,
+                            verticalAlign: 'middle',
+                          }} title={d.notes} />
+                        )}
                       </td>
-                    </tr>
-                  )
-                })
+
+                      {/* ── Amount (click to edit) ─────── */}
+                      <td
+                        className="right"
+                        style={{
+                          fontWeight: 700,
+                          color: isSkipped ? 'var(--t5)' : 'var(--t1)',
+                          cursor: 'pointer',
+                          padding: '10px 14px',
+                        }}
+                        onClick={() => !isSkipped && startInlineEdit(d.id, 'amt', d.amt)}
+                      >
+                        {editingThis && inlineEdit.field === 'amt' ? (
+                          <input
+                            type="number"
+                            autoFocus
+                            value={inlineEdit.value}
+                            onChange={(e) => setInlineEdit(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={saveInlineEdit}
+                            onKeyDown={handleInlineKeyDown}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              width: 90,
+                              fontSize: 14,
+                              fontWeight: 700,
+                              textAlign: 'right',
+                              background: 'var(--bgI)',
+                              border: '1px solid var(--grnB)',
+                              borderRadius: 3,
+                              padding: '2px 6px',
+                              color: 'var(--t1)',
+                              outline: 'none',
+                            }}
+                          />
+                        ) : (
+                          <span title="Click to edit amount">{fmt(d.amt)}</span>
+                        )}
+                      </td>
+
+                      {/* ── Method (click to cycle) ────── */}
+                      <td>
+                        <span
+                          onClick={() => {
+                            if (isSkipped) return
+                            const methods = ['ACH', 'Wire', 'Check']
+                            const next = methods[(methods.indexOf(d.method) + 1) % methods.length]
+                            distributionStore.updatePayment(d.id, { method: next })
+                            showToast(`Method → ${next}`)
+                          }}
+                          style={{ cursor: isSkipped ? 'default' : 'pointer' }}
+                          title="Click to cycle method"
+                        >
+                          <MethodBadge method={d.method} />
+                        </span>
+                      </td>
+
+                      {/* ── Status (click to cycle) ────── */}
+                      <td>
+                        <span
+                          onClick={() => {
+                            const statuses = ['Prep', 'Sent', 'Skipped']
+                            const next = statuses[(statuses.indexOf(d.status) + 1) % statuses.length]
+                            distributionStore.updatePayment(d.id, { status: next })
+                            showToast(`Status → ${next}`)
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to cycle status"
+                        >
+                          {isSkipped ? (
+                            <span className="badge badge-muted" style={{ textDecoration: 'line-through' }}>Skipped</span>
+                          ) : (
+                            <StatusBadge status={d.status} />
+                          )}
+                        </span>
+                      </td>
+
+                      {/* ── Paid Date (click to edit) ──── */}
+                      <td
+                        className="mono"
+                        style={{ fontSize: 12, color: 'var(--t3)', cursor: 'pointer', padding: '10px 14px' }}
+                        onClick={() => !isSkipped && startInlineEdit(d.id, 'date', d.date || '')}
+                      >
+                        {editingThis && inlineEdit.field === 'date' ? (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={inlineEdit.value}
+                            onChange={(e) => setInlineEdit(prev => ({ ...prev, value: e.target.value }))}
+                            onBlur={saveInlineEdit}
+                            onKeyDown={handleInlineKeyDown}
+                            onClick={(e) => e.stopPropagation()}
+                            placeholder="e.g. Feb 2"
+                            style={{
+                              width: 80,
+                              fontSize: 12,
+                              background: 'var(--bgI)',
+                              border: '1px solid var(--grnB)',
+                              borderRadius: 3,
+                              padding: '2px 6px',
+                              color: 'var(--t1)',
+                              outline: 'none',
+                              fontFamily: "'Space Mono', monospace",
+                            }}
+                          />
+                        ) : (
+                          <span title="Click to edit date">{d.date || '-'}</span>
+                        )}
+                      </td>
+
+                      {/* ── Portal (click to toggle) ──── */}
+                      <td>
+                        <span
+                          onClick={() => {
+                            const next = d.reportedInPortal === 'Yes' ? 'No' : 'Yes'
+                            distributionStore.updatePayment(d.id, { reportedInPortal: next })
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to toggle"
+                        >
+                          <PortalBadge value={d.reportedInPortal} />
+                        </span>
+                      </td>
+
+                      {/* ── Reconciliation (click to toggle) */}
+                      <td>
+                        <span
+                          onClick={() => {
+                            const vals = ['Pending', 'Matched', 'Unmatched']
+                            const next = vals[(vals.indexOf(d.reconciliation) + 1) % vals.length]
+                            distributionStore.updatePayment(d.id, { reconciliation: next })
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          title="Click to cycle"
+                        >
+                          <ReconciliationBadge value={d.reconciliation} />
+                        </span>
+                      </td>
+
+                      {/* ── Expand toggle ──────────────── */}
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : d.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: isExpanded ? 'var(--grn)' : 'var(--t5)',
+                            fontSize: 16,
+                            padding: '2px 6px',
+                            borderRadius: 3,
+                            transition: 'color 0.15s',
+                          }}
+                          title={isExpanded ? 'Collapse' : 'Expand for notes & audit trail'}
+                        >
+                          {isExpanded ? '\u25B2' : '\u25BC'}
+                        </button>
+                      </td>
+                    </tr>,
+
+                    /* ── Expanded Detail Row ────────────── */
+                    isExpanded && (
+                      <tr key={`${d.id}-detail`} style={{ background: 'var(--bgH)' }}>
+                        <td colSpan={8} style={{ padding: '0 14px 16px 14px', borderBottom: '2px solid var(--bd)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                            {/* ── Left: Notes + Quick Fields ───── */}
+                            <div>
+                              <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 6 }}>
+                                Notes
+                              </div>
+                              <textarea
+                                value={editingThis && inlineEdit.field === 'notes' ? inlineEdit.value : (d.notes || '')}
+                                onFocus={() => startInlineEdit(d.id, 'notes', d.notes || '')}
+                                onChange={(e) => setInlineEdit(prev => prev ? { ...prev, value: e.target.value } : null)}
+                                onBlur={saveInlineEdit}
+                                placeholder="Add notes..."
+                                rows={3}
+                                style={{
+                                  width: '100%',
+                                  resize: 'vertical',
+                                  fontSize: 13,
+                                  background: 'var(--bgI)',
+                                  border: '1px solid var(--bd)',
+                                  borderRadius: 4,
+                                  padding: '8px 10px',
+                                  color: 'var(--t2)',
+                                  outline: 'none',
+                                  lineHeight: 1.5,
+                                  transition: 'border-color 0.15s',
+                                }}
+                                onKeyDown={(e) => { if (e.key === 'Escape') cancelInlineEdit() }}
+                              />
+
+                              {/* Quick-edit row for tracking ref */}
+                              <div style={{ marginTop: 10, display: 'flex', gap: 10, alignItems: 'center' }}>
+                                <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', whiteSpace: 'nowrap' }}>Tracking Ref</div>
+                                <input
+                                  type="text"
+                                  value={editingThis && inlineEdit.field === 'trackingRef' ? inlineEdit.value : (d.trackingRef || '')}
+                                  onFocus={() => startInlineEdit(d.id, 'trackingRef', d.trackingRef || '')}
+                                  onChange={(e) => setInlineEdit(prev => prev ? { ...prev, value: e.target.value } : null)}
+                                  onBlur={saveInlineEdit}
+                                  onKeyDown={handleInlineKeyDown}
+                                  placeholder="Reference #"
+                                  style={{
+                                    flex: 1,
+                                    fontSize: 12,
+                                    background: 'var(--bgI)',
+                                    border: '1px solid var(--bd)',
+                                    borderRadius: 3,
+                                    padding: '4px 8px',
+                                    color: 'var(--t2)',
+                                    outline: 'none',
+                                    fontFamily: "'Space Mono', monospace",
+                                  }}
+                                />
+                              </div>
+
+                              {/* Action buttons */}
+                              <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ fontSize: 10, padding: '5px 12px' }}
+                                  onClick={() => openEditPayment(d)}
+                                >
+                                  Full Edit
+                                </button>
+                                {!isSkipped && d.status === 'Prep' && (
+                                  <button
+                                    className="mono"
+                                    style={{
+                                      fontSize: 10, fontWeight: 700, padding: '5px 12px',
+                                      border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
+                                      color: 'var(--red)', borderRadius: 4, cursor: 'pointer',
+                                    }}
+                                    onClick={() => {
+                                      distributionStore.updatePayment(d.id, { status: 'Skipped' })
+                                      showToast(`${d.entity || d.name} skipped`)
+                                    }}
+                                  >
+                                    Skip
+                                  </button>
+                                )}
+                                {isSkipped && (
+                                  <button
+                                    className="mono"
+                                    style={{
+                                      fontSize: 10, fontWeight: 700, padding: '5px 12px',
+                                      border: '1px solid var(--grnB)', background: 'transparent',
+                                      color: 'var(--grn)', borderRadius: 4, cursor: 'pointer',
+                                    }}
+                                    onClick={() => {
+                                      distributionStore.updatePayment(d.id, { status: 'Prep' })
+                                      showToast(`${d.entity || d.name} restored`)
+                                    }}
+                                  >
+                                    Restore
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* ── Right: Audit Trail ───────────── */}
+                            <div>
+                              <div className="mono" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)', marginBottom: 6 }}>
+                                Audit Trail
+                              </div>
+                              {(!d.auditLog || d.auditLog.length === 0) ? (
+                                <div className="mono" style={{ fontSize: 11, color: 'var(--t5)', padding: '8px 0' }}>
+                                  No changes recorded yet
+                                </div>
+                              ) : (
+                                <div style={{
+                                  maxHeight: 200, overflowY: 'auto',
+                                  border: '1px solid var(--bd)', borderRadius: 4,
+                                  background: 'var(--bgS)',
+                                }}>
+                                  {[...(d.auditLog || [])].reverse().map((entry) => (
+                                    <div
+                                      key={entry.id}
+                                      style={{
+                                        padding: '6px 10px',
+                                        borderBottom: '1px solid var(--bdS)',
+                                        fontSize: 11,
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--t3)' }}>{entry.action}</span>
+                                        <span className="mono" style={{ fontSize: 9, color: 'var(--t5)' }}>
+                                          {formatTimestamp(entry.timestamp)}
+                                        </span>
+                                      </div>
+                                      {entry.detail && (
+                                        <div style={{ color: 'var(--t4)', fontSize: 11 }}>{entry.detail}</div>
+                                      )}
+                                      <div className="mono" style={{ fontSize: 9, color: 'var(--t5)', marginTop: 1 }}>
+                                        {entry.user}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  ]
+                }).flat().filter(Boolean)
               )}
             </tbody>
           </table>

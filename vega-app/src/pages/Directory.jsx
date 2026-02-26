@@ -5,7 +5,7 @@
 // positions, and notes management
 // =============================================
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useInvestorStore from '../stores/investorStore'
 import useComplianceStore from '../stores/complianceStore'
@@ -207,6 +207,9 @@ export default function Directory() {
   const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
+  const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
+  const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
+  const savedRef = useRef(false) // prevents double-save on Enter + blur
 
   // ── RingCentral Store ─────────────────────────
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated)
@@ -1604,7 +1607,7 @@ export default function Directory() {
                     </div>
 
                     {/* Pipeline Tracker */}
-                    {selectedInvestor.pipeline && (
+                    {selectedInvestor.positions.filter((p) => p.pipeline).length > 0 && (
                       <div style={{ marginTop: 20 }}>
                         <div
                           style={{
@@ -1618,16 +1621,31 @@ export default function Directory() {
                         >
                           Subscription Pipeline
                         </div>
-                        <PipelineTracker
-                          pipeline={selectedInvestor.pipeline}
-                          signers={selectedInvestor.signers}
-                          docRouting={selectedInvestor.docRouting || 'direct'}
-                          positionId={selectedInvestor.positions[0]?.id}
-                          onDateChange={(posId, dateKey, newDate) => {
-                            useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
-                            showToast('Date updated')
-                          }}
-                        />
+                        {selectedInvestor.positions.filter((p) => p.pipeline).map((pos) => (
+                          <div key={pos.id} style={{ marginBottom: 14 }}>
+                            {selectedInvestor.positions.filter((p) => p.pipeline).length > 1 && (
+                              <div style={{
+                                ...mono,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                color: 'var(--t3)',
+                                marginBottom: 4,
+                              }}>
+                                {pos.fund}{pos.entity ? ` · ${pos.entity}` : ''}
+                              </div>
+                            )}
+                            <PipelineTracker
+                              pipeline={pos.pipeline}
+                              signers={pos.signers}
+                              docRouting={pos.docRouting || 'direct'}
+                              positionId={pos.id}
+                              onDateChange={(posId, dateKey, newDate) => {
+                                useInvestorStore.getState().updatePipelineDate(posId, dateKey, newDate, 'J. Jones')
+                                showToast('Date updated')
+                              }}
+                            />
+                          </div>
+                        ))}
                       </div>
                     )}
                   </>
@@ -1645,6 +1663,7 @@ export default function Directory() {
                             <th>Class</th>
                             <th className="right">Amount</th>
                             <th>Status</th>
+                            <th>Signed</th>
                             <th>Funded</th>
                           </tr>
                         </thead>
@@ -1704,9 +1723,110 @@ export default function Directory() {
                                   ...mono,
                                   fontSize: 12,
                                   color: 'var(--t3)',
+                                  cursor: 'pointer',
+                                  minWidth: 90,
+                                }}
+                                onClick={() => {
+                                  if (editingPosDate?.posId === p.id && editingPosDate?.field === 'signed') return
+                                  savedRef.current = false
+                                  setEditingDateValue(p.signed || '')
+                                  setEditingPosDate({ posId: p.id, field: 'signed' })
                                 }}
                               >
-                                {p.funded || '-'}
+                                {editingPosDate?.posId === p.id && editingPosDate?.field === 'signed' ? (
+                                  <input
+                                    type="text"
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
+                                    placeholder="e.g. Jan 7, 2025"
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        savedRef.current = true
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                        setEditingPosDate(null)
+                                      }
+                                      if (e.key === 'Escape') setEditingPosDate(null)
+                                    }}
+                                    onBlur={(e) => {
+                                      if (!savedRef.current && e.target.value !== (p.signed || '')) {
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                      }
+                                      setEditingPosDate(null)
+                                    }}
+                                    style={{
+                                      ...mono,
+                                      fontSize: 12,
+                                      width: '100%',
+                                      background: 'var(--bg0)',
+                                      border: '1px solid var(--grn)',
+                                      borderRadius: 3,
+                                      color: 'var(--t1)',
+                                      padding: '2px 4px',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ borderBottom: '1px dashed var(--t5)' }}>
+                                    {p.signed || '-'}
+                                  </span>
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  ...mono,
+                                  fontSize: 12,
+                                  color: 'var(--t3)',
+                                  cursor: 'pointer',
+                                  minWidth: 90,
+                                }}
+                                onClick={() => {
+                                  if (editingPosDate?.posId === p.id && editingPosDate?.field === 'funded') return
+                                  savedRef.current = false
+                                  setEditingDateValue(p.funded || '')
+                                  setEditingPosDate({ posId: p.id, field: 'funded' })
+                                }}
+                              >
+                                {editingPosDate?.posId === p.id && editingPosDate?.field === 'funded' ? (
+                                  <input
+                                    type="text"
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
+                                    placeholder="e.g. Jan 7, 2025"
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        savedRef.current = true
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                        setEditingPosDate(null)
+                                      }
+                                      if (e.key === 'Escape') setEditingPosDate(null)
+                                    }}
+                                    onBlur={(e) => {
+                                      if (!savedRef.current && e.target.value !== (p.funded || '')) {
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                      }
+                                      setEditingPosDate(null)
+                                    }}
+                                    style={{
+                                      ...mono,
+                                      fontSize: 12,
+                                      width: '100%',
+                                      background: 'var(--bg0)',
+                                      border: '1px solid var(--grn)',
+                                      borderRadius: 3,
+                                      color: 'var(--t1)',
+                                      padding: '2px 4px',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ borderBottom: '1px dashed var(--t5)' }}>
+                                    {p.funded || '-'}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))}
