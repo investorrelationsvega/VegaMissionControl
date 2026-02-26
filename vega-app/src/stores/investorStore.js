@@ -223,7 +223,6 @@ const useInvestorStore = create(
 
   // ── Google Sheets Sync ────────────────────────────────────────────────
   loadFromSheets: (sheetPositions, investorLookup) => {
-    console.log('[loadFromSheets] CALLED with', sheetPositions.length, 'sheet positions');
     set((state) => {
       const migratedPositions = sheetPositions.map(migratePosition);
 
@@ -231,7 +230,6 @@ const useInvestorStore = create(
       // been written back to Sheets yet (fire-and-forget write-back race).
       const localPosMap = {};
       state.positions.forEach((p) => { localPosMap[p.id] = p; });
-      console.log('[loadFromSheets] Local positions:', state.positions.map(p => ({ id: p.id, signed: p.signed, funded: p.funded })));
       const mergedPositions = migratedPositions.map((sheetPos) => {
         const local = localPosMap[sheetPos.id];
         if (!local) return sheetPos;
@@ -247,8 +245,6 @@ const useInvestorStore = create(
         }
         return merged;
       });
-
-      console.log('[loadFromSheets] Merged positions:', mergedPositions.map(p => ({ id: p.id, signed: p.signed, funded: p.funded })));
 
       const investors = buildInvestors(mergedPositions);
       // Re-apply contact overrides so local edits survive
@@ -1004,14 +1000,9 @@ const useInvestorStore = create(
 
   // ── Position Signed / Funded Dates ─────────────────────────────────
   updatePositionDates: (positionId, updates, user = 'System') => {
-    console.log('[updatePositionDates] CALLED', { positionId, updates });
     const state = get();
     const pos = state.positions.find((p) => p.id === positionId);
-    if (!pos) {
-      console.error('[updatePositionDates] Position NOT FOUND:', positionId, 'Available IDs:', state.positions.map(p => p.id));
-      return;
-    }
-    console.log('[updatePositionDates] Found position:', { id: pos.id, name: pos.name, currentSigned: pos.signed, currentFunded: pos.funded });
+    if (!pos) return;
 
     const now = new Date().toISOString();
     const auditEntries = [];
@@ -1069,19 +1060,6 @@ const useInvestorStore = create(
       investors: newInvestors,
       auditLog: [...state.auditLog, ...auditEntries],
     });
-
-    // Verify the set() worked
-    const verify = get();
-    const verifyPos = verify.positions.find((p) => p.id === positionId);
-    console.log('[updatePositionDates] AFTER set() — verified:', {
-      posId: positionId,
-      signed: verifyPos?.signed,
-      funded: verifyPos?.funded,
-      pipelineFundedDate: verifyPos?.pipeline?.fundedDate,
-    });
-
-    // Show toast
-    try { useUiStore.getState().showToast(`Date saved: ${JSON.stringify(updates)}`); } catch (e) { /* ignore */ }
 
     // Write to Positions sheet (signed_date / funded_date columns)
     if ('signed' in updates) {

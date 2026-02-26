@@ -34,11 +34,20 @@ function getDateForStage(pipeline, stage) {
   return pipeline[dateKey] || null;
 }
 
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null;
+  // YYYY-MM-DD strings are parsed as UTC by JS — force local timezone
+  const iso = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3]);
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function formatDateShort(dateStr) {
   if (!dateStr) return null;
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return null;
+    const d = parseLocalDate(dateStr);
+    if (!d) return null;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   } catch { return null; }
 }
@@ -46,9 +55,12 @@ function formatDateShort(dateStr) {
 function toInputDate(dateStr) {
   if (!dateStr) return '';
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '';
-    return d.toISOString().slice(0, 10);
+    const d = parseLocalDate(dateStr);
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   } catch { return ''; }
 }
 
