@@ -104,11 +104,14 @@ const useGoogleStore = create(
     }),
     {
       name: 'vega-google-store',
-      // Persist folder mappings + verified email for auth gate
+      // Persist folder mappings, verified email for auth gate, AND tokens so page reloads don't force re-login
       partialize: (state) => ({
         folderMappings: state.folderMappings,
         userEmail: state.userEmail,
         userName: state.userName,
+        accessToken: state.accessToken,
+        tokenExpiresAt: state.tokenExpiresAt,
+        isAuthenticated: state.isAuthenticated,
       }),
     },
   ),
