@@ -655,7 +655,7 @@ export default function App() {
 
     positions.forEach((pos) => {
       // Skip if: no webform completion, is Utah, or already has a filing
-      if (!pos.pipeline?.webformCompleteDate) return;
+      if (!pos.pipeline?.webformDoneDate) return;
       if (!pos.state || pos.state === 'UT') return;
       if (processed.has(pos.invId)) return;
       if (bluesky.hasFiling(pos.invId)) return;
