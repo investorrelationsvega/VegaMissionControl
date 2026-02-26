@@ -207,6 +207,7 @@ export default function Directory() {
   const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
+  const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
 
   // ── RingCentral Store ─────────────────────────
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated)
@@ -1645,6 +1646,7 @@ export default function Directory() {
                             <th>Class</th>
                             <th className="right">Amount</th>
                             <th>Status</th>
+                            <th>Signed</th>
                             <th>Funded</th>
                           </tr>
                         </thead>
@@ -1704,9 +1706,94 @@ export default function Directory() {
                                   ...mono,
                                   fontSize: 12,
                                   color: 'var(--t3)',
+                                  cursor: 'pointer',
+                                  minWidth: 90,
                                 }}
+                                onClick={() => setEditingPosDate({ posId: p.id, field: 'signed' })}
                               >
-                                {p.funded || '-'}
+                                {editingPosDate?.posId === p.id && editingPosDate?.field === 'signed' ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={p.signed || ''}
+                                    placeholder="e.g. Jan 7, 2025"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        investorStore.updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                        setEditingPosDate(null)
+                                      }
+                                      if (e.key === 'Escape') setEditingPosDate(null)
+                                    }}
+                                    onBlur={(e) => {
+                                      if (e.target.value !== (p.signed || '')) {
+                                        investorStore.updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                      }
+                                      setEditingPosDate(null)
+                                    }}
+                                    style={{
+                                      ...mono,
+                                      fontSize: 12,
+                                      width: '100%',
+                                      background: 'var(--bg0)',
+                                      border: '1px solid var(--grn)',
+                                      borderRadius: 3,
+                                      color: 'var(--t1)',
+                                      padding: '2px 4px',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ borderBottom: '1px dashed var(--t5)' }}>
+                                    {p.signed || '-'}
+                                  </span>
+                                )}
+                              </td>
+                              <td
+                                style={{
+                                  ...mono,
+                                  fontSize: 12,
+                                  color: 'var(--t3)',
+                                  cursor: 'pointer',
+                                  minWidth: 90,
+                                }}
+                                onClick={() => setEditingPosDate({ posId: p.id, field: 'funded' })}
+                              >
+                                {editingPosDate?.posId === p.id && editingPosDate?.field === 'funded' ? (
+                                  <input
+                                    type="text"
+                                    defaultValue={p.funded || ''}
+                                    placeholder="e.g. Jan 7, 2025"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        investorStore.updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                        setEditingPosDate(null)
+                                      }
+                                      if (e.key === 'Escape') setEditingPosDate(null)
+                                    }}
+                                    onBlur={(e) => {
+                                      if (e.target.value !== (p.funded || '')) {
+                                        investorStore.updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                      }
+                                      setEditingPosDate(null)
+                                    }}
+                                    style={{
+                                      ...mono,
+                                      fontSize: 12,
+                                      width: '100%',
+                                      background: 'var(--bg0)',
+                                      border: '1px solid var(--grn)',
+                                      borderRadius: 3,
+                                      color: 'var(--t1)',
+                                      padding: '2px 4px',
+                                      outline: 'none',
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{ borderBottom: '1px dashed var(--t5)' }}>
+                                    {p.funded || '-'}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           ))}

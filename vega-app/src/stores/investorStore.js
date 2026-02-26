@@ -977,6 +977,89 @@ const useInvestorStore = create(
       };
     }),
 
+  // ── Position Signed / Funded Dates ─────────────────────────────────
+  updatePositionDates: (positionId, updates, user = 'System') => {
+    const state = get();
+    const pos = state.positions.find((p) => p.id === positionId);
+    if (!pos) return;
+
+    const now = new Date().toISOString();
+    const auditEntries = [];
+
+    // Build updated position
+    const posUpdates = {};
+    const pipelineUpdates = {};
+
+    if ('signed' in updates) {
+      const oldVal = pos.signed || '';
+      posUpdates.signed = updates.signed;
+      pipelineUpdates.signedByLpDate = updates.signed;
+      if (oldVal !== updates.signed) {
+        auditEntries.push({
+          id: `AL-${Date.now()}-signed`,
+          invId: pos.invId,
+          action: 'Signed Date Updated',
+          detail: `${pos.fund} ${pos.entity || pos.name}: signed "${oldVal || '(empty)'}" → "${updates.signed || '(empty)'}"`,
+          user,
+          timestamp: now,
+        });
+      }
+    }
+
+    if ('funded' in updates) {
+      const oldVal = pos.funded || '';
+      posUpdates.funded = updates.funded;
+      pipelineUpdates.fundedDate = updates.funded;
+      if (oldVal !== updates.funded) {
+        auditEntries.push({
+          id: `AL-${Date.now()}-funded`,
+          invId: pos.invId,
+          action: 'Funded Date Updated',
+          detail: `${pos.fund} ${pos.entity || pos.name}: funded "${oldVal || '(empty)'}" → "${updates.funded || '(empty)'}"`,
+          user,
+          timestamp: now,
+        });
+      }
+    }
+
+    const updatedPipeline = { ...(pos.pipeline || {}), ...pipelineUpdates };
+    const updatedPositions = state.positions.map((p) =>
+      p.id === positionId ? { ...p, ...posUpdates, pipeline: updatedPipeline } : p,
+    );
+    const newInvestors = buildInvestors(updatedPositions);
+
+    // Re-apply contact overrides
+    const overrides = state.contactOverrides || {};
+    Object.entries(overrides).forEach(([id, fields]) => {
+      if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+    });
+
+    set({
+      positions: updatedPositions,
+      investors: newInvestors,
+      auditLog: [...state.auditLog, ...auditEntries],
+    });
+
+    // Write to Sheets (fire-and-forget)
+    if (pos.subscriptionId) {
+      updateSubscriptionField(pos.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline))
+        .catch((err) => console.error('Subscription dates write-back failed:', err));
+      updateSubscriptionField(pos.subscriptionId, 'updated_at', now)
+        .catch((err) => console.error('Subscription updated_at write-back failed:', err));
+    }
+    auditEntries.forEach((entry) => {
+      appendAuditLog({
+        id: entry.id,
+        recordType: 'subscription',
+        recordId: pos.subscriptionId || positionId,
+        action: entry.action,
+        notes: entry.detail,
+        user,
+        timestamp: now,
+      }).catch((err) => console.error('Audit log write-back failed:', err));
+    });
+  },
+
   // ── Investor Contacts / Owners ──────────────────────────────────────
   updateInvestorContacts: (invId, contacts, user = 'j@vegarei.com') =>
     set((state) => {
