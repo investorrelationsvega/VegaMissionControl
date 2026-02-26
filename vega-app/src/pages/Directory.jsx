@@ -314,18 +314,25 @@ export default function Directory() {
     [investorStore, sel]
   )
 
-  // Stats
+  // Stats — reflect the active fund filter
+  const statsInvestors = fundFilter !== 'All' ? filteredInvestors : investors
   const totalCommitted = useMemo(
-    () => investors.reduce((s, i) => s + i.totalCommitted, 0),
-    [investors]
+    () => statsInvestors.reduce((s, i) => s + i.totalCommitted, 0),
+    [statsInvestors]
   )
   const totalOpenCompliance = useMemo(
-    () => allCompliance.filter((c) => c.status === 'Open').length,
-    [allCompliance]
+    () => {
+      if (fundFilter !== 'All') {
+        const invIds = new Set(statsInvestors.map((i) => i.id))
+        return allCompliance.filter((c) => c.status === 'Open' && (invIds.has(c.invId) || c.fund === fundFilter)).length
+      }
+      return allCompliance.filter((c) => c.status === 'Open').length
+    },
+    [allCompliance, statsInvestors, fundFilter]
   )
   const avgCommitment = useMemo(
-    () => (investors.length ? totalCommitted / investors.length : 0),
-    [investors, totalCommitted]
+    () => (statsInvestors.length ? totalCommitted / statsInvestors.length : 0),
+    [statsInvestors, totalCommitted]
   )
 
   // Pipeline counts
@@ -671,7 +678,7 @@ export default function Directory() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
             {[
               { label: 'Total Committed', value: fmtK(totalCommitted) },
-              { label: 'Investors', value: investors.length },
+              { label: 'Investors', value: statsInvestors.length },
               {
                 label: 'Open Compliance',
                 value: totalOpenCompliance,
