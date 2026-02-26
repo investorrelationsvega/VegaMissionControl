@@ -821,7 +821,7 @@ export default function Distributions() {
                           </span>
                           {committed > 0 && (
                             <span className="mono" style={{ fontSize: 10, color: 'var(--t5)', fontWeight: 400 }}>
-                              {fmtK(committed)}
+                              {fmt(committed)}
                             </span>
                           )}
                         </div>
