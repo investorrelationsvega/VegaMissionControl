@@ -787,6 +787,9 @@ export default function Distributions() {
                   const isSkipped = d.status === 'Skipped'
                   const isExpanded = expandedId === d.id
                   const editingThis = inlineEdit?.id === d.id
+                  const committed = positions
+                    .filter((p) => p.invId === d.invId && p.fund === d.fund)
+                    .reduce((s, p) => s + p.amt, 0)
 
                   return [
                     /* ── Main Row ───────────────────────────── */
@@ -806,14 +809,21 @@ export default function Distributions() {
                         style={{ cursor: 'pointer', padding: '10px 14px' }}
                         onClick={() => setExpandedId(isExpanded ? null : d.id)}
                       >
-                        <div style={{
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: isSkipped ? 'var(--t5)' : 'var(--t1)',
-                          textDecoration: isSkipped ? 'line-through' : 'none',
-                          lineHeight: 1.3,
-                        }}>
-                          {d.entity || d.name}
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                          <span style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: isSkipped ? 'var(--t5)' : 'var(--t1)',
+                            textDecoration: isSkipped ? 'line-through' : 'none',
+                            lineHeight: 1.3,
+                          }}>
+                            {d.entity || d.name}
+                          </span>
+                          {committed > 0 && (
+                            <span className="mono" style={{ fontSize: 10, color: 'var(--t5)', fontWeight: 400 }}>
+                              {fmtK(committed)}
+                            </span>
+                          )}
                         </div>
                         {d.entity && (
                           <div
