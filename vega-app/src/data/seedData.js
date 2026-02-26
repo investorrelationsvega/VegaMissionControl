@@ -5,7 +5,7 @@
 
 export const positions = [
   // ── Fund I Positions ──────────────────────────
-  {id:"P01",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund I",type:"Entity",cls:"B",amt:98000,status:"Approved",signed:"",funded:"Jul 31, 2025",advisor:"",custodian:"",phone:"801-664-7803",email:"vegapropertyholdings@gmail.com",state:"UT",
+  {id:"P01",invId:"I01",name:"Vega Property Holdings",entity:"",fund:"Fund I",type:"Entity",cls:"B",amt:98000,status:"Approved",signed:"Jul 28, 2025",funded:"Jul 31, 2025",advisor:"",custodian:"",phone:"801-664-7803",email:"vegapropertyholdings@gmail.com",state:"UT",
     pipeline:{stage:"Fully Accepted",enteredDate:"Jul 15, 2025",webformDoneDate:"Jul 20, 2025",outForSignaturesDate:"Jul 25, 2025",signedByLpDate:"Jul 28, 2025",fundedDate:"Jul 31, 2025"},
     signers:[{name:"Vega Property Holdings",role:"Entity Rep",signed:true,signedDate:"Jul 28, 2025"}],
     docRouting:"direct",declinedReason:null},
@@ -32,7 +32,7 @@ export const positions = [
 
   // ── Fund II Positions ─────────────────────────
   {id:"P07",invId:"I07",name:"Jeremiah Post",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Pending",signed:"Jan 28, 2026",funded:"",advisor:"",custodian:"",phone:"801-560-3559",email:"jer@solidrenovationcompany.com",state:"UT",
-    pipeline:{stage:"Out for Signatures",enteredDate:"Jan 20, 2026",webformDoneDate:"Jan 22, 2026",outForSignaturesDate:"Jan 28, 2026"},
+    pipeline:{stage:"Out for Signatures",enteredDate:"Jan 20, 2026",webformDoneDate:"Jan 22, 2026",outForSignaturesDate:"Jan 28, 2026",signedByLpDate:"Jan 28, 2026"},
     signers:[{name:"Jeremiah Post",role:"LP",signed:true,signedDate:"Jan 28, 2026"},{name:"Cory Waddoups",role:"GP",signed:false,signedDate:null}],
     docRouting:"direct",declinedReason:null},
   {id:"P08",invId:"I08",name:"Chris Hermansen",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:1228071,status:"Approved",signed:"Nov 5, 2025",funded:"Nov 5, 2025",advisor:"",custodian:"",phone:"801-358-7343",email:"lakeshoregolfclub@yahoo.com",state:"UT",
@@ -99,7 +99,7 @@ export const positions = [
     pipeline:{stage:"Fully Accepted",enteredDate:"Oct 8, 2025",webformDoneDate:"Oct 15, 2025",outForSignaturesDate:"Oct 19, 2025",signedByLpDate:"Oct 23, 2025",fundedDate:"Oct 28, 2025"},
     signers:[{name:"John Sirrine",role:"LP",signed:true,signedDate:"Oct 23, 2025"}],
     docRouting:"direct",declinedReason:null},
-  {id:"P24",invId:"I06",name:"Sayer Leslie",entity:"Leslie Capital Investments LLC",fund:"Fund II",type:"Individual",cls:"A",amt:50000,status:"Approved",signed:"",funded:"Nov 13, 2025",advisor:"",custodian:"",phone:"208-339-1073",email:"sayer.leslie@gmail.com",state:"UT",
+  {id:"P24",invId:"I06",name:"Sayer Leslie",entity:"Leslie Capital Investments LLC",fund:"Fund II",type:"Individual",cls:"A",amt:50000,status:"Approved",signed:"Nov 10, 2025",funded:"Nov 13, 2025",advisor:"",custodian:"",phone:"208-339-1073",email:"sayer.leslie@gmail.com",state:"UT",
     pipeline:{stage:"Fully Accepted",enteredDate:"Oct 28, 2025",webformDoneDate:"Nov 4, 2025",outForSignaturesDate:"Nov 8, 2025",signedByLpDate:"Nov 10, 2025",fundedDate:"Nov 13, 2025"},
     signers:[{name:"Sayer Leslie",role:"LP",signed:true,signedDate:"Nov 10, 2025"}],
     docRouting:"direct",declinedReason:null},
@@ -119,7 +119,7 @@ export const positions = [
     pipeline:{stage:"Fully Accepted",enteredDate:"Sep 20, 2025",webformDoneDate:"Sep 28, 2025",outForSignaturesDate:"Oct 2, 2025",signedByLpDate:"Oct 6, 2025",fundedDate:"Oct 28, 2025"},
     signers:[{name:"Curtis Larsen",role:"LP",signed:true,signedDate:"Oct 6, 2025"},{name:"Courtney Larsen",role:"LP",signed:true,signedDate:"Oct 6, 2025"}],
     docRouting:"direct",declinedReason:null},
-  {id:"P29",invId:"I22",name:"Woody Klemetson",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"",funded:"Nov 4, 2025",advisor:"",custodian:"",phone:"801-664-5961",email:"jwklemetson@gmail.com",state:"UT",
+  {id:"P29",invId:"I22",name:"Woody Klemetson",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Nov 1, 2025",funded:"Nov 4, 2025",advisor:"",custodian:"",phone:"801-664-5961",email:"jwklemetson@gmail.com",state:"UT",
     pipeline:{stage:"Fully Accepted",enteredDate:"Oct 18, 2025",webformDoneDate:"Oct 25, 2025",outForSignaturesDate:"Oct 29, 2025",signedByLpDate:"Nov 1, 2025",fundedDate:"Nov 4, 2025"},
     signers:[{name:"Woody Klemetson",role:"LP",signed:true,signedDate:"Nov 1, 2025"}],
     docRouting:"direct",declinedReason:null},
