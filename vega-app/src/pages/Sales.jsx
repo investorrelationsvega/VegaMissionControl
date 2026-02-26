@@ -14,12 +14,9 @@ import useSalesStore, {
   OUTCOMES,
   getCurrentPeriodKey,
 } from '../stores/salesStore';
-import useSalesforceStore from '../stores/salesforceStore';
 import useUiStore from '../stores/uiStore';
 import useInvestorStore, { PIPELINE_STAGES, PIPELINE_STAGE_LABELS, getPipelineStages, STAGE_DATE_KEYS } from '../stores/investorStore';
 import useResponsive from '../hooks/useResponsive';
-import { fetchAllSalesforceData, mapSalesforceToKPIs } from '../services/salesforceService';
-import { startSalesforceAuth } from '../services/salesforceAuth';
 import PipelineTracker, { PipelineBadge } from '../components/PipelineTracker';
 import useGoogleStore from '../stores/googleStore';
 import SalesOpsKpis from '../components/SalesOpsKpis';
@@ -94,14 +91,6 @@ export default function Sales() {
   const showToast = useUiStore((s) => s.showToast);
   const { isMobile, isTablet } = useResponsive();
 
-  // ── Salesforce state ─────────────────────────────────────────────────────
-  const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
-  const sfLoading = useSalesforceStore((s) => s.isLoading);
-  const sfError = useSalesforceStore((s) => s.error);
-  const sfTasks = useSalesforceStore((s) => s.tasks);
-  const sfEvents = useSalesforceStore((s) => s.events);
-  const sfLastFetched = useSalesforceStore((s) => s.lastFetchedAt);
-
   // ── Investor store (for subscriptions kanban) ───────────────────────────
   const investors = useInvestorStore((s) => s.investors);
   const positions = useInvestorStore((s) => s.positions);
@@ -123,19 +112,6 @@ export default function Sales() {
   }, [periodType]);
 
   const periodKey = useMemo(() => getCurrentPeriodKey(periodType), [periodType]);
-
-  // ── Fetch Salesforce data when authenticated and period changes ──────────
-  useEffect(() => {
-    if (sfAuth && periodRange.start && periodRange.end) {
-      fetchAllSalesforceData(periodRange.start, periodRange.end).catch(() => {});
-    }
-  }, [sfAuth, periodRange.start, periodRange.end]);
-
-  // ── Salesforce KPI mapping ───────────────────────────────────────────────
-  const sfKpis = useMemo(() => {
-    if (!sfAuth || sfTasks.length === 0 && sfEvents.length === 0) return null;
-    return mapSalesforceToKPIs(sfTasks, sfEvents, {});
-  }, [sfAuth, sfTasks, sfEvents]);
 
   // ── Data selectors ───────────────────────────────────────────────────────
   const kpiSummary = useMemo(() => store.getKpiSummary(periodKey, repFilter), [store.kpiEntries, periodKey, repFilter]);
@@ -413,37 +389,6 @@ export default function Sales() {
           )}
         </p>
       </div>
-
-      {/* ── Salesforce Connection Banner ──────────────────── */}
-      {!sfAuth && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '12px 16px', background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 6, marginBottom: 16 }}>
-          <div>
-            <span style={{ ...mono, fontSize: 11, color: 'var(--blu)', fontWeight: 700 }}>Salesforce Not Connected</span>
-            <span style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginLeft: 8 }}>Connect to pull call logs, emails, and meeting data automatically</span>
-          </div>
-          <button onClick={() => startSalesforceAuth('/pe/sales')} style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', color: 'var(--blu)', borderRadius: 4, cursor: 'pointer' }}>
-            Connect Salesforce
-          </button>
-        </div>
-      )}
-      {sfAuth && sfLoading && (
-        <div style={{ ...mono, fontSize: 10, color: 'var(--t4)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--blu)', animation: 'pulse 1s infinite' }} />
-          Loading Salesforce data...
-        </div>
-      )}
-      {sfAuth && sfError && (
-        <div style={{ ...mono, fontSize: 10, color: 'var(--red)', marginBottom: 12 }}>
-          SF Error: {sfError}
-        </div>
-      )}
-      {sfAuth && !sfLoading && sfLastFetched && (
-        <div style={{ ...mono, fontSize: 9, color: 'var(--t5)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--grn)' }} />
-          Salesforce connected — last synced {new Date(sfLastFetched).toLocaleTimeString()}
-          {sfKpis && <span style={{ color: 'var(--t4)', marginLeft: 8 }}>{sfTasks.length} tasks, {sfEvents.length} events loaded</span>}
-        </div>
-      )}
 
       {/* ── Controls Row ─────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>

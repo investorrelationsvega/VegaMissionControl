@@ -14,9 +14,7 @@ import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
 import AlmApp from './alm/AlmApp';
 import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
-import { exchangeSalesforceCode, getSalesforceReturnPath, refreshSalesforceToken, startSalesforceAuth } from './services/salesforceAuth';
 import useRingCentralStore from './stores/ringcentralStore';
-import useSalesforceStore from './stores/salesforceStore';
 import useGoogleStore from './stores/googleStore';
 import useInvestorStore from './stores/investorStore';
 import useBlueskyStore from './stores/blueskyStore';
@@ -127,49 +125,6 @@ function RCCallback() {
       }}
     >
       Connecting RingCentral...
-    </div>
-  );
-}
-
-// ── Salesforce OAuth Callback ────────────────────────────────────────────────
-function SFCallback() {
-  const navigate = useNavigate();
-  const setTokens = useSalesforceStore((s) => s.setTokens);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-
-    if (!code) {
-      navigate('/pe/sales');
-      return;
-    }
-
-    exchangeSalesforceCode(code)
-      .then((tokenData) => {
-        setTokens(tokenData);
-        const returnPath = getSalesforceReturnPath();
-        navigate(returnPath, { replace: true });
-      })
-      .catch((err) => {
-        console.error('Salesforce auth failed:', err);
-        navigate('/pe/sales', { replace: true });
-      });
-  }, [navigate, setTokens]);
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        color: 'var(--t3)',
-        fontFamily: "'Space Mono', monospace",
-        fontSize: 13,
-      }}
-    >
-      Connecting Salesforce...
     </div>
   );
 }
@@ -442,21 +397,24 @@ export default function App() {
   const googleExpiry = useGoogleStore((s) => s.tokenExpiresAt);
 
   useEffect(() => {
-    // Initialize Google APIs on mount, then silently re-acquire token for returning users
+    // Initialize Google APIs on mount, then restore or silently refresh token
     Promise.all([initGapi(), initTokenClient()])
       .then(() => {
-        // If user already passed the auth gate but token is gone (page refresh), try silent re-auth
-        if (isAuthorized && !useGoogleStore.getState().accessToken) {
+        const store = useGoogleStore.getState();
+        // If we have a persisted token that's still valid, just reuse it
+        if (store.accessToken && store.tokenExpiresAt && store.tokenExpiresAt > Date.now() + 60000) {
+          console.log('[Auth] Restored persisted Google token (still valid)');
+          return;
+        }
+        // Token missing or expired — try silent re-auth for authorized users
+        if (isAuthorized) {
           requestAccessToken()
             .then((tokenResponse) => {
-              const store = useGoogleStore.getState();
               store.setToken(tokenResponse);
               console.log('[Auth] Silent token refresh succeeded');
             })
             .catch((err) => {
-              // Silent re-auth failed — this is normal after page refreshes.
-              // Keep userEmail so the user stays past the auth gate.
-              // They'll need to use the consent flow from LoginGate on next full sign-in.
+              // Silent re-auth failed — keep userEmail so user stays past the gate
               console.log('[Auth] Silent token refresh unavailable:', err.message || err);
             });
         }
@@ -514,28 +472,11 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [rcRefreshToken, rcTokenExpiry, rcSetTokens, rcClearAuth]);
 
-  // ── Token Lifecycle: Salesforce ───────────────────────────────────────────
-  const sfRefreshToken = useSalesforceStore((s) => s.refreshToken);
-  const sfSetTokens = useSalesforceStore((s) => s.setTokens);
-  const sfClearAuth = useSalesforceStore((s) => s.clearAuth);
-
-  useEffect(() => {
-    // On mount, if we have a SF refresh token, try to get a new access token
-    if (sfRefreshToken) {
-      refreshSalesforceToken(sfRefreshToken)
-        .then((tokenData) => sfSetTokens(tokenData))
-        .catch(() => sfClearAuth());
-    }
-  }, []); // run only on mount
-
-  // ── Auto-connect RingCentral & Salesforce after Google login ──────────────
-  // RC and SF already auto-reconnect via refresh tokens on subsequent loads.
-  // For first-time setup (no refresh token), auto-trigger the OAuth redirect
-  // so the user doesn't have to find and click the header buttons.
-  // Only one redirect at a time — RC first, then SF after RC returns.
+  // ── Auto-connect RingCentral after Google login ────────────────────────────
+  // RC auto-reconnects via refresh token on subsequent loads.
+  // For first-time setup (no refresh token), auto-trigger the OAuth redirect.
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
-  const sfAuth = useSalesforceStore((s) => s.isAuthenticated);
 
   useEffect(() => {
     if (!googleAuth || !googleToken) return;
@@ -549,19 +490,6 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [googleAuth, googleToken]);
-
-  useEffect(() => {
-    // After RC is connected, auto-redirect to Salesforce if never authorized
-    if (!googleAuth || !googleToken || !rcAuth) return;
-    const sf = useSalesforceStore.getState();
-    if (!sf.isAuthenticated && !sf.refreshToken) {
-      const timer = setTimeout(() => {
-        console.log('[Auth] Auto-connecting Salesforce...');
-        startSalesforceAuth();
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [googleAuth, googleToken, rcAuth]);
 
   // ── Google Sheets Data Load ──────────────────────────────────────────────────
   const sheetsLoaded = useInvestorStore((s) => s.sheetsLoaded);
@@ -717,7 +645,6 @@ export default function App() {
 
         {/* Auth callbacks */}
         <Route path="/auth/rc/callback" element={<RCCallback />} />
-        <Route path="/auth/sf/callback" element={<SFCallback />} />
       </Routes>
       <ChatPanel />
       <Toast />
