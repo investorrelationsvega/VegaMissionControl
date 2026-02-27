@@ -192,7 +192,7 @@ function buildInvestors(positionList) {
 
   // Auto-populate contacts for Joint types from signers if contacts are empty
   Object.values(map).forEach((inv) => {
-    const isJoint = inv.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals');
+    const isJoint = inv.types.some((t) => t === 'Joint' || t === 'Joint Individual' || t === 'Individual or Joint Individuals');
     if (isJoint && inv.signers && inv.signers.length >= 2 && inv.contacts.length === 0) {
       inv.contacts = inv.signers.map((s, i) => ({
         name: s.name,
@@ -857,7 +857,7 @@ const useInvestorStore = create(
 
       if (!hasPrimarySigner && investor.name?.trim()) {
         // Joint types: create separate contacts from signers array
-        const isJoint = newType === 'Joint' || newType === 'Individual or Joint Individuals';
+        const isJoint = newType === 'Joint' || newType === 'Joint Individual' || newType === 'Individual or Joint Individuals';
         const signers = newInvestors[invId]?.signers || investor.positions?.[0]?.signers || [];
         let newContacts;
         if (isJoint && signers.length >= 2) {
@@ -890,6 +890,113 @@ const useInvestorStore = create(
           auditLog: [...state.auditLog, auditEntry],
         };
       }
+
+      return {
+        positions: updatedPositions,
+        investors: newInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
+  // ── Date Entered ──────────────────────────────────────────────────
+  updateDateEntered: (invId, newDate, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const oldDate = investor.pipeline?.enteredDate || '(empty)';
+      const now = new Date().toISOString();
+
+      // Update pipeline on all positions for this investor
+      const updatedPositions = state.positions.map((p) => {
+        if (p.invId !== invId) return p;
+        return { ...p, pipeline: { ...(p.pipeline || {}), enteredDate: newDate } };
+      });
+      const newInvestors = buildInvestors(updatedPositions);
+
+      // Re-apply contact overrides
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([id, fields]) => {
+        if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+      });
+
+      // Write to Subscriptions sheet for each position
+      investor.positions.forEach((p) => {
+        if (p.subscriptionId) {
+          const updatedPipeline = { ...(p.pipeline || {}), enteredDate: newDate };
+          reliableWrite(`Date entered for ${investor.name}`, () =>
+            updateSubscriptionField(p.subscriptionId, 'dates_json', JSON.stringify(updatedPipeline)));
+        }
+      });
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-dateEntered`,
+        invId,
+        action: 'Date Entered Updated',
+        detail: `Date Entered: "${oldDate}" → "${newDate}"`,
+        user,
+        timestamp: now,
+      };
+
+      reliableWrite(`Audit: date entered updated for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id, recordType: 'investor', recordId: invId,
+          action: auditEntry.action, notes: auditEntry.detail, user, timestamp: now,
+        }));
+
+      return {
+        positions: updatedPositions,
+        investors: newInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
+  // ── Status ────────────────────────────────────────────────────────
+  updateInvestorStatus: (invId, newStatus, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const oldStatus = investor.pipeline?.stage || investor.status || '(empty)';
+      const now = new Date().toISOString();
+
+      // Update status on all positions for this investor
+      const updatedPositions = state.positions.map((p) => {
+        if (p.invId !== invId) return p;
+        return { ...p, status: newStatus, pipeline: { ...(p.pipeline || {}), stage: newStatus } };
+      });
+      const newInvestors = buildInvestors(updatedPositions);
+
+      // Re-apply contact overrides
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([id, fields]) => {
+        if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+      });
+
+      // Write to sheet
+      investor.positions.forEach((p) => {
+        reliableWrite(`Status → ${newStatus} for ${investor.name}`, () =>
+          updatePositionField(p.id, 'status', newStatus));
+        if (p.subscriptionId) {
+          reliableWrite(`Subscription stage → ${newStatus}`, () =>
+            updateSubscriptionField(p.subscriptionId, 'stage', newStatus));
+        }
+      });
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-status`,
+        invId,
+        action: 'Status Changed',
+        detail: `Status: "${oldStatus}" → "${newStatus}"`,
+        user,
+        timestamp: now,
+      };
+
+      reliableWrite(`Audit: status changed for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id, recordType: 'investor', recordId: invId,
+          action: auditEntry.action, notes: auditEntry.detail, user, timestamp: now,
+        }));
 
       return {
         positions: updatedPositions,

@@ -97,9 +97,12 @@ const useRingCentralStore = create(
     }),
     {
       name: 'vega-rc-store',
-      // Only persist refresh token so user stays logged in
+      // Persist auth state so user stays logged in across reloads/deploys
       partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        accessToken: state.accessToken,
         refreshToken: state.refreshToken,
+        tokenExpiresAt: state.tokenExpiresAt,
       }),
     },
   ),
