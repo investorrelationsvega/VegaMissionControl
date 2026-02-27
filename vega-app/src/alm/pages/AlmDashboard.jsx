@@ -37,9 +37,6 @@ const fmtK = (n) => {
 const fmtNum = (n) => (n == null ? '--' : n.toLocaleString());
 const fmtPct = (n) => (n == null ? '--' : `${n.toFixed(1)}%`);
 
-// Default set (static data); overridden once live data loads
-const DEFAULT_HOMES_WITH_DATA = new Set(REPORT_CARD_DATA.homes.map((h) => h.name));
-
 // ── Real Home Data ─────────────────────────────────────────
 // Source: Vega ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
 // NOI figures from P&L statements (Sept–Dec 2025 reporting period)
@@ -70,14 +67,41 @@ export default function AlmDashboard() {
   const { isMobile, isTablet } = useResponsive();
   const [selectedHomes, setSelectedHomes] = useState([]);
   const [reportData, setReportData] = useState(REPORT_CARD_DATA);
+  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(null); // null = latest
 
   // Try to load live data from the Google Sheet (falls back to static)
   useEffect(() => {
     fetchReportCardData().then(setReportData);
   }, []);
 
-  // Which homes have financial data (derived from live or static data)
-  const homesWithData = new Set(reportData.homes.map((h) => h.name));
+  // ── Derived period data ──────────────────────────────
+  const periods = reportData.periods || [];
+  const periodIdx = selectedPeriodIndex != null ? selectedPeriodIndex : periods.length - 1;
+  const selectedPeriod = periods[periodIdx] || {};
+
+  // Build the single-period shape that FinancialReportCard expects
+  const currentPeriodData = {
+    month: selectedPeriod.month,
+    year: selectedPeriod.year,
+    revenueLabels: reportData.revenueLabels,
+    expenseLabels: reportData.expenseLabels,
+    homes: selectedPeriod.homes || [],
+  };
+
+  // Which homes have financial data in the selected period
+  const homesWithData = new Set(currentPeriodData.homes.map((h) => h.name));
+
+  // When the period changes, deselect homes that don't have data in the new period
+  const periodKey = `${selectedPeriod.month}-${selectedPeriod.year}`;
+  useEffect(() => {
+    setSelectedHomes((prev) => {
+      const filtered = prev.filter((name) => {
+        const periodHomes = (periods[periodIdx]?.homes || []).map((h) => h.name);
+        return periodHomes.includes(name);
+      });
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [periodKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle home selection
   const toggleHome = (name) => {
@@ -183,7 +207,7 @@ export default function AlmDashboard() {
         >
           {HOMES.map((home) => {
             const sc = STATUS_COLORS[home.status] || STATUS_COLORS.Active;
-            const hasData = HOMES_WITH_DATA.has(home.name);
+            const hasData = homesWithData.has(home.name);
             const isSelected = selectedHomes.includes(home.name);
             return (
               <div
@@ -334,8 +358,57 @@ export default function AlmDashboard() {
         </div>
       </div>
 
-      {/* ── Financial Report Card (appears below homes when selected) ── */}
-      <FinancialReportCard selectedHomes={selectedHomes} reportData={reportData} />
+      {/* ── Financial Report Card Section ───────────────────── */}
+      <div style={{ marginBottom: 16, marginTop: 32 }}>
+        {/* Section heading with month picker */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            gap: 16,
+            marginBottom: 20,
+            flexDirection: isMobile ? 'column' : 'row',
+          }}
+        >
+          <span className="alm-section-label" style={{ flexShrink: 0 }}>
+            Financial Report Card
+          </span>
+          <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)', display: isMobile ? 'none' : 'block' }} />
+
+          {/* Month picker pills */}
+          {periods.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
+              {periods.map((p, i) => {
+                const isActive = i === periodIdx;
+                const label = `${p.month.slice(0, 3)} '${String(p.year).slice(2)}`;
+                return (
+                  <button
+                    key={`${p.month}-${p.year}`}
+                    onClick={() => setSelectedPeriodIndex(i)}
+                    style={{
+                      ...sans,
+                      fontSize: 11,
+                      fontWeight: isActive ? 500 : 300,
+                      padding: '5px 12px',
+                      borderRadius: 16,
+                      border: isActive ? '1.5px solid var(--alm-plum)' : '1px solid var(--alm-bd)',
+                      background: isActive ? 'var(--alm-plum)' : 'transparent',
+                      color: isActive ? '#fff' : 'var(--alm-t3)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <FinancialReportCard selectedHomes={selectedHomes} reportData={currentPeriodData} />
+      </div>
 
       {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
       <div
