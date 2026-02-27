@@ -733,6 +733,24 @@ export async function updateComplianceStatus(appCompId, newStatus) {
 }
 
 /**
+ * Append a new compliance row to the Compliance tab.
+ */
+export async function appendComplianceRow(item) {
+  const sheetId = `C${String(item.id.replace(/^C0*/, '')).padStart(3, '0')}`;
+  const row = [
+    sheetId,
+    item.invId ? `INV${String(item.invId.replace(/^I0*/, '')).padStart(3, '0')}` : '',
+    item.name || '',
+    item.fund || '',
+    item.doc || '',
+    item.issue || '',
+    item.status?.toLowerCase() || 'open',
+    item.createdDate || new Date().toISOString(),
+  ];
+  return appendRows(`${TABS.COMPLIANCE}!A:H`, [row]);
+}
+
+/**
  * Update a distribution field in the Distributions tab.
  */
 export async function updateDistributionField(appDistId, field, value) {
