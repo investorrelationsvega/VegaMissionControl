@@ -11,6 +11,19 @@ import REPORT_CARD_DATA from '../data/reportCardData';
 const serif = { fontFamily: "'Noto Serif Display', Georgia, serif", fontWeight: 500, fontStretch: 'extra-condensed' };
 const sans  = { fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
 
+// Build a single-period fallback from the multi-period static data (latest period)
+const FALLBACK_PERIOD = (() => {
+  const p = REPORT_CARD_DATA.periods;
+  const latest = p[p.length - 1];
+  return {
+    month: latest.month,
+    year: latest.year,
+    revenueLabels: REPORT_CARD_DATA.revenueLabels,
+    expenseLabels: REPORT_CARD_DATA.expenseLabels,
+    homes: latest.homes,
+  };
+})();
+
 // ── Grading ────────────────────────────────────────────────
 
 const GRADE_SCALE = [
@@ -504,7 +517,7 @@ function ComparisonView({ homes, isMobile, reportData }) {
 
 export default function FinancialReportCard({ selectedHomes = [], reportData: reportDataProp }) {
   const { isMobile } = useResponsive();
-  const data = reportDataProp || REPORT_CARD_DATA;
+  const data = reportDataProp || FALLBACK_PERIOD;
 
   // Resolve selected home names to data objects
   const homes = selectedHomes
@@ -513,35 +526,18 @@ export default function FinancialReportCard({ selectedHomes = [], reportData: re
 
   if (homes.length === 0) {
     return (
-      <div style={{ marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-          <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
-          <span className="alm-section-label">Financial Report Card</span>
-          <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
-        </div>
-        <div className="alm-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
-          <PlumStar size={16} style={{ margin: '0 auto 12px' }} />
-          <div style={{ ...sans, fontSize: 13, fontWeight: 300, color: 'var(--alm-t4)', lineHeight: 1.5 }}>
-            Select a home above to view its financial report card,
-            <br />or select multiple to compare side by side.
-          </div>
+      <div className="alm-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
+        <PlumStar size={16} style={{ margin: '0 auto 12px' }} />
+        <div style={{ ...sans, fontSize: 13, fontWeight: 300, color: 'var(--alm-t4)', lineHeight: 1.5 }}>
+          Select a home above to view its financial report card,
+          <br />or select multiple to compare side by side.
         </div>
       </div>
     );
   }
 
-  const title = homes.length === 1
-    ? 'Financial Report Card'
-    : `Compare ${homes.length} Homes`;
-
   return (
-    <div style={{ marginBottom: 40 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-        <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
-        <span className="alm-section-label">{title}</span>
-        <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
-      </div>
-
+    <div>
       {homes.length === 1
         ? <SingleHomeView home={homes[0]} isMobile={isMobile} reportData={data} />
         : <ComparisonView homes={homes} isMobile={isMobile} reportData={data} />
