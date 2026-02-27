@@ -3,12 +3,22 @@
 // Drive API wrappers via gapi.client
 // ═══════════════════════════════════════════════
 
+import useGoogleStore from '../stores/googleStore';
+
+/** Ensure gapi.client has the current access token from the store */
+function syncGapiToken() {
+  const token = useGoogleStore.getState().accessToken;
+  if (!token) throw new Error('No Google access token available');
+  window.gapi.client.setToken({ access_token: token });
+}
+
 /**
  * List files in a Google Drive folder.
  * @param {string} folderId
  * @returns {Promise<Array>} Array of formatted file objects
  */
 export async function listFilesInFolder(folderId) {
+  syncGapiToken();
   const response = await window.gapi.client.drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
     fields: 'files(id, name, mimeType, modifiedTime, webViewLink, iconLink)',
@@ -26,6 +36,7 @@ export async function listFilesInFolder(folderId) {
  * @returns {Promise<{id, name, webViewLink}>}
  */
 export async function getFolderMetadata(folderId) {
+  syncGapiToken();
   const response = await window.gapi.client.drive.files.get({
     fileId: folderId,
     fields: 'id, name, webViewLink, mimeType',
