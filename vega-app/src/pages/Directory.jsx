@@ -223,7 +223,7 @@ export default function Directory() {
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
   const [showAddCompliance, setShowAddCompliance] = useState(false)
-  const [newComplianceForm, setNewComplianceForm] = useState({ doc: '', issue: '' })
+  const [newComplianceForm, setNewComplianceForm] = useState({ doc: '', issue: '', entity: '' })
   const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
   const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
   const savedRef = useRef(false) // prevents double-save on Enter + blur
@@ -854,7 +854,8 @@ export default function Directory() {
                   >
                     <div style={{ minWidth: 0 }}>
                       {(() => {
-                        const entityLabel = inv.entities.length > 0 ? inv.entities[0] : null
+                        const entCount = inv.entities.length
+                        const entityLabel = entCount > 1 ? `${entCount} entities` : entCount === 1 ? inv.entities[0] : null
                         const typeLabel = inv.types[0] || ''
                         return (
                           <>
@@ -973,7 +974,8 @@ export default function Directory() {
                     <div>
                       {(() => {
                         const primaryContact = (selectedInvestor.contacts || []).find((c) => c.role === 'Primary Signer')
-                        const entityLabel = selectedInvestor.entities.length > 0 ? selectedInvestor.entities[0] : null
+                        const entCount = selectedInvestor.entities.length
+                        const entityLabel = entCount > 1 ? `${entCount} entities` : entCount === 1 ? selectedInvestor.entities[0] : null
                         const typeLabel = selectedInvestor.types[0] || ''
                         return (
                           <>
@@ -1320,7 +1322,7 @@ export default function Directory() {
                         { label: 'State', value: selectedInvestor.state || '', key: 'state', editable: true },
                         { label: 'Advisor', value: selectedInvestor.advisor || '', key: 'advisor', editable: true, isSelect: true, options: advisors.map((a) => a.name) },
                         { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
-                        { label: 'Entity Name', value: selectedInvestor.entities[0] || '-', key: 'entityName', editable: true },
+                        { label: selectedInvestor.entities.length > 1 ? `Entities (${selectedInvestor.entities.length})` : 'Entity Name', value: selectedInvestor.entities.join(', ') || '-', key: 'entityName', editable: true },
                         { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
                         { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status', editable: true, isSelect: true, options: ['Approved', 'Pending', 'Declined', 'Redeemed'] },
                         { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered', editable: true },
@@ -1894,7 +1896,14 @@ export default function Directory() {
                           </button>
                         ) : (
                           <div style={{ padding: 14, background: 'var(--bgI)', borderLeft: '3px solid var(--blu)', borderRadius: '0 5px 5px 0' }}>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <input
+                                type="text"
+                                value={newComplianceForm.entity}
+                                onChange={(e) => setNewComplianceForm((f) => ({ ...f, entity: e.target.value }))}
+                                placeholder={selectedInvestor.entities.length > 0 ? `Entity (${selectedInvestor.entities.join(', ')})` : 'Entity...'}
+                                style={{ width: 200, ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
+                              />
                               <input
                                 type="text"
                                 value={newComplianceForm.doc}
@@ -1913,18 +1922,18 @@ export default function Directory() {
                                     complianceStore.addItem({
                                       invId: selectedInvestor.id,
                                       name: selectedInvestor.name,
-                                      entity: selectedInvestor.entities[0] || '',
+                                      entity: newComplianceForm.entity.trim() || selectedInvestor.entities[0] || '',
                                       fund: selectedInvestor.funds[0] || '',
                                       doc: newComplianceForm.doc.trim() || 'General',
                                       issue: newComplianceForm.issue.trim(),
                                     }, googleUserEmail || 'j@vegarei.com')
-                                    setNewComplianceForm({ doc: '', issue: '' })
+                                    setNewComplianceForm({ doc: '', issue: '', entity: '' })
                                     setShowAddCompliance(false)
                                   }
-                                  if (e.key === 'Escape') { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '' }) }
+                                  if (e.key === 'Escape') { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '', entity: '' }) }
                                 }}
                                 style={{
-                                  flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)',
+                                  flex: 1, minWidth: 150, ...mono, fontSize: 12, background: 'var(--bg0)',
                                   border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px',
                                   color: 'var(--t1)', outline: 'none',
                                 }}
@@ -1935,12 +1944,12 @@ export default function Directory() {
                                   complianceStore.addItem({
                                     invId: selectedInvestor.id,
                                     name: selectedInvestor.name,
-                                    entity: selectedInvestor.entities[0] || '',
+                                    entity: newComplianceForm.entity.trim() || selectedInvestor.entities[0] || '',
                                     fund: selectedInvestor.funds[0] || '',
                                     doc: newComplianceForm.doc.trim() || 'General',
                                     issue: newComplianceForm.issue.trim(),
                                   }, googleUserEmail || 'j@vegarei.com')
-                                  setNewComplianceForm({ doc: '', issue: '' })
+                                  setNewComplianceForm({ doc: '', issue: '', entity: '' })
                                   setShowAddCompliance(false)
                                 }}
                                 disabled={!newComplianceForm.issue.trim()}
@@ -1954,7 +1963,7 @@ export default function Directory() {
                                 Add
                               </button>
                               <button
-                                onClick={() => { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '' }) }}
+                                onClick={() => { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '', entity: '' }) }}
                                 style={{
                                   ...mono, fontSize: 10, fontWeight: 700, padding: '6px 10px',
                                   border: '1px solid var(--bd)', background: 'transparent',
