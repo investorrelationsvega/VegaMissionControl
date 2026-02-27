@@ -251,100 +251,76 @@ const PROFORMA_DATA = {
 };
 
 /**
- * Get monthly proforma budget for a home (annual ÷ 12).
- * Returns same shape as reportCardData budget fields.
+ * Get monthly proforma target for a home (annual ÷ 12).
  */
-export function getMonthlyProforma(homeName) {
+export function getMonthlyTarget(homeName) {
   const pf = PROFORMA_DATA[homeName];
   if (!pf) return null;
 
   return {
-    revenue: {
-      total: Math.round(pf.annual.revenue.total / 12),
-      items: Object.fromEntries(
-        Object.entries(pf.annual.revenue.items).map(([k, v]) => [k, Math.round(v / 12)])
-      ),
-    },
-    expenses: {
-      total: Math.round(pf.annual.expenses.total / 12),
-      items: Object.fromEntries(
-        Object.entries(pf.annual.expenses.items).map(([k, v]) => [k, Math.round(v / 12)])
-      ),
-    },
+    revenue: Math.round(pf.annual.revenue.total / 12),
+    expenses: Math.round(pf.annual.expenses.total / 12),
     noi: Math.round(pf.annual.noi / 12),
+    revenueItems: Object.fromEntries(
+      Object.entries(pf.annual.revenue.items).map(([k, v]) => [k, Math.round(v / 12)])
+    ),
+    expenseItems: Object.fromEntries(
+      Object.entries(pf.annual.expenses.items).map(([k, v]) => [k, Math.round(v / 12)])
+    ),
   };
 }
 
 /**
- * Compute cumulative actuals from report card periods for a home.
- * Returns { monthsTracked, revenue, expenses, noi }.
+ * Build monthly comparison: this month's actual vs proforma ÷ 12.
+ * `home` is a single period's home object from reportCardData.
  */
-export function getCumulativeActuals(periods, homeName) {
-  let monthsTracked = 0;
-  let totalRevenue = 0;
-  let totalExpenses = 0;
+export function getMonthlyComparison(home) {
+  if (!home) return null;
+  const target = getMonthlyTarget(home.name);
+  if (!target) return null;
+
+  return {
+    name: home.name,
+    revenue:  { actual: home.revenue.actual,  target: target.revenue },
+    expenses: { actual: home.expenses.actual, target: target.expenses },
+    noi:      { actual: home.noi.actual,      target: target.noi },
+  };
+}
+
+/**
+ * Build YTD summary: sum all periods for a home vs proforma × months.
+ */
+export function getYtdComparison(periods, homeName) {
+  const pf = PROFORMA_DATA[homeName];
+  if (!pf) return null;
+
+  let months = 0;
+  let rev = 0;
+  let exp = 0;
 
   for (const period of periods) {
     const home = (period.homes || []).find((h) => h.name === homeName);
     if (home) {
-      monthsTracked++;
-      totalRevenue += home.revenue.actual;
-      totalExpenses += home.expenses.actual;
+      months++;
+      rev += home.revenue.actual;
+      exp += home.expenses.actual;
     }
   }
 
-  return {
-    monthsTracked,
-    revenue: totalRevenue,
-    expenses: totalExpenses,
-    noi: totalRevenue - totalExpenses,
-  };
-}
+  if (months === 0) return null;
 
-/**
- * Compute proforma vs actual comparison for a home.
- * prorated = proforma annual × (monthsTracked / 12)
- */
-export function getProformaComparison(periods, homeName) {
-  const pf = PROFORMA_DATA[homeName];
-  if (!pf) return null;
-
-  const actuals = getCumulativeActuals(periods, homeName);
-  if (actuals.monthsTracked === 0) return null;
-
-  const fraction = actuals.monthsTracked / 12;
-
-  const proratedRevenue = Math.round(pf.annual.revenue.total * fraction);
-  const proratedExpenses = Math.round(pf.annual.expenses.total * fraction);
-  const proratedNoi = Math.round(pf.annual.noi * fraction);
-
-  // Annualized run rate
-  const annualizedRevenue = Math.round(actuals.revenue / fraction);
-  const annualizedExpenses = Math.round(actuals.expenses / fraction);
-  const annualizedNoi = Math.round(actuals.noi / fraction);
+  const targetRev = Math.round(pf.annual.revenue.total / 12) * months;
+  const targetExp = Math.round(pf.annual.expenses.total / 12) * months;
+  const targetNoi = Math.round(pf.annual.noi / 12) * months;
 
   return {
-    homeName,
-    monthsTracked: actuals.monthsTracked,
-    proforma: {
-      annual: pf.annual,
-      prorated: { revenue: proratedRevenue, expenses: proratedExpenses, noi: proratedNoi },
-    },
-    actual: {
-      cumulative: actuals,
-      annualized: { revenue: annualizedRevenue, expenses: annualizedExpenses, noi: annualizedNoi },
-    },
-    variance: {
-      revenue: actuals.revenue - proratedRevenue,
-      expenses: actuals.expenses - proratedExpenses,
-      noi: actuals.noi - proratedNoi,
-    },
-    pctOfProforma: {
-      revenue: proratedRevenue > 0 ? actuals.revenue / proratedRevenue : 0,
-      expenses: proratedExpenses > 0 ? actuals.expenses / proratedExpenses : 0,
-      noi: proratedNoi > 0 ? actuals.noi / proratedNoi : 0,
-    },
-    deal: pf.deal,
+    name: homeName,
+    months,
+    revenue:  { actual: rev,         target: targetRev },
+    expenses: { actual: exp,         target: targetExp },
+    noi:      { actual: rev - exp,   target: targetNoi },
+    annual:   pf.annual,
+    deal:     pf.deal,
   };
 }
 

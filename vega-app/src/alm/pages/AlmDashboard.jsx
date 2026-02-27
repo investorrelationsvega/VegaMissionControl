@@ -462,7 +462,7 @@ export default function AlmDashboard() {
           </div>
           <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
         </div>
-        <ProformaTracker periods={periods} />
+        <ProformaTracker periods={periods} selectedPeriod={selectedPeriod} />
       </div>
 
       {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
