@@ -83,9 +83,11 @@ function computeHomeGpa(home) {
 
 function fmtK(n) {
   if (n == null) return '--';
-  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}K`;
-  return `$${n.toLocaleString()}`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(2)}M`;
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`;
+  return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtPct(n) {
@@ -128,7 +130,7 @@ function GradeRing({ letter, gpa, size = 130 }) {
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ ...serif, fontSize: 38, color, lineHeight: 1 }}>{letter}</span>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 4 }}>{gpa.toFixed(1)} GPA</span>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)', marginTop: 4 }}>{gpa.toFixed(1)} GPA</span>
       </div>
     </div>
   );
@@ -169,7 +171,7 @@ function CategoryRow({ label, actual, budget, priorMonth, inverse, isCurrency, i
         <div style={{ position: 'absolute', left: `${budgetMark}%`, top: -3, height: 11, width: 1, background: 'var(--alm-t4)', borderRadius: 1 }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)' }}>
+        <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
           {vsLabel} &middot; {pct}%
         </span>
         <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: trendGood ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
@@ -193,9 +195,9 @@ function LineItemRow({ label, actual, budget, inverse }) {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 50px 1fr', gap: 12, alignItems: 'center', padding: '8px 0' }}>
-      <span style={{ ...sans, fontSize: 12, fontWeight: 300, color: 'var(--alm-t2)' }}>{label}</span>
+      <span style={{ ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t2)' }}>{label}</span>
       <span style={{ ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t1)', textAlign: 'right' }}>
-        {fmtK(actual)} <span style={{ fontWeight: 300, color: 'var(--alm-t4)' }}>/ {fmtK(budget)}</span>
+        {fmtK(actual)} <span style={{ fontWeight: 400, color: 'var(--alm-t4)' }}>/ {fmtK(budget)}</span>
       </span>
       <span style={{ ...sans, fontSize: 11, fontWeight: 400, color, textAlign: 'right' }}>{pct}%</span>
       <div style={{ position: 'relative', height: 4, borderRadius: 2, background: 'var(--alm-bd)' }}>
@@ -238,13 +240,13 @@ function SingleHomeView({ home, isMobile, reportData }) {
             <div style={{ ...serif, fontSize: 22, color: 'var(--alm-t1)', lineHeight: 1.2 }}>{home.name}</div>
           </div>
           <GradeRing letter={overall.letter} gpa={gpa} size={isMobile ? 110 : 130} />
-          <div style={{ ...sans, fontSize: 12, fontWeight: 300, fontStyle: 'italic', color: 'var(--alm-t4)', marginTop: 16, maxWidth: 160, lineHeight: 1.4 }}>
+          <div style={{ ...sans, fontSize: 12, fontWeight: 400, fontStyle: 'italic', color: 'var(--alm-t4)', marginTop: 16, maxWidth: 160, lineHeight: 1.4 }}>
             {gradeComment(gpa)}
           </div>
           <div style={{ marginTop: 16, padding: '10px 16px', borderRadius: 6, background: 'var(--alm-neptune-bg)', textAlign: 'center' }}>
-            <div style={{ ...sans, fontSize: 9, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Monthly NOI</div>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Monthly NOI</div>
             <div style={{ ...serif, fontSize: 22, color: 'var(--alm-neptune)', lineHeight: 1 }}>{fmtK(home.noi.actual)}</div>
-            <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 2 }}>{fmtPct(margin)} margin</div>
+            <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)', marginTop: 2 }}>{fmtPct(margin)} margin</div>
           </div>
         </div>
 
@@ -257,7 +259,7 @@ function SingleHomeView({ home, isMobile, reportData }) {
           <CategoryRow label="Expenses" actual={home.expenses.actual} budget={home.expenses.budget} priorMonth={home.expenses.priorMonth} inverse isCurrency />
           <CategoryRow label="Occupancy" actual={home.occupancy.actual} budget={home.occupancy.budget} priorMonth={home.occupancy.priorMonth} inverse={false} isCurrency={false} />
           <CategoryRow label="Net Operating Income" actual={home.noi.actual} budget={home.noi.budget} priorMonth={home.noi.priorMonth} inverse={false} isCurrency isLast />
-          <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)', marginTop: 12, display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)', marginTop: 12, display: 'flex', justifyContent: 'space-between' }}>
             <span>Source: QuickBooks Budget vs Actual</span>
             <span>{home.beds} beds</span>
           </div>
@@ -302,7 +304,7 @@ function RankBadge({ rank }) {
   if (rank !== 1) return null;
   return (
     <span style={{
-      ...sans, fontSize: 9, fontWeight: 500,
+      ...sans, fontSize: 10, fontWeight: 600,
       background: 'var(--alm-plum-bg)', color: 'var(--alm-plum)',
       padding: '1px 6px', borderRadius: 3, marginLeft: 6,
       letterSpacing: '0.05em',
@@ -328,9 +330,9 @@ function ComparisonView({ homes, isMobile, reportData }) {
 
   // Cell style helpers
   const cellStyle = { padding: '8px 12px', textAlign: 'right', borderBottom: '1px solid var(--alm-bd)' };
-  const labelStyle = { ...sans, fontSize: 12, fontWeight: 300, color: 'var(--alm-t2)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--alm-bd)' };
+  const labelStyle = { ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t2)', padding: '8px 12px', textAlign: 'left', borderBottom: '1px solid var(--alm-bd)' };
   const sectionHeaderStyle = {
-    ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-plum)',
+    ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-plum)',
     textTransform: 'uppercase', letterSpacing: '0.12em',
     padding: '12px 12px 6px', borderBottom: '1px solid var(--alm-bd)',
     background: 'var(--alm-plum-bg)',
@@ -348,7 +350,7 @@ function ComparisonView({ homes, isMobile, reportData }) {
           {fmtK(actual)}
           <RankBadge rank={rank} />
         </div>
-        <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: pctColor }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: pctColor }}>
           {pct}% of budget
         </div>
       </div>
@@ -363,7 +365,7 @@ function ComparisonView({ homes, isMobile, reportData }) {
           {actual}%
           <RankBadge rank={rank} />
         </div>
-        <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: isGood ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: isGood ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
           vs {budget}% target
         </div>
       </div>
@@ -388,20 +390,20 @@ function ComparisonView({ homes, isMobile, reportData }) {
                 borderTop: `3px solid ${color}`,
               }}
             >
-              <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+              <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
                 {home.name}
               </div>
               <div style={{ ...serif, fontSize: 36, color, lineHeight: 1 }}>
                 {g.letter}
               </div>
-              <div style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 4 }}>
+              <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)', marginTop: 4 }}>
                 {gpas[i].toFixed(1)} GPA
               </div>
-              <div style={{ ...sans, fontSize: 11, fontWeight: 300, fontStyle: 'italic', color: 'var(--alm-t4)', marginTop: 6 }}>
+              <div style={{ ...sans, fontSize: 11, fontWeight: 400, fontStyle: 'italic', color: 'var(--alm-t4)', marginTop: 6 }}>
                 {gradeComment(gpas[i])}
               </div>
               {isBest && (
-                <div style={{ ...sans, fontSize: 9, fontWeight: 500, color: 'var(--alm-plum)', marginTop: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                <div style={{ ...sans, fontSize: 10, fontWeight: 600, color: 'var(--alm-plum)', marginTop: 8, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                   Top Performer
                 </div>
               )}
@@ -424,7 +426,7 @@ function ComparisonView({ homes, isMobile, reportData }) {
             {homes.map((home) => (
               <div key={home.name} style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t1)', textAlign: 'right', padding: '12px 12px 6px', borderBottom: '2px solid var(--alm-bd)', letterSpacing: '0.05em' }}>
                 {home.name}
-                <div style={{ fontSize: 9, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 2 }}>{home.beds} beds</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--alm-t4)', marginTop: 2 }}>{home.beds} beds</div>
               </div>
             ))}
 
@@ -499,10 +501,10 @@ function ComparisonView({ homes, isMobile, reportData }) {
 
         {/* Footer */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--alm-bd)', display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+          <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
             Source: QuickBooks Budget vs Actual &middot; {data.month} {data.year}
           </span>
-          <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+          <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
             {homes.length} homes compared
           </span>
         </div>
@@ -528,7 +530,7 @@ export default function FinancialReportCard({ selectedHomes = [], reportData: re
     return (
       <div className="alm-card" style={{ textAlign: 'center', padding: '40px 24px' }}>
         <PlumStar size={16} style={{ margin: '0 auto 12px' }} />
-        <div style={{ ...sans, fontSize: 13, fontWeight: 300, color: 'var(--alm-t4)', lineHeight: 1.5 }}>
+        <div style={{ ...sans, fontSize: 13, fontWeight: 400, color: 'var(--alm-t4)', lineHeight: 1.5 }}>
           Select a home above to view its financial report card,
           <br />or select multiple to compare side by side.
         </div>

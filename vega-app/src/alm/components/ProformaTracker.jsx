@@ -20,9 +20,9 @@ function fmtK(n) {
   if (n == null) return '--';
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(1)}M`;
+  if (abs >= 1000000) return `${sign}$${(abs / 1000000).toFixed(2)}M`;
   if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}K`;
-  return `${sign}$${abs.toLocaleString()}`;
+  return `${sign}$${abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function pct(actual, target) {
@@ -31,7 +31,7 @@ function pct(actual, target) {
 }
 
 function fmtPct(ratio) {
-  return `${(ratio * 100).toFixed(0)}%`;
+  return `${(ratio * 100).toFixed(1)}%`;
 }
 
 // ── Status pill ──
@@ -61,7 +61,7 @@ function StatusPill({ ratio, inverse }) {
 
   return (
     <span style={{
-      ...sans, fontSize: 9, fontWeight: 500,
+      ...sans, fontSize: 10, fontWeight: 600,
       padding: '2px 8px', borderRadius: 8,
       background: bg, color,
       letterSpacing: '0.05em', textTransform: 'uppercase',
@@ -131,7 +131,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
   if (monthlyHomes.length === 0 && ytdData.length === 0) {
     return (
       <div className="alm-card" style={{ textAlign: 'center', padding: '32px 24px' }}>
-        <div style={{ ...sans, fontSize: 13, fontWeight: 300, color: 'var(--alm-t4)' }}>
+        <div style={{ ...sans, fontSize: 13, fontWeight: 400, color: 'var(--alm-t4)' }}>
           No proforma comparison data available yet.
         </div>
       </div>
@@ -146,7 +146,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
           ════════════════════════════════════════════ */}
       {monthlyHomes.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12, paddingLeft: 4 }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12, paddingLeft: 4 }}>
             Monthly vs Proforma Target &middot; {monthLabel}
           </div>
 
@@ -166,7 +166,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <div>
                       <div style={{ ...sans, fontSize: 13, fontWeight: 400, color: 'var(--alm-t1)' }}>{h.name}</div>
-                      <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
                         {PROFORMA_DATA[h.name]?.beds} beds
                       </div>
                     </div>
@@ -176,14 +176,14 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                   {/* Revenue */}
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Revenue</span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: revR >= 0.95 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Revenue</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: revR >= 0.95 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
                         {fmtPct(revR)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
                       <span style={{ ...serif, fontSize: 20, color: 'var(--alm-t1)', lineHeight: 1 }}>{fmtK(h.revenue.actual)}</span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>/ {fmtK(h.revenue.target)}</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>/ {fmtK(h.revenue.target)}</span>
                     </div>
                     <ProgressBar ratio={revR} inverse={false} />
                   </div>
@@ -191,14 +191,14 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                   {/* Expenses */}
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Expenses</span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: expR <= 1.05 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Expenses</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: expR <= 1.05 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
                         {fmtPct(expR)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
                       <span style={{ ...serif, fontSize: 20, color: 'var(--alm-t1)', lineHeight: 1 }}>{fmtK(h.expenses.actual)}</span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>/ {fmtK(h.expenses.target)}</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>/ {fmtK(h.expenses.target)}</span>
                     </div>
                     <ProgressBar ratio={expR} inverse />
                   </div>
@@ -206,8 +206,8 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                   {/* NOI */}
                   <div style={{ paddingTop: 12, borderTop: '1px solid var(--alm-bd)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>NOI</span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: noiR >= 0.95 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>NOI</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 500, color: noiR >= 0.95 ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
                         {fmtPct(noiR)}
                       </span>
                     </div>
@@ -215,7 +215,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                       <span style={{ ...serif, fontSize: 22, color: noiR >= 0.95 ? 'var(--alm-neptune)' : 'var(--alm-t1)', lineHeight: 1 }}>
                         {fmtK(h.noi.actual)}
                       </span>
-                      <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>/ {fmtK(h.noi.target)}</span>
+                      <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>/ {fmtK(h.noi.target)}</span>
                     </div>
                     <ProgressBar ratio={noiR} inverse={false} />
                   </div>
@@ -232,7 +232,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
           ════════════════════════════════════════════ */}
       {ytdData.length > 0 && (
         <div>
-          <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12, paddingLeft: 4 }}>
+          <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 12, paddingLeft: 4 }}>
             Year-to-Date vs Proforma &middot; Are We on Pace?
           </div>
 
@@ -251,12 +251,12 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
               const variance = item.actual - item.target;
               return (
                 <div key={item.label} className="alm-card" style={{ padding: '16px 20px' }}>
-                  <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>
                     {item.label}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
                     <span style={{ ...serif, fontSize: 24, color: 'var(--alm-t1)', lineHeight: 1 }}>{fmtK(item.actual)}</span>
-                    <span style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)' }}>/ {fmtK(item.target)}</span>
+                    <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>/ {fmtK(item.target)}</span>
                   </div>
                   <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: item.good ? 'var(--alm-neptune)' : 'var(--alm-danger)' }}>
                     {variance >= 0 ? '+' : ''}{fmtK(variance)}
@@ -276,7 +276,7 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                   <tr style={{ borderBottom: '2px solid var(--alm-bd)' }}>
                     {['Home', 'Months', 'YTD Revenue', 'Target', 'YTD NOI', 'Target', 'Status'].map((h) => (
                       <th key={h} style={{
-                        ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)',
+                        ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)',
                         textAlign: h === 'Home' ? 'left' : 'right',
                         padding: '10px 14px', textTransform: 'uppercase', letterSpacing: '0.08em',
                       }}>
@@ -292,23 +292,23 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
                       <tr key={h.name} style={{ borderBottom: '1px solid var(--alm-bd)' }}>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ ...sans, fontSize: 13, fontWeight: 400, color: 'var(--alm-t1)' }}>{h.name}</div>
-                          <div style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+                          <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
                             {PROFORMA_DATA[h.name]?.beds} beds
                           </div>
                         </td>
-                        <td style={{ ...sans, fontSize: 12, fontWeight: 300, color: 'var(--alm-t3)', textAlign: 'right', padding: '12px 14px' }}>
+                        <td style={{ ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t2)', textAlign: 'right', padding: '12px 14px' }}>
                           {h.months}
                         </td>
                         <td style={{ ...serif, fontSize: 14, color: 'var(--alm-t1)', textAlign: 'right', padding: '12px 14px' }}>
                           {fmtK(h.revenue.actual)}
                         </td>
-                        <td style={{ ...sans, fontSize: 12, fontWeight: 300, color: 'var(--alm-t4)', textAlign: 'right', padding: '12px 14px' }}>
+                        <td style={{ ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t4)', textAlign: 'right', padding: '12px 14px' }}>
                           {fmtK(h.revenue.target)}
                         </td>
                         <td style={{ ...serif, fontSize: 14, color: 'var(--alm-t1)', textAlign: 'right', padding: '12px 14px' }}>
                           {fmtK(h.noi.actual)}
                         </td>
-                        <td style={{ ...sans, fontSize: 12, fontWeight: 300, color: 'var(--alm-t4)', textAlign: 'right', padding: '12px 14px' }}>
+                        <td style={{ ...sans, fontSize: 12, fontWeight: 400, color: 'var(--alm-t4)', textAlign: 'right', padding: '12px 14px' }}>
                           {fmtK(h.noi.target)}
                         </td>
                         <td style={{ textAlign: 'right', padding: '12px 14px' }}>
@@ -322,10 +322,10 @@ export default function ProformaTracker({ periods = [], selectedPeriod }) {
             </div>
 
             <div style={{ padding: '10px 14px', borderTop: '1px solid var(--alm-bd)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+              <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
                 Targets = proforma monthly (annual &divide; 12) &times; months tracked
               </span>
-              <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+              <span style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t4)' }}>
                 Source: Acquisition underwriting models
               </span>
             </div>
