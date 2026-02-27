@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════
 
 import useResponsive from '../hooks/useResponsive';
+import FinancialReportCard from '../components/FinancialReportCard';
 
 const serif = { fontFamily: "'Noto Serif Display', Georgia, serif", fontWeight: 500, fontStretch: 'extra-condensed' };
 const sans = { fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
@@ -133,6 +134,9 @@ export default function AlmDashboard() {
           </div>
         ))}
       </div>
+
+      {/* ── Financial Report Card ────────────────────────────── */}
+      <FinancialReportCard />
 
       {/* ── Homes Grid ──────────────────────────────────────── */}
       <div style={{ marginBottom: 40 }}>
