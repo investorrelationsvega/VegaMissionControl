@@ -44,10 +44,10 @@ function formatPhone(value) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
 }
 
-// Vega 4-pointed star — used as primary contact indicator
-const VegaStar = ({ size = 12, color = 'var(--ylw)', title = 'Primary Contact', style = {} }) => (
-  <svg viewBox="0 0 100 100" style={{ width: size, height: size, flexShrink: 0, ...style }} title={title}>
-    <path d="M50,0 C45.5,30.8 30.8,45.5 0,50 30.8,54.5 45.5,69.2 50,100 54.5,69.2 69.2,54.5 100,50 69.2,45.5 54.5,30.8 50,0Z" fill={color} />
+// Vega 4-pointed star — matches the Performance · Partnership · Prosperity icon
+const VegaStar = ({ size = 12, color = 'var(--grn)', title = 'Primary Contact', style = {} }) => (
+  <svg viewBox="0 0 200 266" style={{ width: size, height: size * 1.33, flexShrink: 0, ...style }} title={title}>
+    <path d="M100,0c-8.8,61.66-27.56,110.27-51.34,133.09,23.79,22.82,42.54,71.43,51.34,133.09,8.8-61.66,27.56-110.27,51.34-133.09C127.55,110.27,108.8,61.66,100,0Z" fill={color} opacity="0.6" />
   </svg>
 )
 
@@ -281,8 +281,8 @@ export default function Directory() {
     }
     // Sort alphabetically by display name (entity name for entities, investor name otherwise)
     list.sort((a, b) => {
-      const aIsEntity = a.entities.length > 0 && a.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
-      const bIsEntity = b.entities.length > 0 && b.types.some((t) => ['Entity', 'Trust', 'Joint'].includes(t))
+      const aIsEntity = a.entities.length > 0 && a.types.some((t) => ['Entity', 'Revocable Trust', 'Irrevocable Trust', 'Trust', 'Joint', 'Joint Individual'].includes(t))
+      const bIsEntity = b.entities.length > 0 && b.types.some((t) => ['Entity', 'Revocable Trust', 'Irrevocable Trust', 'Trust', 'Joint', 'Joint Individual'].includes(t))
       const aName = (aIsEntity ? a.entities[0] : a.name).toLowerCase()
       const bName = (bIsEntity ? b.entities[0] : b.name).toLowerCase()
       return aName.localeCompare(bName)
@@ -858,8 +858,7 @@ export default function Directory() {
                         const typeLabel = inv.types[0] || ''
                         return (
                           <>
-                            <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-                              {primaryContact && <VegaStar size={11} />}
+                            <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500 }}>
                               {displayName}
                             </div>
                             {(typeLabel || entityLabel) && (
@@ -1311,9 +1310,9 @@ export default function Directory() {
                       }}
                     >
                       {(() => {
-                        const isJointType = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Individual or Joint Individuals');
+                        const isJointType = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Joint Individual' || t === 'Individual or Joint Individuals');
                         return [
-                        { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual or Joint Individuals', 'Trust', 'IRA or Other Tax-Exempt Retirement Plan', 'Entity'] },
+                        { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual', 'Joint Individual', 'Revocable Trust', 'Irrevocable Trust', 'IRA', 'Entity'] },
                         // For Joint types, Profile Name moves to Contacts section
                         ...(!isJointType ? [{ label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true }] : []),
                         { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
@@ -1324,8 +1323,8 @@ export default function Directory() {
                         { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
                         ...(!isJointType ? [{ label: 'Entities', value: selectedInvestor.entities.join(', ') || '-', key: 'entities' }] : []),
                         { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
-                        { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status' },
-                        { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered' },
+                        { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status', editable: true, isSelect: true, options: ['Approved', 'Pending', 'Declined', 'Redeemed'] },
+                        { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered', editable: true },
                       ]})().map((field) => (
                         <div key={field.key}>
                           <div
@@ -1370,9 +1369,11 @@ export default function Directory() {
                                     const newVal = e.target.value
                                     setEditValue(newVal)
                                     if (field.key === 'profileType') {
-                                      investorStore.updateProfileType(selectedInvestor.id, newVal, 'j@vegarei.com')
+                                      investorStore.updateProfileType(selectedInvestor.id, newVal, googleUserEmail)
+                                    } else if (field.key === 'status') {
+                                      investorStore.updateInvestorStatus(selectedInvestor.id, newVal, googleUserEmail)
                                     } else {
-                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: newVal }, 'j@vegarei.com')
+                                      investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: newVal }, googleUserEmail)
                                     }
                                     setEditField(null)
                                   }}
@@ -1396,9 +1397,11 @@ export default function Directory() {
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                       if (field.key === 'name') {
-                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, 'j@vegarei.com')
+                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, googleUserEmail)
+                                      } else if (field.key === 'dateEntered') {
+                                        investorStore.updateDateEntered(selectedInvestor.id, editValue, googleUserEmail)
                                       } else {
-                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, googleUserEmail)
                                       }
                                       setEditField(null)
                                     }
@@ -1407,9 +1410,11 @@ export default function Directory() {
                                   onBlur={() => {
                                     if (editValue !== field.value) {
                                       if (field.key === 'name') {
-                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, 'j@vegarei.com')
+                                        investorStore.updateInvestorName(selectedInvestor.id, editValue, googleUserEmail)
+                                      } else if (field.key === 'dateEntered') {
+                                        investorStore.updateDateEntered(selectedInvestor.id, editValue, googleUserEmail)
                                       } else {
-                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, 'j@vegarei.com')
+                                        investorStore.updateInvestorContact(selectedInvestor.id, { [field.key]: editValue }, googleUserEmail)
                                       }
                                     }
                                     setEditField(null)

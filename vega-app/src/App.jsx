@@ -13,7 +13,7 @@ import Reports from './pages/Reports';
 import Sales from './pages/Sales';
 import UnitPlaceholder from './pages/UnitPlaceholder';
 import AlmApp from './alm/AlmApp';
-import { exchangeCodeForToken, getReturnPath, startAuthFlow } from './services/ringcentralAuth';
+import { exchangeCodeForToken, getReturnPath } from './services/ringcentralAuth';
 import useRingCentralStore from './stores/ringcentralStore';
 import useGoogleStore from './stores/googleStore';
 import useInvestorStore from './stores/investorStore';
@@ -451,7 +451,12 @@ export default function App() {
   const rcClearAuth = useRingCentralStore((s) => s.clearAuth);
 
   useEffect(() => {
-    // On mount, if we have a refresh token, try to get a new access token
+    // On mount, check if persisted RC token is still valid; only refresh if expired
+    const rc = useRingCentralStore.getState();
+    if (rc.accessToken && rc.tokenExpiresAt && rc.tokenExpiresAt > Date.now() + 60000) {
+      console.log('[Auth] Restored persisted RingCentral token (still valid)');
+      return;
+    }
     if (rcRefreshToken) {
       refreshAccessToken(rcRefreshToken)
         .then((tokenData) => rcSetTokens(tokenData))
@@ -472,24 +477,10 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [rcRefreshToken, rcTokenExpiry, rcSetTokens, rcClearAuth]);
 
-  // ── Auto-connect RingCentral after Google login ────────────────────────────
-  // RC auto-reconnects via refresh token on subsequent loads.
-  // For first-time setup (no refresh token), auto-trigger the OAuth redirect.
+  // ── RingCentral state ─────────────────────────────────────────────────────
+  // RC auto-reconnects via persisted refresh token on mount (above).
+  // No auto-redirect — user can connect RC manually from the header if needed.
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
-  const rcAuth = useRingCentralStore((s) => s.isAuthenticated);
-
-  useEffect(() => {
-    if (!googleAuth || !googleToken) return;
-    // Auto-redirect to RingCentral OAuth if never authorized
-    const rc = useRingCentralStore.getState();
-    if (!rc.isAuthenticated && !rc.refreshToken) {
-      const timer = setTimeout(() => {
-        console.log('[Auth] Auto-connecting RingCentral...');
-        startAuthFlow();
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [googleAuth, googleToken]);
 
   // ── Google Sheets Data Load ──────────────────────────────────────────────────
   const sheetsLoaded = useInvestorStore((s) => s.sheetsLoaded);
