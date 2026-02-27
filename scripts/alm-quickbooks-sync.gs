@@ -76,6 +76,9 @@ var CONFIG = {
     'elk ridge':         'Elk Ridge',
     'hearthstone':       'Hearthstone Manor',
     'hearthstone manor': 'Hearthstone Manor',
+    'west jordan':       'West Jordan',
+    'sandy':             'Sandy',
+    'gilbert':           'Gilbert',
   },
 
   // Bed count per home
@@ -84,14 +87,20 @@ var CONFIG = {
     'Riverton':          18,
     'Elk Ridge':         29,
     'Hearthstone Manor': 35,
+    'West Jordan':       57,
+    'Sandy':             0,  // TODO: update when known
+    'Gilbert':           0,  // TODO: update when known
   },
 
   // Occupancy targets (QuickBooks doesn't track this)
   OCCUPANCY_TARGETS: {
-    'Cedar City':        85,
-    'Riverton':          85,
-    'Elk Ridge':         85,
-    'Hearthstone Manor': 90,
+    'Cedar City':        93,
+    'Riverton':          93,
+    'Elk Ridge':         93,
+    'Hearthstone Manor': 93,
+    'West Jordan':       93,
+    'Sandy':             93,
+    'Gilbert':           93,
   },
 
   // ── QuickBooks Report Mapping ──────────────────────────────
