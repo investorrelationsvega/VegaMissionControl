@@ -66,7 +66,7 @@ const STATUS_COLORS = {
 export default function AlmDashboard() {
   const { isMobile, isTablet } = useResponsive();
   const [selectedHomes, setSelectedHomes] = useState([]);
-  const [reportData, setReportData] = useState(REPORT_CARD_DATA);
+  const [reportData, setReportData] = useState({ ...REPORT_CARD_DATA, lastSynced: null, source: 'static' });
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(null); // null = latest
 
   // Try to load live data from the Google Sheet (falls back to static)
@@ -370,9 +370,33 @@ export default function AlmDashboard() {
             flexDirection: isMobile ? 'column' : 'row',
           }}
         >
-          <span className="alm-section-label" style={{ flexShrink: 0 }}>
-            Financial Report Card
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span className="alm-section-label">
+              Financial Report Card
+            </span>
+            {/* Live / Static data indicator */}
+            <span
+              title={
+                reportData.source === 'live'
+                  ? `Live from QuickBooks · Last synced ${reportData.lastSynced ? new Date(reportData.lastSynced).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'unknown'}`
+                  : 'Showing sample data · Deploy Apps Script for live sync'
+              }
+              style={{
+                ...sans,
+                fontSize: 9,
+                fontWeight: 500,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                padding: '2px 7px',
+                borderRadius: 8,
+                background: reportData.source === 'live' ? 'var(--alm-neptune-bg)' : 'var(--alm-plum-bg)',
+                color: reportData.source === 'live' ? 'var(--alm-neptune)' : 'var(--alm-t4)',
+                cursor: 'default',
+              }}
+            >
+              {reportData.source === 'live' ? 'Live' : 'Sample Data'}
+            </span>
+          </div>
           <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)', display: isMobile ? 'none' : 'block' }} />
 
           {/* Month picker pills */}
