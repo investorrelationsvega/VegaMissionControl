@@ -59,8 +59,10 @@ var CONFIG = {
   TAB_NAME: 'ALM_Financial',
 
   // Gmail search query to find QuickBooks reports
-  // Adjust the "from:" address to match your QuickBooks sender
-  GMAIL_QUERY: 'from:quickbooks subject:"budget vs actual" has:attachment -label:ALM-Synced',
+  // Only processes emails in the ALM-Inbox label (set up a Gmail filter
+  // to auto-label emails from quickbooks@notification.intuit.com with
+  // subject "Monthly Budget Report" → apply label ALM-Inbox)
+  GMAIL_QUERY: 'label:ALM-Inbox has:attachment -label:ALM-Synced',
 
   // Gmail label to mark processed emails
   LABEL_NAME: 'ALM-Synced',
