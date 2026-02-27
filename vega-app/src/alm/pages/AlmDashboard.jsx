@@ -2,12 +2,14 @@
 // ALM — Dashboard Page
 // Assisted Living Management overview
 // Brand: Noto Serif Display headings, HK Grotesk
-// body, plum accents, cream/night sky backgrounds
+// body, plum accents, cream backgrounds
 // Data: ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
 // ═══════════════════════════════════════════════
 
+import { useState } from 'react';
 import useResponsive from '../hooks/useResponsive';
 import FinancialReportCard from '../components/FinancialReportCard';
+import REPORT_CARD_DATA from '../data/reportCardData';
 
 const serif = { fontFamily: "'Noto Serif Display', Georgia, serif", fontWeight: 500, fontStretch: 'extra-condensed' };
 const sans = { fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
@@ -33,6 +35,9 @@ const fmtK = (n) => {
 };
 const fmtNum = (n) => (n == null ? '--' : n.toLocaleString());
 const fmtPct = (n) => (n == null ? '--' : `${n.toFixed(1)}%`);
+
+// Names of homes that have report card data
+const HOMES_WITH_DATA = new Set(REPORT_CARD_DATA.homes.map((h) => h.name));
 
 // ── Real Home Data ─────────────────────────────────────────
 // Source: Vega ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
@@ -62,6 +67,17 @@ const STATUS_COLORS = {
 
 export default function AlmDashboard() {
   const { isMobile, isTablet } = useResponsive();
+  const [selectedHomes, setSelectedHomes] = useState([]);
+
+  // Toggle home selection
+  const toggleHome = (name) => {
+    if (!HOMES_WITH_DATA.has(name)) return;
+    setSelectedHomes((prev) =>
+      prev.includes(name)
+        ? prev.filter((n) => n !== name)
+        : [...prev, name]
+    );
+  };
 
   // ── Summary computations ──────────────────────────────
   const operational = HOMES.filter((h) => ['Active', 'Ramping'].includes(h.status));
@@ -135,15 +151,17 @@ export default function AlmDashboard() {
         ))}
       </div>
 
-      {/* ── Financial Report Card ────────────────────────────── */}
-      <FinancialReportCard />
-
       {/* ── Homes Grid ──────────────────────────────────────── */}
-      <div style={{ marginBottom: 40 }}>
+      <div style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
           <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
           <span className="alm-section-label">Our Homes</span>
           <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
+        </div>
+
+        {/* Selection hint */}
+        <div style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginBottom: 12, textAlign: 'center' }}>
+          Click a home to view its report card &middot; Select multiple to compare
         </div>
 
         <div
@@ -155,12 +173,36 @@ export default function AlmDashboard() {
         >
           {HOMES.map((home) => {
             const sc = STATUS_COLORS[home.status] || STATUS_COLORS.Active;
+            const hasData = HOMES_WITH_DATA.has(home.name);
+            const isSelected = selectedHomes.includes(home.name);
             return (
               <div
                 key={home.name}
                 className="alm-card"
-                style={{ cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
+                onClick={() => toggleHome(home.name)}
+                style={{
+                  cursor: hasData ? 'pointer' : 'default',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderLeft: isSelected ? '3px solid var(--alm-plum)' : undefined,
+                  background: isSelected ? 'var(--alm-plum-bg)' : undefined,
+                  transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
+                }}
               >
+                {/* Selection check */}
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8,
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: 'var(--alm-plum)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                )}
+
                 {/* Top row: status + fund/state badge */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <span
@@ -249,7 +291,7 @@ export default function AlmDashboard() {
                   </div>
                 )}
 
-                {/* Footer: acquired date + view link */}
+                {/* Footer: acquired date */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
                   {home.acquired ? (
                     <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
@@ -258,23 +300,32 @@ export default function AlmDashboard() {
                   ) : (
                     <span />
                   )}
-                  <span
-                    style={{
-                      ...sans,
-                      fontSize: 11,
-                      fontWeight: 400,
-                      color: 'var(--alm-plum)',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    View Home &rarr;
-                  </span>
+                  {hasData ? (
+                    <span
+                      style={{
+                        ...sans,
+                        fontSize: 11,
+                        fontWeight: 400,
+                        color: isSelected ? 'var(--alm-plum)' : 'var(--alm-t4)',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      {isSelected ? 'Selected' : 'View Report Card'}
+                    </span>
+                  ) : (
+                    <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)', fontStyle: 'italic' }}>
+                      No financial data yet
+                    </span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* ── Financial Report Card (appears below homes when selected) ── */}
+      <FinancialReportCard selectedHomes={selectedHomes} />
 
       {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
       <div

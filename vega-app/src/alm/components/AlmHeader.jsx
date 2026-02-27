@@ -6,7 +6,6 @@
 // ═══════════════════════════════════════════════
 
 import { useNavigate, useLocation } from 'react-router-dom';
-import useAlmUiStore from '../stores/almUiStore';
 import useResponsive from '../hooks/useResponsive';
 
 const sans = { fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
@@ -38,8 +37,6 @@ export default function AlmHeader() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useResponsive();
-  const theme = useAlmUiStore((s) => s.theme);
-  const toggleTheme = useAlmUiStore((s) => s.toggleTheme);
 
   return (
     <header
@@ -144,37 +141,8 @@ export default function AlmHeader() {
         </nav>
       )}
 
-      {/* Right: Theme toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button
-          onClick={toggleTheme}
-          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          style={{
-            ...sans,
-            background: 'none',
-            border: '1px solid var(--alm-bd)',
-            borderRadius: 4,
-            padding: '4px 10px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--alm-t4)',
-            fontSize: 14,
-            transition: 'border-color 0.15s, color 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--alm-plum)';
-            e.currentTarget.style.color = 'var(--alm-plum)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--alm-bd)';
-            e.currentTarget.style.color = 'var(--alm-t4)';
-          }}
-        >
-          {theme === 'dark' ? '\u2600' : '\u263E'}
-        </button>
-      </div>
+      {/* Right: spacer */}
+      <div />
     </header>
   );
 }
