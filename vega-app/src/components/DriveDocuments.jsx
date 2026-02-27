@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import useGoogleStore from '../stores/googleStore';
 import useFundStore from '../stores/fundStore';
 import useUiStore from '../stores/uiStore';
-import { initGapi, requestAccessTokenWithConsent, requestAccessToken, isTokenValid } from '../services/googleAuth';
+import { initGapi } from '../services/googleAuth';
 import { listFilesInFolder, getFolderMetadata, parseFolderIdFromUrl, getFileTypeLabel } from '../services/driveService';
 
 export default function DriveDocuments({ fundId, fundShortName }) {
@@ -18,7 +18,6 @@ export default function DriveDocuments({ fundId, fundShortName }) {
   const accessToken = useGoogleStore((s) => s.accessToken);
   const folderMappings = useGoogleStore((s) => s.folderMappings);
   const fileCache = useGoogleStore((s) => s.fileCache);
-  const setToken = useGoogleStore((s) => s.setToken);
   const setFolderMapping = useGoogleStore((s) => s.setFolderMapping);
   const removeFolderMapping = useGoogleStore((s) => s.removeFolderMapping);
   const setCachedFiles = useGoogleStore((s) => s.setCachedFiles);
@@ -64,18 +63,6 @@ export default function DriveDocuments({ fundId, fundShortName }) {
     fetchDriveFiles();
   }, [fetchDriveFiles]);
 
-  // ── Connect Google Drive ──────────────────────────────────────────────
-  const handleConnect = async () => {
-    try {
-      await initGapi();
-      const token = await requestAccessTokenWithConsent();
-      setToken(token);
-      showToast('Google Drive connected');
-    } catch (err) {
-      console.error('Google auth error:', err);
-    }
-  };
-
   // ── Get files for a category ──────────────────────────────────────────
   const getFilesForCategory = (category, staticFiles) => {
     const mapping = fundMappings[category];
@@ -117,11 +104,6 @@ export default function DriveDocuments({ fundId, fundShortName }) {
 
     setVerifying((v) => ({ ...v, [key]: true }));
     try {
-      if (!isAuthenticated) {
-        await initGapi();
-        const token = await requestAccessTokenWithConsent();
-        setToken(token);
-      }
       await initGapi();
       const metadata = await getFolderMetadata(folderId);
       setVerified((v) => ({
@@ -368,39 +350,6 @@ export default function DriveDocuments({ fundId, fundShortName }) {
           ))
         )}
 
-        {/* Connect Drive CTA when not authenticated and no mappings */}
-        {!isAuthenticated && Object.keys(fundMappings).length === 0 && (
-          <div
-            style={{
-              marginTop: 16,
-              padding: '16px 20px',
-              background: 'var(--bgI)',
-              borderRadius: 6,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 2 }}>
-                Connect Google Drive to sync fund documents
-              </div>
-              <div
-                className="mono"
-                style={{ fontSize: 11, color: 'var(--t5)' }}
-              >
-                Link folders to see live files here
-              </div>
-            </div>
-            <button
-              onClick={handleConnect}
-              className="btn btn-primary"
-              style={{ fontSize: 11, padding: '8px 16px' }}
-            >
-              Connect Drive
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Config Modal ──────────────────────────────────────────────── */}
