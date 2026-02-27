@@ -852,14 +852,12 @@ export default function Directory() {
                   >
                     <div style={{ minWidth: 0 }}>
                       {(() => {
-                        const primaryContact = (inv.contacts || []).find((c) => c.role === 'Primary Signer')
-                        const displayName = primaryContact ? primaryContact.name : inv.name
                         const entityLabel = inv.entities.length > 0 ? inv.entities[0] : null
                         const typeLabel = inv.types[0] || ''
                         return (
                           <>
                             <div style={{ fontSize: 14, color: 'var(--t1)', fontWeight: 500 }}>
-                              {displayName}
+                              {inv.name}
                             </div>
                             {(typeLabel || entityLabel) && (
                               <div style={{ fontSize: 11, color: 'var(--t3)', marginTop: 1 }}>
@@ -973,17 +971,16 @@ export default function Directory() {
                     <div>
                       {(() => {
                         const primaryContact = (selectedInvestor.contacts || []).find((c) => c.role === 'Primary Signer')
-                        const displayName = primaryContact ? primaryContact.name : selectedInvestor.name
                         const entityLabel = selectedInvestor.entities.length > 0 ? selectedInvestor.entities[0] : null
                         const typeLabel = selectedInvestor.types[0] || ''
                         return (
                           <>
                             <div style={{ fontSize: 22, fontWeight: 300, color: 'var(--t1)', letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {primaryContact && <VegaStar size={16} />}
-                              {displayName}
+                              {selectedInvestor.name}
                             </div>
                             {(typeLabel || entityLabel) && (
-                              <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 2 }}>
+                              <div style={{ fontSize: 13, color: 'var(--t3)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                {primaryContact && <VegaStar size={10} />}
                                 {typeLabel}{entityLabel ? ` · ${entityLabel}` : ''}
                               </div>
                             )}
