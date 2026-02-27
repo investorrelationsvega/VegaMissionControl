@@ -1250,7 +1250,7 @@ export default function Directory() {
                       borderBottom: '1px solid var(--bd)',
                       marginBottom: 16,
                       overflowX: 'auto',
-                      flexWrap: isMobile ? 'nowrap' : 'wrap',
+                      flexWrap: 'nowrap',
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -1265,8 +1265,8 @@ export default function Directory() {
                             onClick={() => setDetailTab(tab)}
                             style={{
                               ...mono,
-                              padding: '9px 16px',
-                              fontSize: 11,
+                              padding: '9px 10px',
+                              fontSize: 10,
                               fontWeight: 700,
                               border: 'none',
                               background: 'none',
@@ -1277,6 +1277,7 @@ export default function Directory() {
                                 : '2px solid transparent',
                               position: 'relative',
                               textTransform: 'capitalize',
+                              flexShrink: 0,
                             }}
                           >
                             {tab}
@@ -1313,8 +1314,7 @@ export default function Directory() {
                         const isJointType = selectedInvestor.types.some((t) => t === 'Joint' || t === 'Joint Individual' || t === 'Individual or Joint Individuals');
                         return [
                         { label: 'Profile Type', value: selectedInvestor.types[0] || '-', key: 'profileType', editable: true, isSelect: true, options: ['Individual', 'Joint Individual', 'Revocable Trust', 'Irrevocable Trust', 'IRA', 'Entity'] },
-                        // For Joint types, Profile Name moves to Contacts section
-                        ...(!isJointType ? [{ label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true }] : []),
+                        { label: 'Profile Name', value: selectedInvestor.name || '-', key: 'name', editable: true },
                         { label: 'Funds', value: selectedInvestor.funds.join(', ') || '-', key: 'funds' },
                         { label: 'Phone', value: selectedInvestor.phone || '', key: 'phone', editable: true, isPhone: true },
                         { label: 'Email', value: selectedInvestor.email || '', key: 'email', editable: true, isEmail: true },
