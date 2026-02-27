@@ -223,7 +223,7 @@ export default function Directory() {
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
   const [showAddCompliance, setShowAddCompliance] = useState(false)
-  const [newComplianceForm, setNewComplianceForm] = useState({ doc: 'General', issue: '', priority: 'standard' })
+  const [newComplianceForm, setNewComplianceForm] = useState({ doc: '', issue: '' })
   const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
   const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
   const savedRef = useRef(false) // prevents double-save on Enter + blur
@@ -1894,27 +1894,14 @@ export default function Directory() {
                           </button>
                         ) : (
                           <div style={{ padding: 14, background: 'var(--bgI)', borderLeft: '3px solid var(--blu)', borderRadius: '0 5px 5px 0' }}>
-                            <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--t4)', marginBottom: 8 }}>New Compliance Item</div>
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                              <select
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <input
+                                type="text"
                                 value={newComplianceForm.doc}
                                 onChange={(e) => setNewComplianceForm((f) => ({ ...f, doc: e.target.value }))}
-                                style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
-                              >
-                                {['Investor Questionnaire', 'Partnership Agreement', 'W-9', 'Subscription Agreement', 'Schedule A', 'GP Signature', 'General'].map((d) => (
-                                  <option key={d} value={d}>{d}</option>
-                                ))}
-                              </select>
-                              <select
-                                value={newComplianceForm.priority}
-                                onChange={(e) => setNewComplianceForm((f) => ({ ...f, priority: e.target.value }))}
-                                style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
-                              >
-                                <option value="standard">Standard</option>
-                                <option value="blocking">Blocking</option>
-                              </select>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                                placeholder="Doc type (e.g. W-9, Sub Doc)..."
+                                style={{ width: 180, ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
+                              />
                               <input
                                 type="text"
                                 value={newComplianceForm.issue}
@@ -1928,14 +1915,13 @@ export default function Directory() {
                                       name: selectedInvestor.name,
                                       entity: selectedInvestor.entities[0] || '',
                                       fund: selectedInvestor.funds[0] || '',
-                                      doc: newComplianceForm.doc,
+                                      doc: newComplianceForm.doc.trim() || 'General',
                                       issue: newComplianceForm.issue.trim(),
-                                      priority: newComplianceForm.priority,
                                     }, googleUserEmail || 'j@vegarei.com')
-                                    setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' })
+                                    setNewComplianceForm({ doc: '', issue: '' })
                                     setShowAddCompliance(false)
                                   }
-                                  if (e.key === 'Escape') { setShowAddCompliance(false); setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' }) }
+                                  if (e.key === 'Escape') { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '' }) }
                                 }}
                                 style={{
                                   flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)',
@@ -1951,11 +1937,10 @@ export default function Directory() {
                                     name: selectedInvestor.name,
                                     entity: selectedInvestor.entities[0] || '',
                                     fund: selectedInvestor.funds[0] || '',
-                                    doc: newComplianceForm.doc,
+                                    doc: newComplianceForm.doc.trim() || 'General',
                                     issue: newComplianceForm.issue.trim(),
-                                    priority: newComplianceForm.priority,
                                   }, googleUserEmail || 'j@vegarei.com')
-                                  setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' })
+                                  setNewComplianceForm({ doc: '', issue: '' })
                                   setShowAddCompliance(false)
                                 }}
                                 disabled={!newComplianceForm.issue.trim()}
@@ -1969,7 +1954,7 @@ export default function Directory() {
                                 Add
                               </button>
                               <button
-                                onClick={() => { setShowAddCompliance(false); setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' }) }}
+                                onClick={() => { setShowAddCompliance(false); setNewComplianceForm({ doc: '', issue: '' }) }}
                                 style={{
                                   ...mono, fontSize: 10, fontWeight: 700, padding: '6px 10px',
                                   border: '1px solid var(--bd)', background: 'transparent',
