@@ -10,14 +10,11 @@ import { Routes, Route } from 'react-router-dom';
 import AlmHeader from './components/AlmHeader';
 import AlmToast from './components/AlmToast';
 import AlmDashboard from './pages/AlmDashboard';
-import useAlmUiStore from './stores/almUiStore';
 import './alm-theme.css';
 
 export default function AlmApp() {
-  const theme = useAlmUiStore((s) => s.theme);
-
   return (
-    <div className="alm-root" data-theme={theme}>
+    <div className="alm-root" data-theme="light">
       <div className="alm-grid-bg" />
       <AlmHeader />
       <div style={{ position: 'relative', zIndex: 1 }}>
