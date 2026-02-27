@@ -60,8 +60,8 @@ export default function AlmHeader() {
           style={{
             ...sans,
             fontSize: 11,
-            fontWeight: 300,
-            color: 'var(--alm-t4)',
+            fontWeight: 400,
+            color: 'var(--alm-t3)',
             cursor: 'pointer',
             letterSpacing: '0.05em',
             transition: 'color 0.15s',
@@ -122,7 +122,7 @@ export default function AlmHeader() {
                 style={{
                   ...sans,
                   fontSize: 11,
-                  fontWeight: isActive ? 400 : 300,
+                  fontWeight: isActive ? 500 : 400,
                   background: isActive ? 'var(--alm-plum-bg)' : 'transparent',
                   border: 'none',
                   color: isActive ? 'var(--alm-plum)' : 'var(--alm-t4)',

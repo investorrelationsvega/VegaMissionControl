@@ -22,7 +22,7 @@ export default function AlmToast() {
         borderRadius: 6,
         padding: '10px 20px',
         fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        fontWeight: 300,
+        fontWeight: 400,
         fontSize: 12,
         color: 'var(--alm-plum)',
         zIndex: 9999,

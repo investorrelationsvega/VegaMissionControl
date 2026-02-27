@@ -148,7 +148,7 @@ export default function AlmDashboard() {
         >
           Assisted Living Management
         </h1>
-        <p style={{ ...sans, fontSize: 14, fontWeight: 300, color: 'var(--alm-t4)', margin: 0 }}>
+        <p style={{ ...sans, fontSize: 14, fontWeight: 400, color: 'var(--alm-t3)', margin: 0 }}>
           Care that feels like home, managed with heart.
         </p>
       </div>
@@ -195,7 +195,7 @@ export default function AlmDashboard() {
         </div>
 
         {/* Selection hint */}
-        <div style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginBottom: 12, textAlign: 'center' }}>
+        <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t3)', marginBottom: 12, textAlign: 'center' }}>
           Click a home to view its report card &middot; Select multiple to compare
         </div>
 
@@ -249,9 +249,9 @@ export default function AlmDashboard() {
                   <span
                     style={{
                       ...sans,
-                      fontSize: 9,
+                      fontSize: 10,
                       fontWeight: 400,
-                      color: 'var(--alm-t5)',
+                      color: 'var(--alm-t4)',
                       letterSpacing: '0.08em',
                       textTransform: 'uppercase',
                     }}
@@ -277,7 +277,7 @@ export default function AlmDashboard() {
                 <div style={{ display: 'flex', gap: 20 }}>
                   {home.beds != null && (
                     <div>
-                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
                         Beds
                       </div>
                       <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
@@ -287,7 +287,7 @@ export default function AlmDashboard() {
                   )}
                   {home.sqft != null && (
                     <div>
-                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
                         Sq Ft
                       </div>
                       <div style={{ ...serif, fontSize: 18, color: 'var(--alm-t1)' }}>
@@ -301,7 +301,7 @@ export default function AlmDashboard() {
                 {home.noi != null && (
                   <div style={{ display: 'flex', gap: 20, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--alm-bd)' }}>
                     <div>
-                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
                         NOI
                       </div>
                       <div style={{ ...serif, fontSize: 16, color: 'var(--alm-neptune)' }}>
@@ -309,7 +309,7 @@ export default function AlmDashboard() {
                       </div>
                     </div>
                     <div>
-                      <div style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                      <div style={{ ...sans, fontSize: 11, fontWeight: 500, color: 'var(--alm-t3)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
                         Margin
                       </div>
                       <div style={{ ...serif, fontSize: 16, color: 'var(--alm-neptune)' }}>
@@ -321,7 +321,7 @@ export default function AlmDashboard() {
 
                 {/* Note for pre-revenue / pipeline homes */}
                 {home.note && home.noi == null && (
-                  <div style={{ ...sans, fontSize: 11, fontWeight: 300, color: 'var(--alm-t4)', marginTop: 10, fontStyle: 'italic' }}>
+                  <div style={{ ...sans, fontSize: 11, fontWeight: 400, color: 'var(--alm-t3)', marginTop: 10, fontStyle: 'italic' }}>
                     {home.note}
                   </div>
                 )}
@@ -329,7 +329,7 @@ export default function AlmDashboard() {
                 {/* Footer: acquired date */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
                   {home.acquired ? (
-                    <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+                    <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)' }}>
                       Acquired {home.acquired}
                     </span>
                   ) : (
@@ -348,7 +348,7 @@ export default function AlmDashboard() {
                       {isSelected ? 'Selected' : 'View Report Card'}
                     </span>
                   ) : (
-                    <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)', fontStyle: 'italic' }}>
+                    <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)', fontStyle: 'italic' }}>
                       No financial data yet
                     </span>
                   )}
@@ -384,14 +384,14 @@ export default function AlmDashboard() {
               }
               style={{
                 ...sans,
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 500,
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 padding: '2px 7px',
                 borderRadius: 8,
                 background: reportData.source === 'live' ? 'var(--alm-neptune-bg)' : 'var(--alm-plum-bg)',
-                color: reportData.source === 'live' ? 'var(--alm-neptune)' : 'var(--alm-t4)',
+                color: reportData.source === 'live' ? 'var(--alm-neptune)' : 'var(--alm-t3)',
                 cursor: 'default',
               }}
             >
@@ -413,7 +413,7 @@ export default function AlmDashboard() {
                     style={{
                       ...sans,
                       fontSize: 11,
-                      fontWeight: isActive ? 500 : 300,
+                      fontWeight: isActive ? 500 : 400,
                       padding: '5px 12px',
                       borderRadius: 16,
                       border: isActive ? '1.5px solid var(--alm-plum)' : '1px solid var(--alm-bd)',
@@ -446,14 +446,14 @@ export default function AlmDashboard() {
               title="Compares cumulative QuickBooks actuals against underwriting proforma targets"
               style={{
                 ...sans,
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 500,
                 letterSpacing: '0.06em',
                 textTransform: 'uppercase',
                 padding: '2px 7px',
                 borderRadius: 8,
                 background: 'var(--alm-plum-bg)',
-                color: 'var(--alm-t4)',
+                color: 'var(--alm-t3)',
                 cursor: 'default',
               }}
             >
@@ -517,7 +517,7 @@ export default function AlmDashboard() {
               <span style={{ ...serif, fontSize: 18, color: 'var(--alm-plum)', opacity: 0.5, lineHeight: 1 }}>
                 {v.num}
               </span>
-              <span style={{ ...sans, fontSize: 13, fontWeight: 300, color: 'var(--alm-t2)' }}>
+              <span style={{ ...sans, fontSize: 13, fontWeight: 400, color: 'var(--alm-t2)' }}>
                 {v.title}
               </span>
             </div>
@@ -539,11 +539,11 @@ export default function AlmDashboard() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <PlumStar size={8} />
-          <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+          <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)' }}>
             Vega Assisted Living Management
           </span>
         </div>
-        <span style={{ ...sans, fontSize: 10, fontWeight: 300, color: 'var(--alm-t5)' }}>
+        <span style={{ ...sans, fontSize: 10, fontWeight: 400, color: 'var(--alm-t4)' }}>
           {HOMES.length} homes across Utah &amp; Arizona
         </span>
       </div>
