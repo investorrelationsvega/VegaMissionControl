@@ -223,6 +223,8 @@ export default function Directory() {
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
   const [showAddCompliance, setShowAddCompliance] = useState(false)
+  const [addEntityValue, setAddEntityValue] = useState('')
+  const [showAddEntity, setShowAddEntity] = useState(false)
   const [newComplianceForm, setNewComplianceForm] = useState({ doc: '', issue: '', entity: '' })
   const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
   const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
@@ -1322,7 +1324,6 @@ export default function Directory() {
                         { label: 'State', value: selectedInvestor.state || '', key: 'state', editable: true },
                         { label: 'Advisor', value: selectedInvestor.advisor || '', key: 'advisor', editable: true, isSelect: true, options: advisors.map((a) => a.name) },
                         { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
-                        { label: selectedInvestor.entities.length > 1 ? `Entities (${selectedInvestor.entities.length})` : 'Entity Name', value: selectedInvestor.entities.join(', ') || '-', key: 'entityName', editable: true },
                         { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
                         { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status', editable: true, isSelect: true, options: ['Approved', 'Pending', 'Declined', 'Redeemed'] },
                         { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered', editable: true },
@@ -1476,6 +1477,93 @@ export default function Directory() {
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Entities Section */}
+                    <div style={{ marginTop: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <span style={{ ...mono, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--t4)' }}>
+                          Entities{selectedInvestor.entities.length > 0 ? ` (${selectedInvestor.entities.length})` : ''}
+                        </span>
+                        {!showAddEntity && (
+                          <button
+                            onClick={() => setShowAddEntity(true)}
+                            style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(96,165,250,0.3)', background: 'var(--bluM)', color: 'var(--blu)', borderRadius: 4, cursor: 'pointer' }}
+                          >
+                            + Add Entity
+                          </button>
+                        )}
+                      </div>
+                      {selectedInvestor.entities.length === 0 && !showAddEntity && (
+                        <div style={{ fontSize: 12, color: 'var(--t4)', fontStyle: 'italic', marginBottom: 8 }}>No entities</div>
+                      )}
+                      {selectedInvestor.entities.map((ent) => (
+                        <div
+                          key={ent}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            background: 'var(--bgI)', borderRadius: 5, padding: '8px 12px', marginBottom: 6,
+                          }}
+                        >
+                          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{ent}</span>
+                          <button
+                            onClick={() => investorStore.removeEntity(selectedInvestor.id, ent, googleUserEmail || 'j@vegarei.com')}
+                            title="Remove entity"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
+                          >
+                            <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, fill: 'var(--t5)' }}>
+                              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                      {showAddEntity && (
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                          <input
+                            type="text"
+                            value={addEntityValue}
+                            onChange={(e) => setAddEntityValue(e.target.value)}
+                            placeholder="Entity name..."
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && addEntityValue.trim()) {
+                                investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail || 'j@vegarei.com')
+                                setAddEntityValue('')
+                                setShowAddEntity(false)
+                              }
+                              if (e.key === 'Escape') { setShowAddEntity(false); setAddEntityValue('') }
+                            }}
+                            style={{
+                              flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)',
+                              border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px',
+                              color: 'var(--t1)', outline: 'none',
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              if (!addEntityValue.trim()) return
+                              investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail || 'j@vegarei.com')
+                              setAddEntityValue('')
+                              setShowAddEntity(false)
+                            }}
+                            disabled={!addEntityValue.trim()}
+                            style={{
+                              ...mono, fontSize: 10, fontWeight: 700, padding: '6px 12px',
+                              border: '1px solid rgba(96,165,250,0.3)', background: 'var(--bluM)',
+                              color: 'var(--blu)', borderRadius: 4, cursor: 'pointer',
+                              opacity: addEntityValue.trim() ? 1 : 0.4,
+                            }}
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => { setShowAddEntity(false); setAddEntityValue('') }}
+                            style={{ ...mono, fontSize: 10, fontWeight: 700, padding: '6px 8px', border: '1px solid var(--bd)', background: 'transparent', color: 'var(--t4)', borderRadius: 4, cursor: 'pointer' }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Contacts / Owners Section */}

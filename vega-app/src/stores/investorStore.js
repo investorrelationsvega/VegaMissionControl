@@ -1170,6 +1170,83 @@ const useInvestorStore = create(
       };
     }),
 
+  // ── Add / Remove Entities ───────────────────────────────────────────
+  addEntity: (invId, entityName, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor || !entityName) return state;
+      if (investor.entities.includes(entityName)) return state;
+
+      const now = new Date().toISOString();
+      const updatedEntities = [...investor.entities, entityName];
+
+      const updatedInvestors = {
+        ...state.investors,
+        [invId]: { ...investor, entities: updatedEntities },
+      };
+
+      // Write the full comma-separated entity list to the Investors sheet
+      reliableWrite(`Add entity "${entityName}" for ${investor.name}`, () =>
+        updateInvestorField(invId, 'entity', updatedEntities.join(', ')));
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-addent`,
+        invId,
+        action: 'Entity Added',
+        detail: `Added entity: "${entityName}"`,
+        user,
+        timestamp: now,
+      };
+
+      reliableWrite(`Audit: entity added for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id, recordType: 'investor', recordId: invId,
+          action: auditEntry.action, notes: auditEntry.detail, user, timestamp: now,
+        }));
+
+      return {
+        investors: updatedInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
+  removeEntity: (invId, entityName, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const now = new Date().toISOString();
+      const updatedEntities = investor.entities.filter((e) => e !== entityName);
+
+      const updatedInvestors = {
+        ...state.investors,
+        [invId]: { ...investor, entities: updatedEntities },
+      };
+
+      reliableWrite(`Remove entity "${entityName}" for ${investor.name}`, () =>
+        updateInvestorField(invId, 'entity', updatedEntities.join(', ')));
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-rment`,
+        invId,
+        action: 'Entity Removed',
+        detail: `Removed entity: "${entityName}"`,
+        user,
+        timestamp: now,
+      };
+
+      reliableWrite(`Audit: entity removed for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id, recordType: 'investor', recordId: invId,
+          action: auditEntry.action, notes: auditEntry.detail, user, timestamp: now,
+        }));
+
+      return {
+        investors: updatedInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
   // ── Position Signed / Funded Dates ─────────────────────────────────
   updatePositionDates: (positionId, updates, user = 'System') => {
     const state = get();
