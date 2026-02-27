@@ -197,8 +197,8 @@ function LineItemRow({ label, actual, budget, inverse }) {
 // SINGLE HOME VIEW
 // ═══════════════════════════════════════════════════════════
 
-function SingleHomeView({ home, isMobile }) {
-  const data = REPORT_CARD_DATA;
+function SingleHomeView({ home, isMobile, reportData }) {
+  const data = reportData;
   const gpa = computeHomeGpa(home);
   const overall = gradeFromGpa(gpa);
   const margin = (home.noi.actual / home.revenue.actual) * 100;
@@ -299,8 +299,8 @@ function RankBadge({ rank }) {
   );
 }
 
-function ComparisonView({ homes, isMobile }) {
-  const data = REPORT_CARD_DATA;
+function ComparisonView({ homes, isMobile, reportData }) {
+  const data = reportData;
   const colCount = homes.length;
 
   // Pre-compute GPAs
@@ -502,9 +502,9 @@ function ComparisonView({ homes, isMobile }) {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
 
-export default function FinancialReportCard({ selectedHomes = [] }) {
+export default function FinancialReportCard({ selectedHomes = [], reportData: reportDataProp }) {
   const { isMobile } = useResponsive();
-  const data = REPORT_CARD_DATA;
+  const data = reportDataProp || REPORT_CARD_DATA;
 
   // Resolve selected home names to data objects
   const homes = selectedHomes
@@ -543,8 +543,8 @@ export default function FinancialReportCard({ selectedHomes = [] }) {
       </div>
 
       {homes.length === 1
-        ? <SingleHomeView home={homes[0]} isMobile={isMobile} />
-        : <ComparisonView homes={homes} isMobile={isMobile} />
+        ? <SingleHomeView home={homes[0]} isMobile={isMobile} reportData={data} />
+        : <ComparisonView homes={homes} isMobile={isMobile} reportData={data} />
       }
     </div>
   );

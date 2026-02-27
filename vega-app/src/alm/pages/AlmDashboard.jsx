@@ -6,10 +6,11 @@
 // Data: ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
 // ═══════════════════════════════════════════════
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useResponsive from '../hooks/useResponsive';
 import FinancialReportCard from '../components/FinancialReportCard';
 import REPORT_CARD_DATA from '../data/reportCardData';
+import { fetchReportCardData } from '../services/almFinancialService';
 
 const serif = { fontFamily: "'Noto Serif Display', Georgia, serif", fontWeight: 500, fontStretch: 'extra-condensed' };
 const sans = { fontFamily: "'HK Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" };
@@ -36,8 +37,8 @@ const fmtK = (n) => {
 const fmtNum = (n) => (n == null ? '--' : n.toLocaleString());
 const fmtPct = (n) => (n == null ? '--' : `${n.toFixed(1)}%`);
 
-// Names of homes that have report card data
-const HOMES_WITH_DATA = new Set(REPORT_CARD_DATA.homes.map((h) => h.name));
+// Default set (static data); overridden once live data loads
+const DEFAULT_HOMES_WITH_DATA = new Set(REPORT_CARD_DATA.homes.map((h) => h.name));
 
 // ── Real Home Data ─────────────────────────────────────────
 // Source: Vega ALF II Annual Report (Feb 2026) + West Jordan (Fund I)
@@ -68,10 +69,19 @@ const STATUS_COLORS = {
 export default function AlmDashboard() {
   const { isMobile, isTablet } = useResponsive();
   const [selectedHomes, setSelectedHomes] = useState([]);
+  const [reportData, setReportData] = useState(REPORT_CARD_DATA);
+
+  // Try to load live data from the Google Sheet (falls back to static)
+  useEffect(() => {
+    fetchReportCardData().then(setReportData);
+  }, []);
+
+  // Which homes have financial data (derived from live or static data)
+  const homesWithData = new Set(reportData.homes.map((h) => h.name));
 
   // Toggle home selection
   const toggleHome = (name) => {
-    if (!HOMES_WITH_DATA.has(name)) return;
+    if (!homesWithData.has(name)) return;
     setSelectedHomes((prev) =>
       prev.includes(name)
         ? prev.filter((n) => n !== name)
@@ -325,7 +335,7 @@ export default function AlmDashboard() {
       </div>
 
       {/* ── Financial Report Card (appears below homes when selected) ── */}
-      <FinancialReportCard selectedHomes={selectedHomes} />
+      <FinancialReportCard selectedHomes={selectedHomes} reportData={reportData} />
 
       {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
       <div
