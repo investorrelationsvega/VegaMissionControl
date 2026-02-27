@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import useResponsive from '../hooks/useResponsive';
 import FinancialReportCard from '../components/FinancialReportCard';
+import ProformaTracker from '../components/ProformaTracker';
 import REPORT_CARD_DATA from '../data/reportCardData';
 import { fetchReportCardData } from '../services/almFinancialService';
 
@@ -432,6 +433,36 @@ export default function AlmDashboard() {
         </div>
 
         <FinancialReportCard selectedHomes={selectedHomes} reportData={currentPeriodData} />
+      </div>
+
+      {/* ── Proforma vs Actuals ─────────────────────────────────── */}
+      <div style={{ marginBottom: 16, marginTop: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <span className="alm-section-label">
+              Proforma vs Actuals
+            </span>
+            <span
+              title="Compares cumulative QuickBooks actuals against underwriting proforma targets"
+              style={{
+                ...sans,
+                fontSize: 9,
+                fontWeight: 500,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                padding: '2px 7px',
+                borderRadius: 8,
+                background: 'var(--alm-plum-bg)',
+                color: 'var(--alm-t4)',
+                cursor: 'default',
+              }}
+            >
+              Underwriting
+            </span>
+          </div>
+          <div style={{ flex: 1, height: 1, background: 'var(--alm-bd)' }} />
+        </div>
+        <ProformaTracker periods={periods} />
       </div>
 
       {/* ── Two Column: Portfolio Quick Look + Values ─────────── */}
