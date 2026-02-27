@@ -222,6 +222,8 @@ export default function Directory() {
   const [reopenNotes, setReopenNotes] = useState({}) // { [complianceId]: string }
   const [showReopenInput, setShowReopenInput] = useState({}) // { [complianceId]: true }
   const [showComplianceAudit, setShowComplianceAudit] = useState({}) // { [complianceId]: true }
+  const [showAddCompliance, setShowAddCompliance] = useState(false)
+  const [newComplianceForm, setNewComplianceForm] = useState({ doc: 'General', issue: '', priority: 'standard' })
   const [editingPosDate, setEditingPosDate] = useState(null) // { posId, field } for inline date editing
   const [editingDateValue, setEditingDateValue] = useState('') // controlled value for the date input
   const savedRef = useRef(false) // prevents double-save on Enter + blur
@@ -1877,7 +1879,111 @@ export default function Directory() {
                   {/* ── Tab 3: Compliance ────────── */}
                   {detailTab === 'compliance' && (
                     <div>
-                      {invCompliance.length === 0 ? (
+                      {/* Add compliance item button / form */}
+                      <div style={{ marginBottom: 12 }}>
+                        {!showAddCompliance ? (
+                          <button
+                            onClick={() => setShowAddCompliance(true)}
+                            style={{
+                              ...mono, fontSize: 10, fontWeight: 700, padding: '5px 12px',
+                              border: '1px solid var(--bd)', background: 'var(--bgI)',
+                              color: 'var(--t3)', borderRadius: 4, cursor: 'pointer',
+                            }}
+                          >
+                            + Add Item
+                          </button>
+                        ) : (
+                          <div style={{ padding: 14, background: 'var(--bgI)', borderLeft: '3px solid var(--blu)', borderRadius: '0 5px 5px 0' }}>
+                            <div style={{ ...mono, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--t4)', marginBottom: 8 }}>New Compliance Item</div>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                              <select
+                                value={newComplianceForm.doc}
+                                onChange={(e) => setNewComplianceForm((f) => ({ ...f, doc: e.target.value }))}
+                                style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
+                              >
+                                {['Investor Questionnaire', 'Partnership Agreement', 'W-9', 'Subscription Agreement', 'Schedule A', 'GP Signature', 'General'].map((d) => (
+                                  <option key={d} value={d}>{d}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={newComplianceForm.priority}
+                                onChange={(e) => setNewComplianceForm((f) => ({ ...f, priority: e.target.value }))}
+                                style={{ ...mono, fontSize: 12, background: 'var(--bg0)', border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px', color: 'var(--t1)', outline: 'none' }}
+                              >
+                                <option value="standard">Standard</option>
+                                <option value="blocking">Blocking</option>
+                              </select>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <input
+                                type="text"
+                                value={newComplianceForm.issue}
+                                onChange={(e) => setNewComplianceForm((f) => ({ ...f, issue: e.target.value }))}
+                                placeholder="Describe the issue..."
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && newComplianceForm.issue.trim()) {
+                                    complianceStore.addItem({
+                                      invId: selectedInvestor.id,
+                                      name: selectedInvestor.name,
+                                      entity: selectedInvestor.entities[0] || '',
+                                      fund: selectedInvestor.funds[0] || '',
+                                      doc: newComplianceForm.doc,
+                                      issue: newComplianceForm.issue.trim(),
+                                      priority: newComplianceForm.priority,
+                                    }, googleUserEmail || 'j@vegarei.com')
+                                    setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' })
+                                    setShowAddCompliance(false)
+                                  }
+                                  if (e.key === 'Escape') { setShowAddCompliance(false); setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' }) }
+                                }}
+                                style={{
+                                  flex: 1, ...mono, fontSize: 12, background: 'var(--bg0)',
+                                  border: '1px solid var(--bd)', borderRadius: 4, padding: '6px 8px',
+                                  color: 'var(--t1)', outline: 'none',
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  if (!newComplianceForm.issue.trim()) return
+                                  complianceStore.addItem({
+                                    invId: selectedInvestor.id,
+                                    name: selectedInvestor.name,
+                                    entity: selectedInvestor.entities[0] || '',
+                                    fund: selectedInvestor.funds[0] || '',
+                                    doc: newComplianceForm.doc,
+                                    issue: newComplianceForm.issue.trim(),
+                                    priority: newComplianceForm.priority,
+                                  }, googleUserEmail || 'j@vegarei.com')
+                                  setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' })
+                                  setShowAddCompliance(false)
+                                }}
+                                disabled={!newComplianceForm.issue.trim()}
+                                style={{
+                                  ...mono, fontSize: 10, fontWeight: 700, padding: '6px 14px',
+                                  border: '1px solid rgba(96,165,250,0.3)', background: 'var(--bluM)',
+                                  color: 'var(--blu)', borderRadius: 4, cursor: 'pointer', whiteSpace: 'nowrap',
+                                  opacity: newComplianceForm.issue.trim() ? 1 : 0.4,
+                                }}
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setShowAddCompliance(false); setNewComplianceForm({ doc: 'General', issue: '', priority: 'standard' }) }}
+                                style={{
+                                  ...mono, fontSize: 10, fontWeight: 700, padding: '6px 10px',
+                                  border: '1px solid var(--bd)', background: 'transparent',
+                                  color: 'var(--t4)', borderRadius: 4, cursor: 'pointer',
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {invCompliance.length === 0 && !showAddCompliance ? (
                         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--t4)', ...mono, fontSize: 13 }}>
                           No compliance issues -- all clear {'\u2713'}
                         </div>

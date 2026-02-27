@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { complianceItems as seedComplianceItems } from '../data/seedData';
-import { updateComplianceStatus, appendAuditLog } from '../services/sheetsService';
+import { updateComplianceStatus, appendAuditLog, appendComplianceRow } from '../services/sheetsService';
 import { reliableWrite } from '../services/sheetsWriteQueue';
 
 const useComplianceStore = create(
@@ -173,6 +173,58 @@ const useComplianceStore = create(
             items: state.items.map((i) =>
               i.id === id ? { ...i, priority: newPriority } : i,
             ),
+            auditLog: [...state.auditLog, logEntry],
+          };
+        }),
+
+      addItem: ({ invId, name, entity, fund, doc, issue, priority = 'standard' }, email = 'j@vegarei.com') =>
+        set((state) => {
+          const now = new Date().toISOString();
+          const nextNum = state.items.length + 1;
+          const id = `C${String(nextNum).padStart(2, '0')}`;
+
+          const newItem = {
+            id,
+            invId,
+            name: name || '',
+            entity: entity || '',
+            fund: fund || '',
+            doc,
+            issue,
+            status: 'Open',
+            priority,
+            resolvedBy: '',
+            resolvedDate: '',
+            notes: '',
+            createdDate: now,
+          };
+
+          const logEntry = {
+            id: `CL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            itemId: id,
+            invId,
+            action: 'Created',
+            detail: `New compliance item: ${doc} — ${issue}`,
+            user: email,
+            timestamp: now,
+            notes: '',
+          };
+
+          reliableWrite(`Add compliance ${id}`, () =>
+            appendComplianceRow(newItem));
+          reliableWrite(`Audit: compliance ${id} created`, () =>
+            appendAuditLog({
+              id: logEntry.id,
+              recordType: 'compliance',
+              recordId: id,
+              action: 'Created',
+              notes: logEntry.detail,
+              user: email,
+              timestamp: now,
+            }));
+
+          return {
+            items: [...state.items, newItem],
             auditLog: [...state.auditLog, logEntry],
           };
         }),
