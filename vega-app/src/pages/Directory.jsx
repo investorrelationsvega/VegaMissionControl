@@ -1318,7 +1318,7 @@ export default function Directory() {
                         { label: 'State', value: selectedInvestor.state || '', key: 'state', editable: true },
                         { label: 'Advisor', value: selectedInvestor.advisor || '', key: 'advisor', editable: true, isSelect: true, options: advisors.map((a) => a.name) },
                         { label: 'Custodian', value: selectedInvestor.custodian || '', key: 'custodian', editable: true, isSelect: true, options: custodians.map((c) => c.name) },
-                        ...(!isJointType ? [{ label: 'Entities', value: selectedInvestor.entities.join(', ') || '-', key: 'entities' }] : []),
+                        { label: 'Entity Name', value: selectedInvestor.entities[0] || '-', key: 'entityName', editable: true },
                         { label: 'Total Committed', value: fmtK(selectedInvestor.totalCommitted), key: 'totalCommitted' },
                         { label: 'Status', value: selectedInvestor.pipeline?.stage || selectedInvestor.status || '-', key: 'status', editable: true, isSelect: true, options: ['Approved', 'Pending', 'Declined', 'Redeemed'] },
                         { label: 'Date Entered', value: selectedInvestor.pipeline?.enteredDate || '-', key: 'dateEntered', editable: true },
@@ -1395,6 +1395,8 @@ export default function Directory() {
                                     if (e.key === 'Enter') {
                                       if (field.key === 'name') {
                                         investorStore.updateInvestorName(selectedInvestor.id, editValue, googleUserEmail)
+                                      } else if (field.key === 'entityName') {
+                                        investorStore.updateEntityName(selectedInvestor.id, editValue, googleUserEmail)
                                       } else if (field.key === 'dateEntered') {
                                         investorStore.updateDateEntered(selectedInvestor.id, editValue, googleUserEmail)
                                       } else {
@@ -1408,6 +1410,8 @@ export default function Directory() {
                                     if (editValue !== field.value) {
                                       if (field.key === 'name') {
                                         investorStore.updateInvestorName(selectedInvestor.id, editValue, googleUserEmail)
+                                      } else if (field.key === 'entityName') {
+                                        investorStore.updateEntityName(selectedInvestor.id, editValue, googleUserEmail)
                                       } else if (field.key === 'dateEntered') {
                                         investorStore.updateDateEntered(selectedInvestor.id, editValue, googleUserEmail)
                                       } else {
