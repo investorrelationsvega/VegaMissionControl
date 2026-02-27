@@ -1,10 +1,21 @@
 // ═══════════════════════════════════════════════════════════════════
 // ALM — QuickBooks Auto-Sync (Google Apps Script)
 //
-// This script runs automatically in Google Apps Script. It watches
-// your Gmail for QuickBooks Budget vs Actual reports (Excel), parses
-// the data, and writes it to the ALM_Financial tab in your Vega
-// Google Sheet. The ALM dashboard then reads from that tab.
+// Watches Gmail for QuickBooks Budget vs Actual reports (Excel),
+// parses the data, and writes it to the ALM_Financial tab in the
+// Vega Google Sheet. The ALM dashboard reads from that tab.
+//
+// ── DATA FORMAT ─────────────────────────────────────────────────
+//
+// The script stores a multi-period JSON blob in the sheet:
+//   { revenueLabels, expenseLabels, periods: [
+//       { month: "January", year: 2026, homes: [...] },
+//       { month: "February", year: 2026, homes: [...] },
+//     ]
+//   }
+//
+// Each sync merges new data into the existing periods. Historical
+// months are preserved — nothing is overwritten.
 //
 // ── SETUP (one time) ──────────────────────────────────────────────
 //
@@ -12,24 +23,26 @@
 // 2. Paste this entire file into Code.gs
 // 3. Click the "+" next to "Services" in the left panel
 //    → Add "Google Sheets API" (v4)
-//    → Add "Google Drive API" (v3)
+//    → Add "Google Drive API" (v2)
 // 4. Update the CONFIG section below with your values
 // 5. Run the function: initialSetup()
-//    (This creates a daily trigger so it runs automatically)
+//    (This creates Gmail label + daily trigger)
 // 6. Authorize the permissions when prompted
 //
-// That's it! The script will check your inbox once per day
-// and sync any new QuickBooks reports to the dashboard.
+// To verify everything works WITHOUT waiting for a real email:
+//   Run writeSampleData() — it writes one month of test data
+//   to the sheet so you can confirm the dashboard picks it up.
+//   Then run clearSampleData() to remove it when done.
 //
 // ── HOW IT WORKS ──────────────────────────────────────────────────
 //
 // 1. Searches Gmail for emails matching GMAIL_QUERY
 // 2. For each new (unlabeled) email with an .xlsx attachment:
 //    a. Downloads the Excel file
-//    b. Converts it to a temporary Google Sheet
+//    b. Converts it to a temporary Google Sheet via Drive API
 //    c. Parses the Budget vs Actual data
-//    d. Maps line items to the dashboard data structure
-//    e. Writes JSON to the ALM_Financial tab
+//    d. Maps line items to the dashboard categories
+//    e. Merges into the multi-period JSON in the sheet
 //    f. Labels the email as "ALM-Synced"
 //    g. Deletes the temp sheet
 //
@@ -53,8 +66,8 @@ var CONFIG = {
   LABEL_NAME: 'ALM-Synced',
 
   // Map home names as they appear in your QuickBooks reports
-  // The key is what appears in the email subject or report title (case-insensitive)
-  // The value is the canonical name used in the dashboard
+  // Key = what appears in the email subject or filename (case-insensitive)
+  // Value = canonical name used in the dashboard
   HOME_NAMES: {
     'cedar city':        'Cedar City',
     'riverton':          'Riverton',
@@ -63,7 +76,7 @@ var CONFIG = {
     'hearthstone manor': 'Hearthstone Manor',
   },
 
-  // Bed count per home (used for the dashboard display)
+  // Bed count per home
   HOME_BEDS: {
     'Cedar City':        20,
     'Riverton':          18,
@@ -71,8 +84,7 @@ var CONFIG = {
     'Hearthstone Manor': 35,
   },
 
-  // Occupancy targets per home (QuickBooks doesn't track this)
-  // Update these if targets change
+  // Occupancy targets (QuickBooks doesn't track this)
   OCCUPANCY_TARGETS: {
     'Cedar City':        85,
     'Riverton':          85,
@@ -82,8 +94,7 @@ var CONFIG = {
 
   // ── QuickBooks Report Mapping ──────────────────────────────
   // Map your QuickBooks account names to dashboard categories.
-  // These are matched case-insensitively against the Excel row labels.
-  // Adjust these to match your Chart of Accounts.
+  // Matched case-insensitively against the Excel row labels.
 
   REVENUE_ACCOUNTS: [
     { match: /room\s*(&|and)\s*board/i,     label: 'Room & Board' },
@@ -106,7 +117,7 @@ var CONFIG = {
 
 
 // ═══════════════════════════════════════════════════════════════════
-// SETUP FUNCTION — Run this once
+// SETUP — Run once
 // ═══════════════════════════════════════════════════════════════════
 
 function initialSetup() {
@@ -117,7 +128,7 @@ function initialSetup() {
     Logger.log('Created Gmail label: ' + CONFIG.LABEL_NAME);
   }
 
-  // Ensure the ALM_Financial tab exists with headers
+  // Ensure the ALM_Financial tab exists
   ensureTab_();
 
   // Create a daily trigger (runs every morning at 7 AM)
@@ -132,13 +143,20 @@ function initialSetup() {
     Logger.log('Created daily trigger for syncQuickBooksReports at 7 AM');
   }
 
-  Logger.log('Setup complete! The script will now run daily.');
-  Logger.log('You can also run syncQuickBooksReports manually to test.');
+  Logger.log('');
+  Logger.log('=== Setup complete! ===');
+  Logger.log('The script will check for new reports every day at 7 AM.');
+  Logger.log('');
+  Logger.log('NEXT STEPS:');
+  Logger.log('1. Run writeSampleData() to test the dashboard connection');
+  Logger.log('2. Open the ALM dashboard and verify you see "February 2026" data');
+  Logger.log('3. Run clearSampleData() to remove the test data');
+  Logger.log('4. Forward a real QuickBooks report to yourself to test end-to-end');
 }
 
 
 // ═══════════════════════════════════════════════════════════════════
-// MAIN SYNC FUNCTION — Runs on schedule
+// MAIN SYNC — Runs on schedule (or manually)
 // ═══════════════════════════════════════════════════════════════════
 
 function syncQuickBooksReports() {
@@ -153,15 +171,17 @@ function syncQuickBooksReports() {
   var threads = GmailApp.search(CONFIG.GMAIL_QUERY, 0, 20);
   Logger.log('Found ' + threads.length + ' unprocessed email(s)');
 
-  if (threads.length === 0) return;
+  if (threads.length === 0) {
+    Logger.log('Nothing to sync.');
+    return;
+  }
 
-  // Load existing data from the sheet (for prior month values)
-  var existingData = loadExistingData_();
-  var allHomeData = existingData ? existingData.homes || [] : [];
-  var latestMonth = '';
-  var latestYear = 0;
+  // Load existing multi-period data from the sheet
+  var existing = loadExistingData_();
+  var allPeriods = (existing && existing.periods) ? existing.periods : [];
 
   var processed = 0;
+  var errors = [];
 
   for (var t = 0; t < threads.length; t++) {
     var messages = threads[t].getMessages();
@@ -177,20 +197,24 @@ function syncQuickBooksReports() {
         // Only process Excel files
         if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) continue;
 
-        Logger.log('Processing: ' + att.getName());
+        Logger.log('Processing: ' + att.getName() + ' (from: ' + msg.getSubject() + ')');
 
         try {
           // Detect which home this report is for
           var homeName = detectHomeName_(msg.getSubject(), att.getName());
           if (!homeName) {
-            Logger.log('Could not determine home name from: ' + msg.getSubject());
+            var errMsg = 'Could not determine home name from subject: "' + msg.getSubject() + '", file: "' + att.getName() + '"';
+            Logger.log(errMsg);
+            errors.push(errMsg);
             continue;
           }
 
           // Parse the Excel attachment
           var parsed = parseExcelReport_(att.copyBlob());
           if (!parsed) {
-            Logger.log('Failed to parse report for ' + homeName);
+            var errMsg2 = 'Failed to parse Excel report for ' + homeName;
+            Logger.log(errMsg2);
+            errors.push(errMsg2);
             continue;
           }
 
@@ -199,30 +223,23 @@ function syncQuickBooksReports() {
           var monthName = getMonthName_(reportDate);
           var year = reportDate.getFullYear();
 
-          if (!latestMonth || reportDate > new Date(latestYear, getMonthIndex_(latestMonth))) {
-            latestMonth = monthName;
-            latestYear = year;
-          }
-
-          // Find prior month data for this home
-          var priorHome = findPriorMonth_(allHomeData, homeName);
+          // Find prior month's data for this home (for priorMonth values)
+          var priorHome = findPriorMonthHome_(allPeriods, monthName, year, homeName);
 
           // Build the home data object
           var homeData = buildHomeData_(homeName, parsed, priorHome);
 
-          // Merge into allHomeData (replace if same home exists)
-          var idx = allHomeData.findIndex(function(h) { return h.name === homeName; });
-          if (idx >= 0) {
-            allHomeData[idx] = homeData;
-          } else {
-            allHomeData.push(homeData);
-          }
+          // Merge into the correct period
+          mergePeriodHome_(allPeriods, monthName, year, homeData);
 
           processed++;
-          Logger.log('Parsed ' + homeName + ': Revenue ' + parsed.revenueTotal + ', Expenses ' + parsed.expenseTotal);
+          Logger.log('OK: ' + homeName + ' ' + monthName + ' ' + year +
+                     ' — Revenue $' + parsed.revenueTotal.toLocaleString() +
+                     ', Expenses $' + parsed.expenseTotal.toLocaleString());
 
         } catch (err) {
-          Logger.log('Error processing attachment: ' + err.message);
+          Logger.log('Error: ' + err.message);
+          errors.push(att.getName() + ': ' + err.message);
         }
       }
     }
@@ -233,25 +250,153 @@ function syncQuickBooksReports() {
 
   if (processed === 0) {
     Logger.log('No reports were successfully parsed.');
+    if (errors.length > 0) {
+      Logger.log('Errors encountered:');
+      errors.forEach(function(e) { Logger.log('  - ' + e); });
+    }
     return;
   }
+
+  // Sort periods chronologically
+  allPeriods.sort(function(a, b) {
+    var da = new Date(a.year, getMonthIndex_(a.month));
+    var db = new Date(b.year, getMonthIndex_(b.month));
+    return da - db;
+  });
 
   // Build the full data structure
   var revenueLabels = CONFIG.REVENUE_ACCOUNTS.map(function(a) { return a.label; });
   var expenseLabels = CONFIG.EXPENSE_ACCOUNTS.map(function(a) { return a.label; });
 
   var reportCardData = {
-    month: latestMonth,
-    year: latestYear,
     revenueLabels: revenueLabels,
     expenseLabels: expenseLabels,
-    homes: allHomeData,
+    periods: allPeriods,
   };
 
   // Write to sheet
   writeToSheet_(reportCardData);
 
+  Logger.log('');
   Logger.log('Sync complete! Processed ' + processed + ' report(s).');
+  Logger.log('Total periods in sheet: ' + allPeriods.length);
+  if (errors.length > 0) {
+    Logger.log(errors.length + ' error(s) — check logs above.');
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// TEST FUNCTIONS — For verifying the pipeline
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Write sample data to the ALM_Financial tab.
+ *
+ * Run this to verify the dashboard reads from the sheet.
+ * It writes one month (Feb 2026) with all four homes.
+ * This does NOT require Gmail access — just the sheet.
+ */
+function writeSampleData() {
+  ensureTab_();
+
+  var sampleData = {
+    revenueLabels: ['Room & Board', 'Care Level Premiums', 'Respite & Short-Term', 'Other Income'],
+    expenseLabels: ['Payroll & Benefits', 'Food & Kitchen', 'Supplies & Household', 'Insurance', 'Utilities', 'Maintenance & Repairs', 'Marketing', 'Admin & Office'],
+    periods: [
+      {
+        month: 'February',
+        year: 2026,
+        homes: [
+          {
+            name: 'Cedar City',
+            beds: 20,
+            revenue:   { actual: 82100, budget: 80000, priorMonth: 78400, items: [{ actual: 62000, budget: 60000 }, { actual: 14100, budget: 14000 }, { actual: 4500, budget: 4500 }, { actual: 1500, budget: 1500 }] },
+            expenses:  { actual: 46200, budget: 48000, priorMonth: 45100, items: [{ actual: 28500, budget: 30000 }, { actual: 5200, budget: 5500 }, { actual: 3100, budget: 3000 }, { actual: 2800, budget: 2800 }, { actual: 2400, budget: 2400 }, { actual: 1800, budget: 2000 }, { actual: 1200, budget: 1300 }, { actual: 1200, budget: 1000 }] },
+            occupancy: { actual: 87, budget: 85, priorMonth: 84 },
+            noi:       { actual: 35900, budget: 32000, priorMonth: 33300 },
+          },
+          {
+            name: 'Riverton',
+            beds: 18,
+            revenue:   { actual: 63500, budget: 65000, priorMonth: 61800, items: [{ actual: 48000, budget: 50000 }, { actual: 10500, budget: 10000 }, { actual: 3500, budget: 3500 }, { actual: 1500, budget: 1500 }] },
+            expenses:  { actual: 42800, budget: 44000, priorMonth: 41900, items: [{ actual: 26000, budget: 27000 }, { actual: 4800, budget: 5000 }, { actual: 2800, budget: 2800 }, { actual: 2600, budget: 2600 }, { actual: 2200, budget: 2200 }, { actual: 1800, budget: 1900 }, { actual: 1400, budget: 1500 }, { actual: 1200, budget: 1000 }] },
+            occupancy: { actual: 83, budget: 85, priorMonth: 81 },
+            noi:       { actual: 20700, budget: 21000, priorMonth: 19900 },
+          },
+          {
+            name: 'Elk Ridge',
+            beds: 29,
+            revenue:   { actual: 88200, budget: 85000, priorMonth: 86400, items: [{ actual: 68000, budget: 65000 }, { actual: 12200, budget: 12000 }, { actual: 5500, budget: 5500 }, { actual: 2500, budget: 2500 }] },
+            expenses:  { actual: 48600, budget: 50000, priorMonth: 47200, items: [{ actual: 29500, budget: 31000 }, { actual: 5400, budget: 5500 }, { actual: 3400, budget: 3500 }, { actual: 3000, budget: 3000 }, { actual: 2600, budget: 2600 }, { actual: 2100, budget: 2200 }, { actual: 1200, budget: 1200 }, { actual: 1400, budget: 1000 }] },
+            occupancy: { actual: 88, budget: 85, priorMonth: 87 },
+            noi:       { actual: 39600, budget: 35000, priorMonth: 39200 },
+          },
+          {
+            name: 'Hearthstone Manor',
+            beds: 35,
+            revenue:   { actual: 105800, budget: 102000, priorMonth: 103200, items: [{ actual: 82000, budget: 80000 }, { actual: 15800, budget: 15000 }, { actual: 5500, budget: 5000 }, { actual: 2500, budget: 2000 }] },
+            expenses:  { actual: 57400, budget: 60000, priorMonth: 56100, items: [{ actual: 35000, budget: 37000 }, { actual: 6200, budget: 6500 }, { actual: 3800, budget: 4000 }, { actual: 3200, budget: 3200 }, { actual: 3000, budget: 3000 }, { actual: 2400, budget: 2500 }, { actual: 1800, budget: 1800 }, { actual: 2000, budget: 2000 }] },
+            occupancy: { actual: 93, budget: 90, priorMonth: 91 },
+            noi:       { actual: 48400, budget: 42000, priorMonth: 47100 },
+          },
+        ],
+      },
+    ],
+  };
+
+  writeToSheet_(sampleData);
+
+  Logger.log('');
+  Logger.log('Sample data written to ' + CONFIG.TAB_NAME + '!');
+  Logger.log('Open the ALM dashboard to verify it shows "February 2026" data.');
+  Logger.log('Run clearSampleData() when done testing.');
+}
+
+/**
+ * Clear the ALM_Financial tab (remove test/sample data).
+ */
+function clearSampleData() {
+  var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  var sheet = ss.getSheetByName(CONFIG.TAB_NAME);
+  if (sheet && sheet.getLastRow() >= 2) {
+    sheet.getRange('A2:B2').clearContent();
+    Logger.log('Cleared data from ' + CONFIG.TAB_NAME + '!A2:B2');
+  } else {
+    Logger.log('Nothing to clear.');
+  }
+}
+
+/**
+ * Check the current state of the sheet data.
+ * Run this to see what's stored without modifying anything.
+ */
+function checkStatus() {
+  var data = loadExistingData_();
+  if (!data) {
+    Logger.log('No data in ' + CONFIG.TAB_NAME + ' tab.');
+    Logger.log('Run writeSampleData() to add test data, or wait for a real sync.');
+    return;
+  }
+
+  var periods = data.periods || [];
+  Logger.log('=== ALM Financial Data Status ===');
+  Logger.log('Periods stored: ' + periods.length);
+
+  periods.forEach(function(p) {
+    var homeNames = (p.homes || []).map(function(h) { return h.name; }).join(', ');
+    Logger.log('  ' + p.month + ' ' + p.year + ': ' + (p.homes || []).length + ' homes (' + homeNames + ')');
+  });
+
+  // Check last sync time
+  try {
+    var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    var sheet = ss.getSheetByName(CONFIG.TAB_NAME);
+    var lastSynced = sheet.getRange('A2').getValue();
+    if (lastSynced) {
+      Logger.log('Last synced: ' + lastSynced);
+    }
+  } catch (e) {}
 }
 
 
@@ -267,13 +412,12 @@ function ensureTab_() {
     sheet = ss.insertSheet(CONFIG.TAB_NAME);
     Logger.log('Created tab: ' + CONFIG.TAB_NAME);
   }
-  // Set headers if empty
   if (sheet.getLastRow() === 0) {
     sheet.getRange('A1:B1').setValues([['last_synced', 'data_json']]);
   }
 }
 
-/** Write the full report card data to the sheet */
+/** Write multi-period report card data to the sheet */
 function writeToSheet_(data) {
   var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   var sheet = ss.getSheetByName(CONFIG.TAB_NAME);
@@ -285,13 +429,12 @@ function writeToSheet_(data) {
   var now = new Date().toISOString();
   var json = JSON.stringify(data);
 
-  // Write to row 2: timestamp + JSON
   sheet.getRange('A2:B2').setValues([[now, json]]);
 
-  Logger.log('Wrote ' + json.length + ' chars to ' + CONFIG.TAB_NAME + '!B2');
+  Logger.log('Wrote ' + json.length + ' chars to ' + CONFIG.TAB_NAME + '!B2 (synced: ' + now + ')');
 }
 
-/** Load existing data from the sheet */
+/** Load existing multi-period data from the sheet */
 function loadExistingData_() {
   try {
     var ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
@@ -301,7 +444,19 @@ function loadExistingData_() {
     var json = sheet.getRange('B2').getValue();
     if (!json) return null;
 
-    return JSON.parse(json);
+    var data = JSON.parse(json);
+
+    // Migrate legacy single-period format to multi-period
+    if (!data.periods && data.homes && data.month) {
+      Logger.log('Migrating legacy single-period data to multi-period format');
+      data = {
+        revenueLabels: data.revenueLabels || CONFIG.REVENUE_ACCOUNTS.map(function(a) { return a.label; }),
+        expenseLabels: data.expenseLabels || CONFIG.EXPENSE_ACCOUNTS.map(function(a) { return a.label; }),
+        periods: [{ month: data.month, year: data.year, homes: data.homes }],
+      };
+    }
+
+    return data;
   } catch (err) {
     Logger.log('Could not load existing data: ' + err.message);
     return null;
@@ -323,7 +478,7 @@ function detectHomeName_(subject, filename) {
 
 /** Parse an Excel attachment into structured data */
 function parseExcelReport_(blob) {
-  // Convert Excel to temporary Google Sheet
+  // Convert Excel to temporary Google Sheet via Drive API v2
   var resource = {
     title: 'ALM_temp_' + Date.now(),
     mimeType: 'application/vnd.google-apps.spreadsheet',
@@ -342,10 +497,7 @@ function parseExcelReport_(blob) {
     var sheet = ss.getSheets()[0];
     var rows = sheet.getDataRange().getValues();
 
-    // Parse the budget vs actual data
-    var result = parseBudgetVsActual_(rows);
-
-    return result;
+    return parseBudgetVsActual_(rows);
 
   } finally {
     // Clean up temp file
@@ -368,11 +520,11 @@ function parseBudgetVsActual_(rows) {
   var headerRow = -1;
   var reportDate = null;
 
-  // Find the header row with "Actual" and "Budget" columns
+  // Find the header row
   for (var r = 0; r < Math.min(rows.length, 15); r++) {
     for (var c = 0; c < rows[r].length; c++) {
       var val = String(rows[r][c] || '').toLowerCase().trim();
-      if (val === 'actual' || val === 'jan actual' || val.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s*\d{0,4}\s*actual$/i)) {
+      if (val === 'actual' || val.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s*\d{0,4}\s*actual$/i)) {
         actualCol = c;
         headerRow = r;
       }
@@ -385,7 +537,7 @@ function parseBudgetVsActual_(rows) {
     if (actualCol >= 0 && budgetCol >= 0) break;
   }
 
-  // Fallback: try columns B and C if headers not found
+  // Fallback
   if (actualCol < 0) {
     Logger.log('Warning: Could not auto-detect columns. Using B=Actual, C=Budget');
     actualCol = 1;
@@ -394,8 +546,8 @@ function parseBudgetVsActual_(rows) {
   }
 
   // Try to detect the report date from early rows
-  for (var r = 0; r < Math.min(rows.length, 5); r++) {
-    var text = String(rows[r][0] || '');
+  for (var r2 = 0; r2 < Math.min(rows.length, 5); r2++) {
+    var text = String(rows[r2][0] || '');
     var dateMatch = text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
     if (dateMatch) {
       reportDate = new Date(dateMatch[2], getMonthIndex_(dateMatch[1]));
@@ -410,15 +562,14 @@ function parseBudgetVsActual_(rows) {
   var expenseTotal = 0;
   var revenueBudgetTotal = 0;
   var expenseBudgetTotal = 0;
-  var section = null; // 'income' or 'expense'
+  var section = null;
 
-  for (var r = headerRow + 1; r < rows.length; r++) {
-    var label = String(rows[r][nameCol] || '').trim();
-    var actual = parseNumber_(rows[r][actualCol]);
-    var budget = parseNumber_(rows[r][budgetCol]);
+  for (var r3 = headerRow + 1; r3 < rows.length; r3++) {
+    var label = String(rows[r3][nameCol] || '').trim();
+    var actual = parseNumber_(rows[r3][actualCol]);
+    var budget = parseNumber_(rows[r3][budgetCol]);
     var labelLower = label.toLowerCase();
 
-    // Detect section changes
     if (labelLower.match(/^(income|revenue|ordinary income)/)) {
       section = 'income';
       continue;
@@ -428,7 +579,6 @@ function parseBudgetVsActual_(rows) {
       continue;
     }
 
-    // Detect total rows
     if (labelLower.match(/^total\s*(income|revenue)/)) {
       revenueTotal = actual || revenueTotal;
       revenueBudgetTotal = budget || revenueBudgetTotal;
@@ -442,14 +592,11 @@ function parseBudgetVsActual_(rows) {
       continue;
     }
     if (labelLower.match(/^net\s*(operating\s*)?(income|profit|loss)/)) {
-      // We'll compute NOI ourselves
       continue;
     }
 
-    // Skip empty or header rows
     if (!label || actual === null) continue;
 
-    // Try to match against our account mappings
     if (section === 'income' || (!section && actual > 0)) {
       var revMatch = matchAccount_(label, CONFIG.REVENUE_ACCOUNTS);
       if (revMatch) {
@@ -465,7 +612,7 @@ function parseBudgetVsActual_(rows) {
     }
   }
 
-  // Compute totals if not found in the report
+  // Compute totals if not found
   if (!revenueTotal) {
     revenueTotal = revenueItems.reduce(function(s, i) { return s + i.actual; }, 0);
   }
@@ -490,7 +637,7 @@ function parseBudgetVsActual_(rows) {
   };
 }
 
-/** Match an account label against a list of regex patterns */
+/** Match an account label against regex patterns */
 function matchAccount_(label, accounts) {
   for (var i = 0; i < accounts.length; i++) {
     if (accounts[i].match.test(label)) {
@@ -509,12 +656,73 @@ function parseNumber_(val) {
   return isNaN(num) ? null : num;
 }
 
+/**
+ * Merge a home's data into the correct period within allPeriods.
+ * Creates the period if it doesn't exist. Replaces the home if it already exists
+ * within that period (so re-syncing the same month updates rather than duplicates).
+ */
+function mergePeriodHome_(allPeriods, monthName, year, homeData) {
+  // Find existing period
+  var period = null;
+  for (var i = 0; i < allPeriods.length; i++) {
+    if (allPeriods[i].month === monthName && allPeriods[i].year === year) {
+      period = allPeriods[i];
+      break;
+    }
+  }
+
+  // Create period if it doesn't exist
+  if (!period) {
+    period = { month: monthName, year: year, homes: [] };
+    allPeriods.push(period);
+  }
+
+  // Merge home (replace if exists, otherwise add)
+  var idx = -1;
+  for (var j = 0; j < period.homes.length; j++) {
+    if (period.homes[j].name === homeData.name) {
+      idx = j;
+      break;
+    }
+  }
+
+  if (idx >= 0) {
+    period.homes[idx] = homeData;
+  } else {
+    period.homes.push(homeData);
+  }
+}
+
+/**
+ * Find a home's data from the previous month's period.
+ * Used to populate priorMonth values.
+ */
+function findPriorMonthHome_(allPeriods, currentMonth, currentYear, homeName) {
+  // Calculate prior month
+  var monthIdx = getMonthIndex_(currentMonth);
+  var priorMonthIdx = monthIdx === 0 ? 11 : monthIdx - 1;
+  var priorYear = monthIdx === 0 ? currentYear - 1 : currentYear;
+  var priorMonthName = getMonthName_(new Date(priorYear, priorMonthIdx));
+
+  // Find that period
+  for (var i = 0; i < allPeriods.length; i++) {
+    if (allPeriods[i].month === priorMonthName && allPeriods[i].year === priorYear) {
+      var homes = allPeriods[i].homes || [];
+      for (var j = 0; j < homes.length; j++) {
+        if (homes[j].name === homeName) return homes[j];
+      }
+      break;
+    }
+  }
+
+  return null;
+}
+
 /** Build the home data object for the dashboard */
 function buildHomeData_(homeName, parsed, priorHome) {
   var beds = CONFIG.HOME_BEDS[homeName] || 0;
   var occTarget = CONFIG.OCCUPANCY_TARGETS[homeName] || 85;
 
-  // Map parsed items to the expected order (matching CONFIG arrays)
   var revItems = CONFIG.REVENUE_ACCOUNTS.map(function(acct) {
     var found = parsed.revenueItems.find(function(i) { return i.label === acct.label; });
     return { actual: found ? found.actual : 0, budget: found ? found.budget : 0 };
@@ -528,13 +736,13 @@ function buildHomeData_(homeName, parsed, priorHome) {
   var noi = parsed.revenueTotal - parsed.expenseTotal;
   var noiBudget = parsed.revenueBudgetTotal - parsed.expenseBudgetTotal;
 
-  // Estimate occupancy from revenue (rough: actual/budget ratio applied to target)
+  // Estimate occupancy from revenue ratio
   var revRatio = parsed.revenueBudgetTotal > 0
     ? parsed.revenueTotal / parsed.revenueBudgetTotal
     : 1;
   var occEstimate = Math.round(occTarget * revRatio);
 
-  // Prior month values (from previous sync, or 0)
+  // Prior month values (from previous period, or echo current if no history)
   var priorRev = priorHome ? priorHome.revenue.actual : parsed.revenueTotal;
   var priorExp = priorHome ? priorHome.expenses.actual : parsed.expenseTotal;
   var priorOcc = priorHome ? priorHome.occupancy.actual : occEstimate;
@@ -566,14 +774,6 @@ function buildHomeData_(homeName, parsed, priorHome) {
       priorMonth: priorNoi,
     },
   };
-}
-
-/** Find a home's data from the previous sync (for prior month comparison) */
-function findPriorMonth_(homes, homeName) {
-  for (var i = 0; i < homes.length; i++) {
-    if (homes[i].name === homeName) return homes[i];
-  }
-  return null;
 }
 
 /** Get month name from a Date object */
