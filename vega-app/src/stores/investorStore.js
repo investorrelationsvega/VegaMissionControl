@@ -1116,6 +1116,60 @@ const useInvestorStore = create(
       };
     }),
 
+  // ── Entity Name ──────────────────────────────────────────────────
+  updateEntityName: (invId, newEntity, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+
+      const oldEntity = investor.entities[0] || '(empty)';
+      const now = new Date().toISOString();
+
+      // Update entity on all positions for this investor
+      const updatedPositions = state.positions.map((p) =>
+        p.invId === invId ? { ...p, entity: newEntity } : p,
+      );
+
+      const newInvestors = buildInvestors(updatedPositions);
+
+      // Re-apply contact overrides
+      const overrides = state.contactOverrides || {};
+      Object.entries(overrides).forEach(([id, fields]) => {
+        if (newInvestors[id]) Object.assign(newInvestors[id], fields);
+      });
+
+      // Write back to each Position sheet row
+      investor.positions.forEach((p) => {
+        reliableWrite(`Entity → ${newEntity} for ${p.id}`, () =>
+          updatePositionField(p.id, 'entity', newEntity));
+      });
+
+      // Write to Investors sheet
+      reliableWrite(`Entity → ${newEntity} for ${investor.name}`, () =>
+        updateInvestorField(invId, 'entity', newEntity));
+
+      const auditEntry = {
+        id: `AL-${Date.now()}-entity`,
+        invId,
+        action: 'Entity Changed',
+        detail: `Entity: "${oldEntity}" → "${newEntity}"`,
+        user,
+        timestamp: now,
+      };
+
+      reliableWrite(`Audit: entity changed for ${investor.name}`, () =>
+        appendAuditLog({
+          id: auditEntry.id, recordType: 'investor', recordId: invId,
+          action: auditEntry.action, notes: auditEntry.detail, user, timestamp: now,
+        }));
+
+      return {
+        positions: updatedPositions,
+        investors: newInvestors,
+        auditLog: [...state.auditLog, auditEntry],
+      };
+    }),
+
   // ── Position Signed / Funded Dates ─────────────────────────────────
   updatePositionDates: (positionId, updates, user = 'System') => {
     const state = get();
