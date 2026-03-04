@@ -437,6 +437,40 @@ const useInvestorStore = create(
       ? get().auditLog.filter((entry) => entry.invId === invId)
       : get().auditLog,
 
+  // ── Remove / Restore Investor ─────────────────────────────────────────
+  removeInvestor: (invId, user = 'j@vegarei.com') =>
+    set((state) => {
+      const investor = state.investors[invId];
+      if (!investor) return state;
+      const { [invId]: removed, ...remainingInvestors } = state.investors;
+      return {
+        investors: remainingInvestors,
+        positions: state.positions.filter((p) => p.invId !== invId),
+        auditLog: [...state.auditLog, {
+          id: `AL-${Date.now()}-del`,
+          invId,
+          action: 'Deleted',
+          detail: `Investor "${investor.name}" and all positions removed`,
+          user,
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    }),
+
+  restoreInvestor: (investorData, positions, user = 'j@vegarei.com') =>
+    set((state) => ({
+      investors: { ...state.investors, [investorData.id]: investorData },
+      positions: [...state.positions, ...positions],
+      auditLog: [...state.auditLog, {
+        id: `AL-${Date.now()}-res`,
+        invId: investorData.id,
+        action: 'Restored',
+        detail: `Investor "${investorData.name}" restored via undo`,
+        user,
+        timestamp: new Date().toISOString(),
+      }],
+    })),
+
   // ── Position Amount ─────────────────────────────────────────────────────
   updatePositionAmount: (positionId, newAmount, user = 'System') =>
     set((state) => {

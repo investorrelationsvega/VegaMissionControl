@@ -24,6 +24,7 @@ const useFundStore = create(
   commitmentAuditLog: [], // Tracks commitment status changes (committed → invested, close out)
   advisorAuditLog: [],    // Tracks advisor field changes
   custodianAuditLog: [],  // Tracks custodian field changes
+  deletionLog: [],        // Tracks all deletions (advisors, custodians, investors) with who/when/what
   sheetsLoaded: false,
 
   // ── Google Sheets Sync ────────────────────────────────────────────────
@@ -142,14 +143,38 @@ const useFundStore = create(
       };
     }),
 
-  removeAdvisor: (id) =>
-    set((state) => ({
-      advisors: state.advisors.filter((a) => a.id !== id),
-    })),
+  removeAdvisor: (id, user = 'j@vegarei.com') =>
+    set((state) => {
+      const advisor = state.advisors.find((a) => a.id === id);
+      if (!advisor) return state;
+      return {
+        advisors: state.advisors.filter((a) => a.id !== id),
+        deletionLog: [...state.deletionLog, {
+          id: `DEL-${Date.now()}`,
+          type: 'Advisor',
+          entityId: id,
+          entityName: advisor.name,
+          detail: `${advisor.name}${advisor.firm ? ` (${advisor.firm})` : ''}`,
+          action: 'Deleted',
+          user,
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    }),
 
-  restoreAdvisor: (advisor) =>
+  restoreAdvisor: (advisor, user = 'j@vegarei.com') =>
     set((state) => ({
       advisors: [...state.advisors, advisor],
+      deletionLog: [...state.deletionLog, {
+        id: `DEL-${Date.now()}-r`,
+        type: 'Advisor',
+        entityId: advisor.id,
+        entityName: advisor.name,
+        action: 'Restored',
+        detail: `${advisor.name} restored via undo`,
+        user,
+        timestamp: new Date().toISOString(),
+      }],
     })),
 
   getAdvisorAuditLog: (id) =>
@@ -196,6 +221,57 @@ const useFundStore = create(
       ? get().custodianAuditLog.filter((e) => e.entityId === id)
       : get().custodianAuditLog,
 
+  removeCustodian: (id, user = 'j@vegarei.com') =>
+    set((state) => {
+      const custodian = state.custodians.find((c) => c.id === id);
+      if (!custodian) return state;
+      return {
+        custodians: state.custodians.filter((c) => c.id !== id),
+        deletionLog: [...state.deletionLog, {
+          id: `DEL-${Date.now()}`,
+          type: 'Custodian',
+          entityId: id,
+          entityName: custodian.name,
+          detail: custodian.name,
+          action: 'Deleted',
+          user,
+          timestamp: new Date().toISOString(),
+        }],
+      };
+    }),
+
+  restoreCustodian: (custodian, user = 'j@vegarei.com') =>
+    set((state) => ({
+      custodians: [...state.custodians, custodian],
+      deletionLog: [...state.deletionLog, {
+        id: `DEL-${Date.now()}-r`,
+        type: 'Custodian',
+        entityId: custodian.id,
+        entityName: custodian.name,
+        action: 'Restored',
+        detail: `${custodian.name} restored via undo`,
+        user,
+        timestamp: new Date().toISOString(),
+      }],
+    })),
+
+  // ── Deletion Log ────────────────────────────────────────────────────────
+  getDeletionLog: () => get().deletionLog,
+
+  logDeletion: (type, entityId, entityName, detail, user = 'j@vegarei.com') =>
+    set((state) => ({
+      deletionLog: [...state.deletionLog, {
+        id: `DEL-${Date.now()}`,
+        type,
+        entityId,
+        entityName,
+        detail,
+        action: 'Deleted',
+        user,
+        timestamp: new Date().toISOString(),
+      }],
+    })),
+
   // ── Fund Mutations ──────────────────────────────────────────────────────
   updateFund: (id, updates) =>
     set((state) => ({
@@ -206,7 +282,7 @@ const useFundStore = create(
     }),
     {
       name: 'vega-fund-store',
-      version: 3, // Bumped for Fund II committed update
+      version: 4, // Bumped for deletion log
     },
   ),
 );

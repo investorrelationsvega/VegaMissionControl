@@ -645,7 +645,8 @@ export default function Directory() {
           { key: 'investors', label: `Investors (${investors.length})`, radius: '4px 0 0 4px', noBorderLeft: false },
           { key: 'advisors', label: `Advisors (${advisors.length})`, radius: '0', noBorderLeft: true },
           { key: 'custodians', label: `Custodians (${custodians.length})`, radius: '0', noBorderLeft: true },
-          { key: 'kpis', label: 'KPIs', radius: '0 4px 4px 0', noBorderLeft: true },
+          { key: 'kpis', label: 'KPIs', radius: '0', noBorderLeft: true },
+          { key: 'deletionLog', label: `Deletion Log${fundStore.getDeletionLog().length > 0 ? ` (${fundStore.getDeletionLog().length})` : ''}`, radius: '0 4px 4px 0', noBorderLeft: true },
         ].map((tab) => {
           const active = dirTab === tab.key
           return (
@@ -1184,6 +1185,39 @@ export default function Directory() {
                           </button>
                         )}
                       </div>
+                      <button
+                        onClick={() => {
+                          const inv = selectedInvestor
+                          const invPositions = inv.positions.map((p) => ({ ...p }))
+                          const invData = { ...inv }
+                          investorStore.removeInvestor(inv.id)
+                          fundStore.logDeletion('Investor', inv.id, inv.name, `${inv.name} — ${inv.entities.join(', ') || 'Individual'}`)
+                          setSel(null)
+                          showToast(`${inv.name} removed`, {
+                            onUndo: () => investorStore.restoreInvestor(invData, invPositions),
+                          })
+                        }}
+                        title="Remove investor"
+                        style={{
+                          ...mono,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: '4px 8px',
+                          border: '1px solid rgba(248,113,113,0.25)',
+                          background: 'transparent',
+                          color: 'var(--red)',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        <svg viewBox="0 0 24 24" style={{ width: 10, height: 10, fill: 'var(--red)' }}>
+                          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                        </svg>
+                        REMOVE
+                      </button>
                     </div>
                   </div>
 
@@ -3208,6 +3242,26 @@ export default function Directory() {
                       >
                         Save
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const removed = { ...cust }
+                          fundStore.removeCustodian(cust.id)
+                          setEditingCustodian(null)
+                          setEditingCustodianFields({})
+                          showToast(`${cust.name} removed`, {
+                            onUndo: () => fundStore.restoreCustodian(removed),
+                          })
+                        }}
+                        style={{
+                          ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px',
+                          border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
+                          color: 'var(--red)', borderRadius: 4, cursor: 'pointer',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        Remove
+                      </button>
                     </div>
                   </>
                 ) : (
@@ -3450,6 +3504,84 @@ export default function Directory() {
       {/* KPIs TAB                              */}
       {/* ═══════════════════════════════════════ */}
       {dirTab === 'kpis' && <DirectoryKpis />}
+
+      {/* ── Deletion Log Tab ────────────────────── */}
+      {dirTab === 'deletionLog' && (() => {
+        const deletionLog = fundStore.getDeletionLog()
+        const sorted = [...deletionLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        return (
+          <div
+            style={{
+              background: 'var(--bgS)',
+              border: '1px solid var(--bd)',
+              borderRadius: 6,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bd)' }}>
+              <div style={{ fontSize: 16, fontWeight: 300, color: 'var(--t1)' }}>
+                Deletion Log
+              </div>
+              <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 4 }}>
+                All removed contacts, advisors, custodians, and investors
+              </div>
+            </div>
+            {sorted.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--t4)', fontSize: 13 }}>
+                No deletions recorded yet.
+              </div>
+            ) : (
+              <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                {sorted.map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr' : '100px 1fr 160px 160px',
+                      gap: 12,
+                      alignItems: 'center',
+                      padding: '12px 20px',
+                      borderBottom: '1px solid var(--bdS)',
+                      fontSize: 13,
+                    }}
+                  >
+                    <div>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          padding: '3px 8px',
+                          borderRadius: 3,
+                          background: entry.action === 'Restored' ? 'var(--grnM)' : 'var(--redM)',
+                          color: entry.action === 'Restored' ? 'var(--grn)' : 'var(--red)',
+                        }}
+                      >
+                        {entry.action}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--t1)' }}>
+                        {entry.entityName}
+                      </div>
+                      <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 2 }}>
+                        {entry.type}{entry.detail && entry.detail !== entry.entityName ? ` — ${entry.detail}` : ''}
+                      </div>
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>
+                      {entry.user}
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: 'var(--t4)' }}>
+                      {new Date(entry.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Advance Stage Dialog ───────────────── */}
       {showAdvanceDialog && (() => {
