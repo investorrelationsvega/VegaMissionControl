@@ -163,9 +163,9 @@ export const positions = [
     pipeline:{stage:"Fully Accepted",enteredDate:"Jul 20, 2025",webformDoneDate:"Jul 28, 2025",outForSignaturesDate:"Aug 3, 2025",signedByLpDate:"Aug 7, 2025",fundedDate:"Aug 8, 2025"},
     signers:[{name:"Matt Cragun",role:"Trustee",signed:true,signedDate:"Aug 7, 2025"}],
     docRouting:"direct",declinedReason:null},
-  {id:"P41",invId:"I33",name:"Matt Cragun",entity:"MNC Investments TR",fund:"Fund II",type:"Trust",cls:"A",amt:100000,status:"Approved",signed:"Aug 8, 2025",funded:"Aug 8, 2025",advisor:"",custodian:"",phone:"801-404-6021",email:"mcragun@gmail.com",state:"CA",
-    pipeline:{stage:"Fully Accepted",enteredDate:"Jul 20, 2025",webformDoneDate:"Jul 28, 2025",outForSignaturesDate:"Aug 3, 2025",signedByLpDate:"Aug 8, 2025",fundedDate:"Aug 8, 2025"},
-    signers:[{name:"Matt Cragun",role:"Trustee",signed:true,signedDate:"Aug 8, 2025"}],
+  {id:"P41",invId:"I33",name:"Matt Cragun",entity:"MNC Investments TR",fund:"Fund II",type:"Trust",cls:"A",amt:100000,status:"Approved",signed:"Aug 7, 2025",funded:"Aug 8, 2025",advisor:"",custodian:"",phone:"801-404-6021",email:"mcragun@gmail.com",state:"CA",
+    pipeline:{stage:"Fully Accepted",enteredDate:"Jul 20, 2025",webformDoneDate:"Jul 28, 2025",outForSignaturesDate:"Aug 3, 2025",signedByLpDate:"Aug 7, 2025",fundedDate:"Aug 8, 2025"},
+    signers:[{name:"Matt Cragun",role:"Trustee",signed:true,signedDate:"Aug 7, 2025"}],
     docRouting:"direct",declinedReason:null},
 ];
 
