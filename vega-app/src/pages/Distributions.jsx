@@ -1249,13 +1249,32 @@ export default function Distributions() {
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
                 <div>
                   <label className="form-label">Entity</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.entity}
-                    onChange={(e) => handleFormChange('entity', e.target.value)}
-                    placeholder="Entity name"
-                  />
+                  {(() => {
+                    const selectedInv = investors.find((i) => i.id === formData.invId);
+                    const entityList = selectedInv?.entities || [];
+                    if (entityList.length > 1) {
+                      return (
+                        <select
+                          className="form-select"
+                          value={formData.entity}
+                          onChange={(e) => handleFormChange('entity', e.target.value)}
+                        >
+                          {entityList.map((ent) => (
+                            <option key={ent} value={ent}>{ent}</option>
+                          ))}
+                        </select>
+                      );
+                    }
+                    return (
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={formData.entity}
+                        onChange={(e) => handleFormChange('entity', e.target.value)}
+                        placeholder="Entity name"
+                      />
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="form-label">Amount</label>
@@ -1301,26 +1320,27 @@ export default function Distributions() {
               <div style={{ marginBottom: 14 }}>
                 <label className="form-label">Sent Date</label>
                 <input
-                  type="text"
+                  type="date"
                   className="form-input"
                   value={formData.date}
                   onChange={(e) => handleFormChange('date', e.target.value)}
-                  placeholder="e.g. Jan 15"
                 />
               </div>
 
-              {/* Tracking Ref / Reported In Portal */}
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 14 }}>
-                <div>
-                  <label className="form-label">Tracking Ref</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.trackingRef}
-                    onChange={(e) => handleFormChange('trackingRef', e.target.value)}
-                    placeholder="Reference #"
-                  />
-                </div>
+              {/* Tracking Ref (Wire/Check only) / Reported In Portal */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (formData.method === 'Wire' || formData.method === 'Check' ? '1fr 1fr' : '1fr'), gap: 12, marginBottom: 14 }}>
+                {(formData.method === 'Wire' || formData.method === 'Check') && (
+                  <div>
+                    <label className="form-label">{formData.method === 'Wire' ? 'Tracking Ref' : 'Check Reference'}</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={formData.trackingRef}
+                      onChange={(e) => handleFormChange('trackingRef', e.target.value)}
+                      placeholder={formData.method === 'Wire' ? 'Wire tracking #' : 'Check #'}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="form-label">Reported In Investor Portal</label>
                   <select
