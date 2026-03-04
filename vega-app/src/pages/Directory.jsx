@@ -2945,9 +2945,13 @@ export default function Directory() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
+                          const removed = { ...adv }
                           fundStore.removeAdvisor(adv.id)
                           setEditingAdvisor(null)
                           setEditingAdvisorFields({})
+                          showToast(`${adv.name} removed`, {
+                            onUndo: () => fundStore.restoreAdvisor(removed),
+                          })
                         }}
                         style={{
                           ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px',

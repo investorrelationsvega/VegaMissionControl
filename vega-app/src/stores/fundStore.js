@@ -147,6 +147,11 @@ const useFundStore = create(
       advisors: state.advisors.filter((a) => a.id !== id),
     })),
 
+  restoreAdvisor: (advisor) =>
+    set((state) => ({
+      advisors: [...state.advisors, advisor],
+    })),
+
   getAdvisorAuditLog: (id) =>
     id
       ? get().advisorAuditLog.filter((e) => e.entityId === id)

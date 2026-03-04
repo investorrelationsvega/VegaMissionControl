@@ -76,11 +76,11 @@ const useUiStore = create(
   ],
 
   // ── Toast ───────────────────────────────────────────────────────────────
-  showToast: (message) =>
-    set({ toast: { visible: true, message } }),
+  showToast: (message, options = {}) =>
+    set({ toast: { visible: true, message, onUndo: options.onUndo || null } }),
 
   hideToast: () =>
-    set({ toast: { visible: false, message: '' } }),
+    set({ toast: { visible: false, message: '', onUndo: null } }),
 
   // ── Upcoming Dates ──────────────────────────────────────────────────────
   updateUpcoming: (dates) =>
