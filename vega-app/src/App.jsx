@@ -528,6 +528,29 @@ export default function App() {
       .catch(() => {}); // Silent — user can refresh when opening panel
   }, [googleAuth, googleToken, sheetsLoaded]);
 
+  // ── Auto-poll Sheets data every 30s ──────────────────────────────────────────
+  useEffect(() => {
+    if (!googleAuth || !googleToken || !sheetsLoaded) return;
+
+    const POLL_INTERVAL = 30_000;
+    const id = setInterval(() => {
+      fetchAllSheetData()
+        .then((data) => {
+          useInvestorStore.getState().loadFromSheets(data.positions, data.investorLookup);
+          useFundStore.getState().loadFromSheets(data.funds, data.advisors, data.custodians, data.positions);
+          useComplianceStore.getState().loadFromSheets(data.compliance);
+          useDistributionStore.getState().loadFromSheets(data.distributions);
+          useTicStore.getState().loadFromSheets(data.ticProperties);
+          console.log('[Sheets] Auto-refresh complete');
+        })
+        .catch((err) => {
+          console.warn('[Sheets] Auto-refresh failed:', err.message);
+        });
+    }, POLL_INTERVAL);
+
+    return () => clearInterval(id);
+  }, [googleAuth, googleToken, sheetsLoaded]);
+
   // ── 48h Unanswered Email Check ─────────────────────────────────────────────
   const googleTokenForCheck = useGoogleStore((s) => s.accessToken);
 
