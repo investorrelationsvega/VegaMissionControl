@@ -81,7 +81,7 @@ function toSyndicationDate(dateStr) {
       const monthIdx = MONTHS.findIndex(m => dateStr.startsWith(m))
       if (monthIdx >= 0) {
         const day = parts[1] ? parts[1].padStart(2, '0') : '01'
-        const year = parts[2] || '2025'
+        const year = parts[2] || String(new Date().getFullYear())
         return `${MONTHS[monthIdx]}-${day}-${year}`
       }
     }
@@ -428,6 +428,9 @@ export default function Distributions() {
       return sum + (pos?.amt || 0)
     }, 0)
 
+    // SynPro uses today's date for Start/End/Payment Date
+    const todayFormatted = toSyndicationDate(new Date().toISOString())
+
     const rows = periodPayments.map((payment) => {
       const inv = investors.find((i) => i.id === payment.invId)
       const pos = positions.find(
@@ -440,15 +443,15 @@ export default function Distributions() {
 
       const fundedAmt = pos?.amt || 0
       const committedAmt = pos?.amt || 0
-      const paymentDate = toSyndicationDate(payment.date || '')
+      const investorClass = pos?.cls ? `Class ${pos.cls}` : ''
       const pctFunded = totalFunded > 0 ? (fundedAmt / totalFunded) : 0
 
       return [
-        firstName, lastName, payment.entity || inv?.name || '', pos?.cls || '',
-        fundedAmt ? String(fundedAmt) : '', committedAmt ? String(committedAmt) : '',
+        firstName, lastName, payment.entity || inv?.name || '', investorClass,
+        fundedAmt ? fundedAmt.toFixed(2) : '', committedAmt ? committedAmt.toFixed(2) : '',
         toSyndicationDate(pos?.funded || ''),
-        paymentDate, paymentDate, paymentDate,
-        '', payment.amt || '', '',
+        todayFormatted, todayFormatted, todayFormatted,
+        '', payment.amt ? Number(payment.amt).toFixed(2) : '', '',
         pctFunded ? pctFunded.toFixed(8) : '', '0',
       ].map(quoteCSV).join(',')
     })
