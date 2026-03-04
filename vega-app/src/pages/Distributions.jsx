@@ -148,6 +148,19 @@ export default function Distributions() {
   const [expandedId, setExpandedId] = useState(null)
   const [inlineEdit, setInlineEdit] = useState(null) // { id, field, value }
 
+  // ACH Batch state
+  const [showBatchPanel, setShowBatchPanel] = useState(false)
+  const [showBatchModal, setShowBatchModal] = useState(false)
+  const [editingBatch, setEditingBatch] = useState(null)
+  const [batchForm, setBatchForm] = useState({
+    batchId: '',
+    fundingAccount: 'VEGA FUND II CHK',
+    deliverBy: '',
+    status: 'Submitted',
+    submittedDate: '',
+    succeededDate: '',
+  })
+
   // Payment form state
   const [formData, setFormData] = useState({
     invId: '',
@@ -217,6 +230,73 @@ export default function Distributions() {
     () => periodPayments.filter((d) => d.method === 'Check').length,
     [periodPayments]
   )
+
+  // ACH batches for current period
+  const periodBatches = useMemo(
+    () => (activePeriod ? distributionStore.getAchBatchesByPeriod(activePeriod) : []),
+    [distributionStore, activePeriod]
+  )
+
+  // ── ACH Batch Handlers ────────────────────────
+  const openAddBatch = () => {
+    setEditingBatch(null)
+    setBatchForm({
+      batchId: '',
+      fundingAccount: 'VEGA FUND II CHK',
+      deliverBy: '',
+      status: 'Submitted',
+      submittedDate: '',
+      succeededDate: '',
+    })
+    setShowBatchModal(true)
+  }
+
+  const openEditBatch = (batch) => {
+    setEditingBatch(batch)
+    setBatchForm({
+      batchId: batch.batchId || '',
+      fundingAccount: batch.fundingAccount || 'VEGA FUND II CHK',
+      deliverBy: batch.deliverBy || '',
+      status: batch.status || 'Submitted',
+      submittedDate: batch.submittedDate || '',
+      succeededDate: batch.succeededDate || '',
+    })
+    setShowBatchModal(true)
+  }
+
+  const handleSaveBatch = () => {
+    if (!batchForm.batchId.trim()) return
+    const payload = {
+      ...batchForm,
+      period: activePeriod,
+    }
+    // Auto-set submitted date if status is Submitted and no date set
+    if (payload.status === 'Submitted' && !payload.submittedDate) {
+      payload.submittedDate = new Date().toISOString().split('T')[0]
+    }
+
+    if (editingBatch) {
+      distributionStore.updateAchBatch(editingBatch.id, payload)
+      showToast('Batch updated')
+    } else {
+      distributionStore.addAchBatch(payload)
+      showToast('ACH batch created')
+    }
+    setShowBatchModal(false)
+  }
+
+  const handleAssignBatch = (batchId) => {
+    // Assign all unassigned ACH payments in current period to this batch
+    const unassigned = periodPayments
+      .filter((d) => d.method === 'ACH' && !d.achBatchId && d.status !== 'Skipped')
+      .map((d) => d.id)
+    if (unassigned.length === 0) {
+      showToast('No unassigned ACH payments')
+      return
+    }
+    distributionStore.assignToBatch(unassigned, batchId)
+    showToast(`${unassigned.length} payment${unassigned.length > 1 ? 's' : ''} assigned to batch`)
+  }
 
   // ── Handlers ────────────────────────────────
   const openAddPayment = () => {
@@ -749,6 +829,172 @@ export default function Distributions() {
         ))}
       </div>
 
+      {/* ── ACH Batch Manager ────────────────── */}
+      <div style={{ marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: showBatchPanel ? 12 : 0,
+            cursor: 'pointer',
+          }}
+          onClick={() => setShowBatchPanel(!showBatchPanel)}
+        >
+          <div
+            className="mono"
+            style={{
+              fontSize: 10,
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              color: 'var(--t4)',
+              fontWeight: 700,
+            }}
+          >
+            ACH Batches {periodBatches.length > 0 && `(${periodBatches.length})`}
+          </div>
+          <span style={{ fontSize: 10, color: 'var(--t5)' }}>
+            {showBatchPanel ? '\u25B2' : '\u25BC'}
+          </span>
+        </div>
+
+        {showBatchPanel && (
+          <div
+            style={{
+              background: 'var(--bgS)',
+              border: '1px solid var(--bd)',
+              borderRadius: 6,
+              padding: 16,
+            }}
+          >
+            {periodBatches.length === 0 ? (
+              <div style={{ color: 'var(--t4)', fontSize: 13, marginBottom: 12 }}>
+                No ACH batches for this period yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+                {periodBatches.map((batch) => {
+                  const assignedPayments = periodPayments.filter((d) => d.achBatchId === batch.id)
+                  const batchTotal = assignedPayments.reduce((s, d) => s + d.amt, 0)
+                  const isSucceeded = batch.status === 'Succeeded'
+                  return (
+                    <div
+                      key={batch.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr auto',
+                        gap: 12,
+                        alignItems: 'center',
+                        padding: '12px 14px',
+                        background: 'var(--bg-card-half)',
+                        border: `1px solid ${isSucceeded ? 'var(--grnB)' : 'var(--bd)'}`,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                          Batch ID
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>
+                          {batch.batchId}
+                        </div>
+                        <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 2 }}>
+                          {batch.fundingAccount}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                          Status
+                        </div>
+                        <span
+                          className="mono"
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            padding: '3px 8px',
+                            borderRadius: 3,
+                            background: isSucceeded ? 'var(--grnM)' : 'var(--bluM)',
+                            color: isSucceeded ? 'var(--grn)' : 'var(--blu)',
+                          }}
+                        >
+                          {batch.status}
+                        </span>
+                        <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 4 }}>
+                          {batch.submittedDate && (
+                            <span>Submitted: {batch.submittedDate}</span>
+                          )}
+                          {batch.succeededDate && (
+                            <span style={{ marginLeft: batch.submittedDate ? 10 : 0 }}>
+                              Succeeded: {batch.succeededDate}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mono" style={{ fontSize: 10, color: 'var(--t5)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+                          Payments / Total
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>
+                          {assignedPayments.length} payments &mdash; {fmt(batchTotal)}
+                        </div>
+                        {batch.deliverBy && (
+                          <div className="mono" style={{ fontSize: 11, color: 'var(--t4)', marginTop: 2 }}>
+                            Deliver by: {batch.deliverBy}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: 10, padding: '4px 10px' }}
+                          onClick={() => handleAssignBatch(batch.id)}
+                          title="Assign all unassigned ACH payments to this batch"
+                        >
+                          Assign ACH
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: 10, padding: '4px 10px' }}
+                          onClick={() => openEditBatch(batch)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="mono"
+                          style={{
+                            fontSize: 10, fontWeight: 700, padding: '4px 10px',
+                            border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
+                            color: 'var(--red)', borderRadius: 4, cursor: 'pointer',
+                          }}
+                          onClick={() => {
+                            distributionStore.removeAchBatch(batch.id)
+                            showToast('Batch removed')
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 11, padding: '6px 14px' }}
+              onClick={openAddBatch}
+            >
+              + New Batch
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* ── Payment Table ─────────────────────── */}
       <div
         style={{
@@ -907,6 +1153,27 @@ export default function Distributions() {
                         >
                           <MethodBadge method={d.method} />
                         </span>
+                        {d.method === 'ACH' && d.achBatchId && (() => {
+                          const batch = periodBatches.find((b) => b.id === d.achBatchId)
+                          return batch ? (
+                            <div
+                              className="mono"
+                              style={{
+                                fontSize: 9,
+                                color: batch.status === 'Succeeded' ? 'var(--grn)' : 'var(--blu)',
+                                marginTop: 2,
+                                cursor: 'pointer',
+                              }}
+                              title={`Batch ${batch.batchId} — ${batch.status}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setShowBatchPanel(true)
+                              }}
+                            >
+                              #{batch.batchId}
+                            </div>
+                          ) : null
+                        })()}
                       </td>
 
                       {/* ── Status (click to cycle) ────── */}
@@ -937,16 +1204,17 @@ export default function Distributions() {
                       >
                         {editingThis && inlineEdit.field === 'date' ? (
                           <input
-                            type="text"
+                            type="date"
                             autoFocus
                             value={inlineEdit.value}
-                            onChange={(e) => setInlineEdit(prev => ({ ...prev, value: e.target.value }))}
+                            onChange={(e) => {
+                              setInlineEdit(prev => ({ ...prev, value: e.target.value }))
+                            }}
                             onBlur={saveInlineEdit}
                             onKeyDown={handleInlineKeyDown}
                             onClick={(e) => e.stopPropagation()}
-                            placeholder="e.g. Feb 2"
                             style={{
-                              width: 80,
+                              width: 130,
                               fontSize: 12,
                               background: 'var(--bgI)',
                               border: '1px solid var(--grnB)',
@@ -1429,6 +1697,108 @@ export default function Distributions() {
               </button>
               <button className="btn btn-primary" onClick={handleSavePayment}>
                 {editingPayment ? 'Save Changes' : 'Add Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ACH Batch Modal ─────────────────── */}
+      {showBatchModal && (
+        <div
+          className="modal-overlay active"
+          style={{ display: 'flex' }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowBatchModal(false)
+          }}
+        >
+          <div className="modal" style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <div className="modal-title">
+                {editingBatch ? 'Edit ACH Batch' : 'New ACH Batch'}
+              </div>
+              <button className="modal-close" onClick={() => setShowBatchModal(false)}>
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Batch ID</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={batchForm.batchId}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, batchId: e.target.value }))}
+                    placeholder="e.g. 512054"
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Funding Account</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={batchForm.fundingAccount}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, fundingAccount: e.target.value }))}
+                    placeholder="VEGA FUND II CHK"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Deliver By</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={batchForm.deliverBy}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, deliverBy: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Status</label>
+                  <select
+                    className="form-select"
+                    value={batchForm.status}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, status: e.target.value }))}
+                  >
+                    <option value="Submitted">Submitted</option>
+                    <option value="Succeeded">Succeeded</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                <div>
+                  <label className="form-label">Submitted Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={batchForm.submittedDate}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, submittedDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Succeeded Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={batchForm.succeededDate}
+                    onChange={(e) => setBatchForm((prev) => ({ ...prev, succeededDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowBatchModal(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveBatch}
+                disabled={!batchForm.batchId.trim()}
+              >
+                {editingBatch ? 'Update Batch' : 'Create Batch'}
               </button>
             </div>
           </div>

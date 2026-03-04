@@ -15,6 +15,7 @@ const useDistributionStore = create(
     (set, get) => ({
       // State
       distributions: seedDistributions,
+      achBatches: [], // ACH batch tracking
       newInvestorFlags: [], // Track newly-added investors flagged for distribution review
       sheetsLoaded: false,
 
@@ -109,6 +110,54 @@ const useDistributionStore = create(
           distributions: state.distributions.filter((d) => d.id !== id),
         })),
 
+      // ── ACH Batch Management ─────────────────────────────────────────────────
+      getAchBatches: () => get().achBatches,
+
+      getAchBatchesByPeriod: (period) =>
+        get().achBatches.filter((b) => b.period === period),
+
+      addAchBatch: (batch) =>
+        set((state) => ({
+          achBatches: [
+            ...state.achBatches,
+            {
+              ...batch,
+              id: `ACH-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        })),
+
+      updateAchBatch: (batchId, updates) =>
+        set((state) => ({
+          achBatches: state.achBatches.map((b) =>
+            b.id === batchId ? { ...b, ...updates } : b,
+          ),
+        })),
+
+      removeAchBatch: (batchId) =>
+        set((state) => ({
+          achBatches: state.achBatches.filter((b) => b.id !== batchId),
+          // Also unlink any payments assigned to this batch
+          distributions: state.distributions.map((d) =>
+            d.achBatchId === batchId ? { ...d, achBatchId: '' } : d,
+          ),
+        })),
+
+      assignToBatch: (paymentIds, batchId) =>
+        set((state) => ({
+          distributions: state.distributions.map((d) =>
+            paymentIds.includes(d.id) ? { ...d, achBatchId: batchId } : d,
+          ),
+        })),
+
+      unassignFromBatch: (paymentId) =>
+        set((state) => ({
+          distributions: state.distributions.map((d) =>
+            d.id === paymentId ? { ...d, achBatchId: '' } : d,
+          ),
+        })),
+
       // ── New Investor Distribution Flags ─────────────────────────────────────
       flagNewInvestor: (invId, invName, fundName) =>
         set((state) => ({
@@ -142,7 +191,7 @@ const useDistributionStore = create(
     }),
     {
       name: 'vega-distribution-store',
-      version: 3, // Bumped for real distribution data (Dec 2025, Jan 2026, Feb 2026)
+      version: 4, // Bumped for ACH batch management
     },
   ),
 );
