@@ -1522,8 +1522,21 @@ export default function Distributions() {
                   onChange={(e) => {
                     const inv = investors.find((i) => i.id === e.target.value)
                     handleFormChange('invId', e.target.value)
-                    if (inv && inv.entities.length > 0) {
-                      handleFormChange('entity', inv.entities[0])
+                    if (inv) {
+                      // Build position list for this investor in the active fund
+                      const invPositions = positions.filter(
+                        (p) => p.invId === inv.id && p.fund === formData.fund
+                      )
+                      const firstEntity = invPositions.length > 0
+                        ? (invPositions[0].entity || inv.name)
+                        : (inv.entities.length > 0 ? inv.entities[0] : '')
+                      handleFormChange('entity', firstEntity)
+                      // Auto-fill amount from most recent distribution for this entity
+                      const allDists = distributionStore.getAll()
+                      const lastDist = allDists
+                        .filter((d) => d.invId === inv.id && d.entity === firstEntity)
+                        .slice(-1)[0]
+                      if (lastDist) handleFormChange('amt', String(lastDist.amt))
                     }
                   }}
                 >
@@ -1542,18 +1555,47 @@ export default function Distributions() {
                   <label className="form-label">Entity</label>
                   {(() => {
                     const selectedInv = investors.find((i) => i.id === formData.invId);
-                    const entityList = selectedInv?.entities || [];
-                    if (entityList.length > 1) {
+                    // Build entity options from positions (includes funded amount)
+                    const invPositions = positions.filter(
+                      (p) => p.invId === formData.invId && p.fund === formData.fund
+                    );
+                    // Use positions as entity source — shows entity + funded amount
+                    if (invPositions.length > 1) {
                       return (
                         <select
                           className="form-select"
                           value={formData.entity}
-                          onChange={(e) => handleFormChange('entity', e.target.value)}
+                          onChange={(e) => {
+                            handleFormChange('entity', e.target.value)
+                            // Auto-fill amount from most recent distribution for this entity
+                            const allDists = distributionStore.getAll()
+                            const lastDist = allDists
+                              .filter((d) => d.invId === formData.invId && d.entity === e.target.value)
+                              .slice(-1)[0]
+                            if (lastDist) handleFormChange('amt', String(lastDist.amt))
+                          }}
                         >
-                          {entityList.map((ent) => (
-                            <option key={ent} value={ent}>{ent}</option>
-                          ))}
+                          {invPositions.map((pos) => {
+                            const label = pos.entity || selectedInv?.name || ''
+                            return (
+                              <option key={pos.id} value={pos.entity || ''}>
+                                {label} (${fmt(pos.amt)})
+                              </option>
+                            )
+                          })}
                         </select>
+                      );
+                    }
+                    if (invPositions.length === 1) {
+                      const pos = invPositions[0];
+                      return (
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={formData.entity}
+                          onChange={(e) => handleFormChange('entity', e.target.value)}
+                          placeholder={pos.entity || selectedInv?.name || 'Entity name'}
+                        />
                       );
                     }
                     return (
