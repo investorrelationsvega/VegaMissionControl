@@ -142,6 +142,11 @@ const useFundStore = create(
       };
     }),
 
+  removeAdvisor: (id) =>
+    set((state) => ({
+      advisors: state.advisors.filter((a) => a.id !== id),
+    })),
+
   getAdvisorAuditLog: (id) =>
     id
       ? get().advisorAuditLog.filter((e) => e.entityId === id)

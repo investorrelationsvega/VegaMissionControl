@@ -2942,6 +2942,22 @@ export default function Directory() {
                       >
                         Save
                       </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          fundStore.removeAdvisor(adv.id)
+                          setEditingAdvisor(null)
+                          setEditingAdvisorFields({})
+                        }}
+                        style={{
+                          ...mono, fontSize: 10, fontWeight: 700, padding: '6px 16px',
+                          border: '1px solid rgba(248,113,113,0.3)', background: 'transparent',
+                          color: 'var(--red)', borderRadius: 4, cursor: 'pointer',
+                          marginLeft: 'auto',
+                        }}
+                      >
+                        Remove
+                      </button>
                     </div>
                   </>
                 ) : (
