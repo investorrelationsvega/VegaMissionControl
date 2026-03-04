@@ -2104,25 +2104,28 @@ export default function Distributions() {
                         let grandTotalAnnual = 0
                         let grandTotalMonthly = 0
 
-                        const rows = fundInvestors.map((inv) => {
+                        // Build rows per position (entity), not per investor
+                        const rows = fundInvestors.flatMap((inv) => {
                           const fundPositions = inv.positions.filter((p) => p.fund === calcFund)
-                          const committed = fundPositions.reduce((s, p) => s + p.amt, 0)
-                          const annualAmt = Math.round(committed * pct)
-                          const monthlyAmt = Math.round(annualAmt / 12)
-                          grandTotalAnnual += annualAmt
-                          grandTotalMonthly += monthlyAmt
+                          return fundPositions.map((pos) => {
+                            const committed = pos.amt
+                            const annualAmt = Math.round(committed * pct)
+                            const monthlyAmt = Math.round(annualAmt / 12)
+                            grandTotalAnnual += annualAmt
+                            grandTotalMonthly += monthlyAmt
 
-                          return (
-                            <tr key={inv.id}>
-                              <td style={{ fontSize: 13, fontWeight: 500 }}>{inv.name}</td>
-                              <td style={{ fontSize: 12, color: 'var(--t4)' }}>
-                                {inv.entities[0] || '-'}
-                              </td>
-                              <td className="right" style={{ fontSize: 13, color: 'var(--t3)' }}>{fmt(committed)}</td>
-                              <td className="right" style={{ fontSize: 12, color: 'var(--t5)' }}>{fmt(annualAmt)}</td>
-                              <td className="right" style={{ fontSize: 14, fontWeight: 700, color: 'var(--grn)' }}>{fmt(monthlyAmt)}</td>
-                            </tr>
-                          )
+                            return (
+                              <tr key={pos.id}>
+                                <td style={{ fontSize: 13, fontWeight: 500 }}>{inv.name}</td>
+                                <td style={{ fontSize: 12, color: 'var(--t4)' }}>
+                                  {pos.entity || inv.name}
+                                </td>
+                                <td className="right" style={{ fontSize: 13, color: 'var(--t3)' }}>{fmt(committed)}</td>
+                                <td className="right" style={{ fontSize: 12, color: 'var(--t5)' }}>{fmt(annualAmt)}</td>
+                                <td className="right" style={{ fontSize: 14, fontWeight: 700, color: 'var(--grn)' }}>{fmt(monthlyAmt)}</td>
+                              </tr>
+                            )
+                          })
                         })
 
                         return (
@@ -2165,31 +2168,37 @@ export default function Distributions() {
                   let created = 0
                   fundInvestors.forEach((inv) => {
                     const fundPositions = inv.positions.filter((p) => p.fund === calcFund)
-                    const committed = fundPositions.reduce((s, p) => s + p.amt, 0)
-                    const annualAmt = Math.round(committed * pct)
-                    const monthlyAmt = Math.round(annualAmt / 12)
-                    if (monthlyAmt > 0) {
-                      // Check if payment already exists for this investor in this period
-                      const existing = periodPayments.find((p) => p.invId === inv.id)
-                      if (!existing) {
-                        distributionStore.addPayment({
-                          invId: inv.id,
-                          name: inv.name,
-                          entity: inv.entities[0] || '',
-                          amt: monthlyAmt,
-                          method: 'ACH',
-                          status: 'Prep',
-                          date: '',
-                          trackingRef: '',
-                          reportedInPortal: 'Pending',
-                          reconciliation: 'Pending',
-                          fund: calcFund,
-                          period: activePeriod || 'New Period',
-                          notes: `Monthly: ${calcPercent}% annual \u00F7 12 = ${fmt(monthlyAmt)}/mo (${fmt(annualAmt)}/yr on ${fmt(committed)})`,
-                        })
-                        created++
+                    // Create a payment per position (entity), not per investor
+                    fundPositions.forEach((pos) => {
+                      const committed = pos.amt
+                      const annualAmt = Math.round(committed * pct)
+                      const monthlyAmt = Math.round(annualAmt / 12)
+                      if (monthlyAmt > 0) {
+                        // Check if payment already exists for this entity in this period
+                        const entityName = pos.entity || ''
+                        const existing = periodPayments.find(
+                          (p) => p.invId === inv.id && p.entity === entityName
+                        )
+                        if (!existing) {
+                          distributionStore.addPayment({
+                            invId: inv.id,
+                            name: inv.name,
+                            entity: entityName,
+                            amt: monthlyAmt,
+                            method: 'ACH',
+                            status: 'Prep',
+                            date: '',
+                            trackingRef: '',
+                            reportedInPortal: 'Pending',
+                            reconciliation: 'Pending',
+                            fund: calcFund,
+                            period: activePeriod || 'New Period',
+                            notes: `Monthly: ${calcPercent}% annual \u00F7 12 = ${fmt(monthlyAmt)}/mo (${fmt(annualAmt)}/yr on ${fmt(committed)})`,
+                          })
+                          created++
+                        }
                       }
-                    }
+                    })
                   })
                   setShowCalcModal(false)
                   setCalcPercent('')
