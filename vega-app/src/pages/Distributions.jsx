@@ -112,6 +112,11 @@ function escapeCSV(val) {
   return str
 }
 
+function quoteCSV(val) {
+  const str = String(val ?? '')
+  return `"${str.replace(/"/g, '""')}"`
+}
+
 const formatTimestamp = (ts) => {
   const d = new Date(ts)
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
@@ -415,6 +420,14 @@ export default function Distributions() {
       '% Funded', '% Ownership',
     ]
 
+    // Calculate total funded for % Funded column
+    const totalFunded = periodPayments.reduce((sum, payment) => {
+      const pos = positions.find(
+        (p) => p.invId === payment.invId && p.fund === payment.fund
+      )
+      return sum + (pos?.amt || 0)
+    }, 0)
+
     const rows = periodPayments.map((payment) => {
       const inv = investors.find((i) => i.id === payment.invId)
       const pos = positions.find(
@@ -425,15 +438,22 @@ export default function Distributions() {
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
 
+      const fundedAmt = pos?.amt || 0
+      const committedAmt = pos?.amt || 0
+      const paymentDate = toSyndicationDate(payment.date || '')
+      const pctFunded = totalFunded > 0 ? (fundedAmt / totalFunded) : 0
+
       return [
         firstName, lastName, payment.entity || inv?.name || '', pos?.cls || '',
-        pos?.amt || '', pos?.amt || '', toSyndicationDate(pos?.funded || ''), '',
-        '', toSyndicationDate(payment.date || ''), '', payment.amt || '', '',
-        '', '',
-      ].map(escapeCSV).join(',')
+        fundedAmt ? String(fundedAmt) : '', committedAmt ? String(committedAmt) : '',
+        toSyndicationDate(pos?.funded || ''),
+        paymentDate, paymentDate, paymentDate,
+        '', payment.amt || '', '',
+        pctFunded ? pctFunded.toFixed(8) : '', '0',
+      ].map(quoteCSV).join(',')
     })
 
-    const csv = [headers.join(','), ...rows].join('\n')
+    const csv = [headers.map(quoteCSV).join(','), ...rows].join('\n')
     const periodSlug = (activePeriod || 'export').replace(/\s+/g, '-')
     downloadCSV(`syndication-pro-${periodSlug}.csv`, csv)
     showToast('Syndication Pro CSV exported')
