@@ -31,9 +31,9 @@ export const positions = [
     docRouting:"direct",declinedReason:null},
 
   // ── Fund II Positions ─────────────────────────
-  {id:"P07",invId:"I07",name:"Jeremiah Post",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Pending",signed:"Jan 28, 2026",funded:"",advisor:"",custodian:"",phone:"801-560-3559",email:"jer@solidrenovationcompany.com",state:"UT",
-    pipeline:{stage:"Out for Signatures",enteredDate:"Jan 20, 2026",webformDoneDate:"Jan 22, 2026",outForSignaturesDate:"Jan 28, 2026",signedByLpDate:"Jan 28, 2026"},
-    signers:[{name:"Jeremiah Post",role:"LP",signed:true,signedDate:"Jan 28, 2026"},{name:"Cory Waddoups",role:"GP",signed:false,signedDate:null}],
+  {id:"P07",invId:"I07",name:"Jeremiah Post",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:100000,status:"Approved",signed:"Jan 28, 2026",funded:"Feb 3, 2026",advisor:"",custodian:"",phone:"801-560-3559",email:"jer@solidrenovationcompany.com",state:"UT",
+    pipeline:{stage:"Fully Accepted",enteredDate:"Jan 20, 2026",webformDoneDate:"Jan 22, 2026",outForSignaturesDate:"Jan 28, 2026",signedByLpDate:"Jan 28, 2026",fundedDate:"Feb 3, 2026"},
+    signers:[{name:"Jeremiah Post",role:"LP",signed:true,signedDate:"Jan 28, 2026"},{name:"Cory Waddoups",role:"GP",signed:true,signedDate:"Jan 28, 2026"}],
     docRouting:"direct",declinedReason:null},
   {id:"P08",invId:"I08",name:"Chris Hermansen",entity:"",fund:"Fund II",type:"Individual",cls:"A",amt:1228071,status:"Approved",signed:"Nov 5, 2025",funded:"Nov 5, 2025",advisor:"",custodian:"",phone:"801-358-7343",email:"lakeshoregolfclub@yahoo.com",state:"UT",
     pipeline:{stage:"Fully Accepted",enteredDate:"Oct 20, 2025",webformDoneDate:"Oct 28, 2025",outForSignaturesDate:"Nov 1, 2025",signedByLpDate:"Nov 5, 2025",fundedDate:"Nov 5, 2025"},
