@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { distributions as seedDistributions } from '../data/seedData';
-import { updateDistributionField, appendAuditLog } from '../services/sheetsService';
+import { updateDistributionField, appendDistributionRow, appendAuditLog } from '../services/sheetsService';
 import { reliableWrite } from '../services/sheetsWriteQueue';
 
 const useDistributionStore = create(
@@ -66,6 +66,9 @@ const useDistributionStore = create(
               timestamp: new Date().toISOString(),
             }],
           };
+          // Write new distribution row to Google Sheets
+          reliableWrite(`New distribution: ${newPayment.name} ${newPayment.entity}`, () =>
+            appendDistributionRow(newPayment));
           return { distributions: [...state.distributions, newPayment] };
         }),
 

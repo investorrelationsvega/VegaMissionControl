@@ -266,7 +266,7 @@ export async function fetchAllSheetData() {
     `${TABS.INVESTORS}!A1:K100`,
     `${TABS.POSITIONS}!A1:M100`,
     `${TABS.COMPLIANCE}!A1:H100`,
-    `${TABS.DISTRIBUTIONS}!A1:I100`,
+    `${TABS.DISTRIBUTIONS}!A1:I500`,
     `${TABS.REFERENCE}!A1:G20`,
     `${TABS.SUBSCRIPTIONS}!A1:L200`,
   ];
@@ -773,6 +773,26 @@ export async function updateDistributionField(appDistId, field, value) {
   if (!col) return;
 
   return updateCell(TABS.DISTRIBUTIONS, row, col, value);
+}
+
+/**
+ * Append a new distribution row to the Distributions tab.
+ * Columns: distribution_id, name, entity, period, amount, method, status, sent_date, notes
+ */
+export async function appendDistributionRow(payment) {
+  const sheetId = `D${String(payment.id.replace(/^D0*/, '')).padStart(4, '0')}`;
+  const row = [
+    sheetId,
+    payment.name || '',
+    payment.entity || '',
+    payment.period || '',
+    payment.amt || 0,
+    payment.method || '',
+    payment.status || '',
+    payment.date || '',
+    payment.notes || '',
+  ];
+  return appendRows(`${TABS.DISTRIBUTIONS}!A:I`, [row]);
 }
 
 /**
