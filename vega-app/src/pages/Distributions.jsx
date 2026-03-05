@@ -451,7 +451,7 @@ export default function Distributions() {
         fundedAmt ? fundedAmt.toFixed(2) : '', committedAmt ? committedAmt.toFixed(2) : '',
         toSyndicationDate(pos?.funded || ''),
         todayFormatted, todayFormatted, todayFormatted,
-        '', payment.amt ? Number(payment.amt).toFixed(2) : '', '',
+        '', '', '',
         pctFunded ? pctFunded.toFixed(8) : '', '0',
       ].map(quoteCSV).join(',')
     })
