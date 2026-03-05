@@ -57,7 +57,9 @@
       "Bash(pip3 install:*)",
       "Bash(git status:*)",
       "WebFetch(domain:syndicationpro.com)",
-      "Bash(git fetch origin claude/resume-session-qz4VT)"
+      "Bash(git fetch origin claude/resume-session-qz4VT)",
+      "Bash(git fetch origin main)",
+      "Bash(git merge origin/main)"
     ]
   }
 }
