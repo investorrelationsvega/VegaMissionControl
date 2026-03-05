@@ -56,7 +56,8 @@
       "WebFetch(domain:docs.google.com)",
       "Bash(pip3 install:*)",
       "Bash(git status:*)",
-      "WebFetch(domain:syndicationpro.com)"
+      "WebFetch(domain:syndicationpro.com)",
+      "Bash(git fetch origin claude/resume-session-qz4VT)"
     ]
   }
 }
