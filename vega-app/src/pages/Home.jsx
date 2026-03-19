@@ -12,8 +12,6 @@ import useRingCentralStore from '../stores/ringcentralStore';
 import { revokeToken } from '../services/googleAuth';
 import useResponsive from '../hooks/useResponsive';
 
-const CURRENT_USER = 'jjones@vegarei.com';
-
 const BUSINESS_UNITS = [
   { num: '01', name: 'Assisted Living Management', subtitle: 'Management & Operations', route: '/alm' },
   { num: '02', name: 'Builders', subtitle: 'Construction', route: '/builders' },
@@ -59,6 +57,7 @@ export default function Home() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
+  const userEmail = useGoogleStore((s) => s.userEmail);
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const googleToken = useGoogleStore((s) => s.accessToken);
   const googleClear = useGoogleStore((s) => s.clearAuth);
@@ -81,7 +80,7 @@ export default function Home() {
   const dismissNotification = useUiStore((s) => s.dismissNotification);
 
   // Home page: show only notifications assigned to current user
-  const notifications = allNotifications.filter((n) => n.assignee === CURRENT_USER);
+  const notifications = allNotifications.filter((n) => n.assignee === userEmail);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // Close dropdown on outside click
@@ -221,7 +220,7 @@ export default function Home() {
             )}
           </div>
 
-          <span className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>{CURRENT_USER}</span>
+          <span className="mono" style={{ fontSize: 11, color: 'var(--t3)' }}>{userEmail || 'Not signed in'}</span>
           <button onClick={handleSignOut} style={{ background: 'none', border: '1px solid var(--bd)', borderRadius: 4, padding: '4px 12px', fontFamily: "'Space Mono', monospace", fontSize: 10, color: 'var(--t4)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             Sign Out
           </button>

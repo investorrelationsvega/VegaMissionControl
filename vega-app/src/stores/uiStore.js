@@ -11,6 +11,11 @@ import {
   upcomingDates,
   quickLinks,
 } from '../data/seedData';
+import useGoogleStore from './googleStore';
+
+/** Helper: get the currently authenticated user's email */
+const getCurrentUserEmail = () =>
+  useGoogleStore.getState().userEmail || 'unknown';
 
 const useUiStore = create(
   persist(
@@ -29,6 +34,7 @@ const useUiStore = create(
 
   // ── Notifications ─────────────────────────────────────────────────────────
   notifications: [
+    // ── j@vegarei.com notifications ──
     {
       id: 'N01',
       type: 'assignment',
@@ -38,7 +44,7 @@ const useUiStore = create(
       read: false,
       link: '/pe',
       unit: 'pe',
-      assignee: 'jjones@vegarei.com',
+      assignee: 'j@vegarei.com',
     },
     {
       id: 'N02',
@@ -49,7 +55,7 @@ const useUiStore = create(
       read: false,
       link: '/pe/compliance',
       unit: 'pe',
-      assignee: 'jjones@vegarei.com',
+      assignee: 'j@vegarei.com',
     },
     {
       id: 'N03',
@@ -60,7 +66,7 @@ const useUiStore = create(
       read: false,
       link: '/pe/directory',
       unit: 'pe',
-      assignee: 'jjones@vegarei.com',
+      assignee: 'j@vegarei.com',
     },
     {
       id: 'N04',
@@ -71,7 +77,30 @@ const useUiStore = create(
       read: true,
       link: '/pe',
       unit: 'pe',
-      assignee: 'jjones@vegarei.com',
+      assignee: 'j@vegarei.com',
+    },
+    // ── dan@vegarei.com notifications ──
+    {
+      id: 'N05',
+      type: 'assignment',
+      title: 'Assigned: Q1 Capital Call',
+      detail: 'You are primary on Q1 capital call processing',
+      timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+      read: false,
+      link: '/pe',
+      unit: 'pe',
+      assignee: 'dan@vegarei.com',
+    },
+    {
+      id: 'N06',
+      type: 'tag',
+      title: 'Tagged in compliance review',
+      detail: 'J. Jones — "Dan, please review Fund III docs"',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+      read: false,
+      link: '/pe/compliance',
+      unit: 'pe',
+      assignee: 'dan@vegarei.com',
     },
   ],
 
@@ -116,7 +145,7 @@ const useUiStore = create(
             itemId: id,
             action: 'edit',
             detail: `Changed ${key}: "${prev[key] || '(empty)'}" → "${changes[key]}"`,
-            user: 'j@vegarei.com',
+            user: getCurrentUserEmail(),
             timestamp: new Date().toISOString(),
           });
         }
@@ -132,7 +161,7 @@ const useUiStore = create(
       const note = {
         id: `UN-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         text,
-        user: 'j@vegarei.com',
+        user: getCurrentUserEmail(),
         timestamp: new Date().toISOString(),
       };
       const auditEntry = {
@@ -140,7 +169,7 @@ const useUiStore = create(
         itemId,
         action: 'note',
         detail: `Added note: "${text.slice(0, 60)}${text.length > 60 ? '...' : ''}"`,
-        user: 'j@vegarei.com',
+        user: getCurrentUserEmail(),
         timestamp: new Date().toISOString(),
       };
       return {
@@ -156,7 +185,7 @@ const useUiStore = create(
       const doc = {
         ...docMeta,
         id: `UD-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        uploadedBy: 'j@vegarei.com',
+        uploadedBy: getCurrentUserEmail(),
         uploadedAt: new Date().toISOString(),
       };
       const auditEntry = {
@@ -164,7 +193,7 @@ const useUiStore = create(
         itemId,
         action: 'upload',
         detail: `Uploaded document: "${docMeta.name}"`,
-        user: 'j@vegarei.com',
+        user: getCurrentUserEmail(),
         timestamp: new Date().toISOString(),
       };
       return {
@@ -184,7 +213,7 @@ const useUiStore = create(
         itemId,
         action: 'remove_doc',
         detail: `Removed document: "${existingDoc?.name || docId}"`,
-        user: 'j@vegarei.com',
+        user: getCurrentUserEmail(),
         timestamp: new Date().toISOString(),
       };
       return {
@@ -244,7 +273,7 @@ const useUiStore = create(
       notifications: [
         {
           unit: 'pe',
-          assignee: 'jjones@vegarei.com',
+          assignee: getCurrentUserEmail(),
           ...notification,
           id: `N-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           timestamp: new Date().toISOString(),
@@ -290,7 +319,7 @@ const useUiStore = create(
     }),
     {
       name: 'vega-ui-store',
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         attentionItems: state.attentionItems,
         upcomingDates: state.upcomingDates,

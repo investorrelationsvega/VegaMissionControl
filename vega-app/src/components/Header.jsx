@@ -192,11 +192,14 @@ export default function Header({ currentPage }) {
   const backTo = isSubPage ? `/${unitSlug}` : '/';
   const backLabel = isSubPage ? (UNIT_LABELS[unitSlug] || 'Back') : 'Mission Control';
 
-  const notifications = useUiStore((s) => s.notifications);
+  const userEmail = useGoogleStore((s) => s.userEmail);
+  const allNotifications = useUiStore((s) => s.notifications);
   const markNotificationRead = useUiStore((s) => s.markNotificationRead);
   const markAllNotificationsRead = useUiStore((s) => s.markAllNotificationsRead);
   const dismissNotification = useUiStore((s) => s.dismissNotification);
-  const unreadCount = useUiStore((s) => s.getUnreadCount());
+  // Filter notifications to only show items assigned to the logged-in user
+  const notifications = allNotifications.filter((n) => n.assignee === userEmail);
+  const unreadCount = notifications.filter((n) => !n.read).length;
   const chatUnread = useChatStore((s) => s.getUnreadCount());
   const toggleChat = useChatStore((s) => s.togglePanel);
   const filings = useBlueskyStore((s) => s.filings);
@@ -588,7 +591,7 @@ export default function Header({ currentPage }) {
             )}
           </div>
 
-          <span className="header-email r-hide-mobile">j@vegarei.com</span>
+          <span className="header-email r-hide-mobile">{userEmail || 'Not signed in'}</span>
           <button className="header-signout" onClick={handleSignOut}>Sign Out</button>
         </div>
       </div>
