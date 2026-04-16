@@ -10,10 +10,12 @@ import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
 import AlmRangePicker from '../components/AlmRangePicker';
+import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import AlmLineChart from '../components/AlmLineChart';
 import { uniqueFacilities } from '../services/almDataService';
 import { fmtNum, dateKey } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
+import { ALL_SCOPE, rowInScope, facilityInScope, scopeLabel } from '../utils/scope';
 
 // Every metric is individually toggleable. `aggregate` controls how
 // we combine multiple rows on the same day (e.g. across facilities).
@@ -52,13 +54,9 @@ function MetricChip({ metric, active, disabled, onClick }) {
   );
 }
 
-function buildSeries(rows, metricIds, range, facilityFilter) {
+function buildSeries(rows, metricIds, range, scope) {
   const chosen = METRICS.filter((m) => metricIds.includes(m.id));
-  const filtered = rows.filter((r) => {
-    if (!rowInRange(r, range)) return false;
-    if (facilityFilter !== 'all' && r.facility !== facilityFilter) return false;
-    return true;
-  });
+  const filtered = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
 
   const byDay = new Map();
   filtered.forEach((r) => {
@@ -83,7 +81,7 @@ function buildSeries(rows, metricIds, range, facilityFilter) {
 export default function AlmTrends() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('monthly'));
-  const [facilityFilter, setFacilityFilter] = useState('all');
+  const [scope, setScope] = useState(ALL_SCOPE);
   const [selectedMetrics, setSelectedMetrics] = useState(['census']);
 
   const facilities = useMemo(() => uniqueFacilities(rows), [rows]);
@@ -97,28 +95,32 @@ export default function AlmTrends() {
   };
 
   const { series, recordCount } = useMemo(
-    () => buildSeries(rows, selectedMetrics, range, facilityFilter),
-    [rows, selectedMetrics, range, facilityFilter],
+    () => buildSeries(rows, selectedMetrics, range, scope),
+    [rows, selectedMetrics, range, scope],
   );
 
-  // Per-facility mini charts: same metrics per card
+  // Per-facility mini charts: same metrics per card, honoring the
+  // active scope so fund selection narrows the grid too.
   const perFacilitySeries = useMemo(() => {
     if (selectedMetrics.length === 0) return [];
-    const perFacFiltered = rows.filter((r) => rowInRange(r, range));
+    const perFacFiltered = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
     const byFacility = new Map();
     perFacFiltered.forEach((r) => {
       if (!byFacility.has(r.facility)) byFacility.set(r.facility, []);
       byFacility.get(r.facility).push(r);
     });
 
-    return Array.from(byFacility.entries()).map(([facility, fRows]) => {
-      const { series: s } = buildSeries(fRows, selectedMetrics, range, 'all');
-      const primary = s[0];
-      const latest = primary?.points[primary.points.length - 1]?.y ?? 0;
-      const first = primary?.points[0]?.y ?? 0;
-      return { facility, series: s, latest, delta: latest - first };
-    }).sort((a, b) => b.latest - a.latest);
-  }, [rows, selectedMetrics, range]);
+    return Array.from(byFacility.entries())
+      .filter(([facility]) => facilityInScope(facility, scope))
+      .map(([facility, fRows]) => {
+        const { series: s } = buildSeries(fRows, selectedMetrics, range, ALL_SCOPE);
+        const primary = s[0];
+        const latest = primary?.points[primary.points.length - 1]?.y ?? 0;
+        const first = primary?.points[0]?.y ?? 0;
+        return { facility, series: s, latest, delta: latest - first };
+      })
+      .sort((a, b) => b.latest - a.latest);
+  }, [rows, selectedMetrics, range, scope]);
 
   const primaryLabel = METRICS.find((m) => m.id === selectedMetrics[0])?.label;
   const atMax = selectedMetrics.length >= MAX_OVERLAY;
@@ -129,25 +131,15 @@ export default function AlmTrends() {
         <div className="alm-page-dot"><span>Trends</span></div>
         <h1 className="alm-page-title">Trends &amp; patterns</h1>
         <p className="alm-page-subtitle">
-          {rangeLabel(range)} · pick any metrics to overlay and compare shape
+          {rangeLabel(range)} · {scopeLabel(scope)} · {recordCount} daily record{recordCount === 1 ? '' : 's'}
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
         <AlmRangePicker value={range} onChange={setRange} />
-        <select
-          value={facilityFilter}
-          onChange={(e) => setFacilityFilter(e.target.value)}
-          className="alm-select"
-        >
-          <option value="all">All facilities</option>
-          {facilities.map((f) => <option key={f} value={f}>{f}</option>)}
-        </select>
-        <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-          {recordCount} daily record{recordCount === 1 ? '' : 's'}
-        </span>
+        <AlmFacilityFilter facilities={facilities} value={scope} onChange={setScope} />
       </div>
 
       {/* Metric toggles */}

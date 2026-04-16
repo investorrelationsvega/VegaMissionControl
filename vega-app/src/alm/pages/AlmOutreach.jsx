@@ -9,9 +9,11 @@ import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
 import AlmRangePicker from '../components/AlmRangePicker';
+import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import { uniqueFacilities } from '../services/almDataService';
 import { fmtNum, fmtPct, fmtDate } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
+import { ALL_SCOPE, rowInScope, scopeLabel } from '../utils/scope';
 
 function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst }) {
   const width = Math.max(4, pctOfTop);
@@ -47,16 +49,12 @@ function pct(numer, denom) {
 export default function AlmOutreach() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('monthly'));
-  const [facilityFilter, setFacilityFilter] = useState('all');
+  const [scope, setScope] = useState(ALL_SCOPE);
 
   const { filtered, facilities, funnel, sources, recentReferrals, perFacility } = useMemo(() => {
     const facs = uniqueFacilities(rows);
 
-    const f = rows.filter((r) => {
-      if (!rowInRange(r, range)) return false;
-      if (facilityFilter !== 'all' && r.facility !== facilityFilter) return false;
-      return true;
-    });
+    const f = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
 
     const totals = f.reduce(
       (acc, r) => {
@@ -112,7 +110,7 @@ export default function AlmOutreach() {
       recentReferrals: recent,
       perFacility: pf,
     };
-  }, [rows, range, facilityFilter]);
+  }, [rows, range, scope]);
 
   const topOfFunnel = Math.max(funnel.outbound, 1);
   const funnelSteps = [
@@ -131,27 +129,15 @@ export default function AlmOutreach() {
         <div className="alm-page-dot"><span>Outreach</span></div>
         <h1 className="alm-page-title">Outreach &amp; referrals</h1>
         <p className="alm-page-subtitle">
-          {rangeLabel(range)} · activity and conversion across facilities
+          {rangeLabel(range)} · {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 28, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         <AlmRangePicker value={range} onChange={setRange} />
-        <select
-          value={facilityFilter}
-          onChange={(e) => setFacilityFilter(e.target.value)}
-          className="alm-select"
-        >
-          <option value="all">All facilities</option>
-          {facilities.map((f) => (
-            <option key={f} value={f}>{f}</option>
-          ))}
-        </select>
-        <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-          {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
-        </span>
+        <AlmFacilityFilter facilities={facilities} value={scope} onChange={setScope} />
       </div>
 
       <div className="alm-two-col" style={{ marginBottom: 8 }}>

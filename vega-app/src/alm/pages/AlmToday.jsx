@@ -9,9 +9,11 @@ import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
 import AlmRangePicker from '../components/AlmRangePicker';
+import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import { latestPerFacility, uniqueFacilities } from '../services/almDataService';
 import { fmtNum, fmtDate } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
+import { ALL_SCOPE, rowInScope, facilityInScope, scopeLabel } from '../utils/scope';
 
 const STATUS_TONE = {
   'Fully staffed': { dot: 'var(--alm-up)',   label: 'Fully staffed' },
@@ -91,10 +93,13 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
 export default function AlmToday() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('daily'));
+  const [scope, setScope] = useState(ALL_SCOPE);
+
+  const allFacilities = useMemo(() => uniqueFacilities(rows), [rows]);
 
   const { facilities, inRange, latestByFacility, perFacilityTotals, referralsInRange, summary } = useMemo(() => {
-    const facs = uniqueFacilities(rows);
-    const ir = rows.filter((r) => rowInRange(r, range));
+    const facs = allFacilities.filter((f) => facilityInScope(f, scope));
+    const ir = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
     const latest = latestPerFacility(ir);
 
     const totalsMap = new Map();
@@ -132,7 +137,7 @@ export default function AlmToday() {
       referralsInRange: refs,
       summary: sum,
     };
-  }, [rows, range]);
+  }, [rows, range, scope, allFacilities]);
 
   const isMultiDay = range.preset !== 'daily';
 
@@ -150,14 +155,16 @@ export default function AlmToday() {
           {isMultiDay ? 'Operational overview' : 'Today at a glance'}
         </h1>
         <p className="alm-page-subtitle">
-          {rangeLabel(range)}{facilities.length > 0 && ` · ${facilities.length} facilities reporting`}
+          {rangeLabel(range)} · {scopeLabel(scope)}
+          {facilities.length > 0 && ` · ${facilities.length} facilit${facilities.length === 1 ? 'y' : 'ies'}`}
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         <AlmRangePicker value={range} onChange={setRange} />
+        <AlmFacilityFilter facilities={allFacilities} value={scope} onChange={setScope} />
       </div>
 
       {rows.length === 0 && !loading ? (
