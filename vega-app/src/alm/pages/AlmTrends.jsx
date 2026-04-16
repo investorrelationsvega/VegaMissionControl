@@ -124,7 +124,7 @@ export default function AlmTrends() {
   const atMax = selectedMetrics.length >= MAX_OVERLAY;
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+    <div className="alm-page">
       <div className="alm-page-header">
         <div className="alm-page-dot"><span>Trends</span></div>
         <h1 className="alm-page-title">Trends &amp; patterns</h1>

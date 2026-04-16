@@ -143,7 +143,7 @@ export default function AlmToday() {
   });
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+    <div className="alm-page">
       <div className="alm-page-header">
         <div className="alm-page-dot"><span>{isMultiDay ? 'Overview' : 'Today'}</span></div>
         <h1 className="alm-page-title">

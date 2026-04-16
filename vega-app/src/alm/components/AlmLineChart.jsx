@@ -92,6 +92,22 @@ export default function AlmLineChart({
   const lastDate = new Date(xMax);
   const midDate = new Date((xMin + xMax) / 2);
 
+  // Dedupe x-axis labels: collapse to one label when all points fall on
+  // the same day (xRange === 0), drop the middle label when it would
+  // visually overlap the endpoints.
+  const xLabels = xMin === xMax
+    ? [{ d: firstDate, x: PAD_L + plotW / 2, anchor: 'middle' }]
+    : xRange < 1000 * 60 * 60 * 24 * 3
+      ? [
+          { d: firstDate, x: PAD_L,                anchor: 'start' },
+          { d: lastDate,  x: PAD_L + plotW,        anchor: 'end'   },
+        ]
+      : [
+          { d: firstDate, x: PAD_L,                anchor: 'start'  },
+          { d: midDate,   x: PAD_L + plotW / 2,    anchor: 'middle' },
+          { d: lastDate,  x: PAD_L + plotW,        anchor: 'end'    },
+        ];
+
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -104,23 +120,20 @@ export default function AlmLineChart({
         })}
 
         {/* X-axis labels */}
-        {[firstDate, midDate, lastDate].map((d, i) => {
-          const x = xAt(d);
-          return (
-            <text
-              key={i}
-              x={x}
-              y={H - 8}
-              fontSize={9}
-              fontFamily={MONO_FONT}
-              fill="var(--alm-ink-5)"
-              textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
-              style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}
-            >
-              {fmtDateShort(d)}
-            </text>
-          );
-        })}
+        {xLabels.map((lbl, i) => (
+          <text
+            key={i}
+            x={lbl.x}
+            y={H - 8}
+            fontSize={9}
+            fontFamily={MONO_FONT}
+            fill="var(--alm-ink-5)"
+            textAnchor={lbl.anchor}
+            style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}
+          >
+            {fmtDateShort(lbl.d)}
+          </text>
+        ))}
 
         {/* Left axis hint — "relative" since scales differ */}
         {series.length > 1 && (

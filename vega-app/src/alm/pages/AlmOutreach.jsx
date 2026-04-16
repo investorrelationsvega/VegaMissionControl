@@ -126,7 +126,7 @@ export default function AlmOutreach() {
   const maxSource = Math.max(1, ...sources.map((s) => s.count));
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+    <div className="alm-page">
       <div className="alm-page-header">
         <div className="alm-page-dot"><span>Outreach</span></div>
         <h1 className="alm-page-title">Outreach &amp; referrals</h1>
@@ -154,7 +154,7 @@ export default function AlmOutreach() {
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: 12, marginBottom: 8 }}>
+      <div className="alm-two-col" style={{ marginBottom: 8 }}>
         <div className="alm-card alm-card--p">
           <div className="alm-stat-label">Activity Funnel</div>
           <div style={{ marginTop: 4 }}>

@@ -31,63 +31,27 @@ export default function AlmHeader() {
         zIndex: 100,
       }}
     >
-      <div
-        style={{
-          maxWidth: 1280,
-          margin: '0 auto',
-          padding: '0 32px',
-          display: 'flex',
-          alignItems: 'stretch',
-          justifyContent: 'space-between',
-          height: 60,
-        }}
-      >
+      <div className="alm-header-inner">
         {/* Left: back link + module label */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <button
             onClick={() => navigate('/')}
-            className="alm-mono"
-            style={{
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: '0.12em',
-              color: 'var(--alm-ink-4)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              transition: 'color 0.15s',
-            }}
+            className="alm-mono alm-header-back"
             onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--alm-ink-1)')}
             onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--alm-ink-4)')}
           >
-            ← Mission Control
+            <span aria-hidden="true">←</span>
+            <span className="alm-header-back-text"> Mission Control</span>
           </button>
-          <span style={{ width: 1, height: 20, background: 'var(--alm-border)' }} />
+          <span className="alm-header-divider" />
           <div
             onClick={() => navigate('/alm')}
             style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', lineHeight: 1 }}
           >
-            <span
-              className="alm-mono"
-              style={{
-                fontSize: 10,
-                textTransform: 'uppercase',
-                letterSpacing: '0.22em',
-                color: 'var(--alm-ink-4)',
-                marginBottom: 3,
-              }}
-            >
+            <span className="alm-mono alm-header-eyebrow">
               Vega · Operations
             </span>
-            <span
-              style={{
-                fontSize: 16,
-                fontWeight: 500,
-                color: 'var(--alm-ink-1)',
-                letterSpacing: '-0.01em',
-              }}
-            >
+            <span className="alm-header-title">
               Assisted Living
             </span>
           </div>

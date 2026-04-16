@@ -79,6 +79,13 @@
   font-feature-settings: 'tnum';
 }
 
+/* ── Page shell ─────────────────────────────────────────── */
+.alm-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 36px 32px 64px;
+}
+
 /* ── Page header ────────────────────────────────────────── */
 .alm-page-header {
   padding-bottom: 24px;
@@ -132,7 +139,7 @@
 .alm-card--hover:hover {
   border-color: var(--alm-border-strong);
 }
-.alm-card--flush { padding: 0; }
+.alm-card--flush { padding: 0; overflow-x: auto; }
 .alm-card--p { padding: 20px 22px; }
 
 /* ── Stat block ─────────────────────────────────────────── */
@@ -301,3 +308,77 @@
 .alm-root ::-webkit-scrollbar { width: 6px; height: 6px; }
 .alm-root ::-webkit-scrollbar-thumb { background: var(--alm-border-strong); border-radius: 3px; }
 .alm-root ::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Header ────────────────────────────────────────────── */
+.alm-header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  height: 60px;
+}
+.alm-header-back {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--alm-ink-4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.alm-header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--alm-border);
+}
+.alm-header-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--alm-ink-4);
+  margin-bottom: 3px;
+}
+.alm-header-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--alm-ink-1);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .alm-header-inner { padding: 0 18px; height: 56px; }
+  .alm-header-back-text { display: none; }
+  .alm-header-eyebrow { display: none; }
+  .alm-header-title { font-size: 14px; }
+}
+
+/* ── Two-column layout that collapses below 720px ──────── */
+.alm-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 12px;
+}
+
+/* ── Responsive refinements ────────────────────────────── */
+@media (max-width: 720px) {
+  .alm-page { padding: 24px 18px 48px; }
+  .alm-page-title { font-size: 24px; }
+  .alm-page-header { padding-bottom: 18px; margin-bottom: 20px; }
+  .alm-stat-value { font-size: 26px; }
+  .alm-table thead th,
+  .alm-table tbody td { padding: 10px 12px; font-size: 12px; }
+  .alm-pill { padding: 6px 10px; font-size: 10px; }
+}
+
+@media (max-width: 480px) {
+  .alm-page { padding: 20px 14px 40px; }
+  .alm-page-title { font-size: 22px; }
+  .alm-table thead th,
+  .alm-table tbody td { padding: 9px 10px; font-size: 11px; }
+}
