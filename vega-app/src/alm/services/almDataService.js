@@ -49,39 +49,89 @@ const toText = (v) => (v == null ? '' : String(v).trim());
 
 // Map the gviz row (array of cells) to a normalized operations record.
 // Column order is fixed by the Form, so positional access is safe.
+//
+// Layout (0-indexed):
+//   0  Timestamp         1  Facility         2  Date
+//   3  Census            4  Over-Capacity    5  Admissions
+//   6  Discharges        7  Hospitalizations 8  Vacant Beds?
+//   9  Outbound Contacts
+//  10–39  Outreach 1–10 (Name/Phone/Email × 10)
+//  40  Follow-ups Today
+//  41–70  Follow-up 1–10 (Name/Phone/Email × 10)
+//  71  Referral Today?   72  Referrals from Admissions
+//  73–99  Referral 1–3 (Source, Other, Referrer N/P/E, Resident N/P/E, Comments × 3)
+// 100  Inquiry Calls    101  Walk-ins         102  Tours
+// 103  Open Shifts      104  Staffing Status
 function mapRow(cells) {
   const c = (i) => (cells[i] ? cells[i].v : null);
 
-  const referralBlock = (base) => {
+  const outreachContacts = [];
+  for (let i = 0; i < 10; i++) {
+    const base = 10 + i * 3;
+    const name = toText(c(base));
+    const phone = toText(c(base + 1));
+    const email = toText(c(base + 2));
+    if (name || phone || email) outreachContacts.push({ name, phone, email });
+  }
+
+  const followUpContacts = [];
+  for (let i = 0; i < 10; i++) {
+    const base = 41 + i * 3;
+    const name = toText(c(base));
+    const phone = toText(c(base + 1));
+    const email = toText(c(base + 2));
+    if (name || phone || email) followUpContacts.push({ name, phone, email });
+  }
+
+  const referrals = [];
+  for (let i = 0; i < 3; i++) {
+    const base = 73 + i * 9;
     const source = toText(c(base));
     const other = toText(c(base + 1));
-    const comments = toText(c(base + 2));
-    if (!source && !other && !comments) return null;
-    return { source, other, comments };
-  };
-
-  const referrals = [referralBlock(13), referralBlock(16), referralBlock(19)].filter(Boolean);
+    const referrerName = toText(c(base + 2));
+    const referrerPhone = toText(c(base + 3));
+    const referrerEmail = toText(c(base + 4));
+    const residentName = toText(c(base + 5));
+    const residentPhone = toText(c(base + 6));
+    const residentEmail = toText(c(base + 7));
+    const comments = toText(c(base + 8));
+    if (source || other || referrerName || residentName || comments) {
+      referrals.push({
+        source,
+        other,
+        referrerName,
+        referrerPhone,
+        referrerEmail,
+        residentName,
+        residentPhone,
+        residentEmail,
+        comments,
+      });
+    }
+  }
 
   return {
     timestamp: parseGvizDate(c(0)),
     facility: toText(c(1)),
     date: parseGvizDate(c(2)),
     census: toNumber(c(3)),
-    admissions: toNumber(c(4)),
-    discharges: toNumber(c(5)),
-    hospitalizations: toNumber(c(6)),
-    vacantBeds: toYesNo(c(7)),
-    outboundContacts: toNumber(c(8)),
-    whoReachedOut: toText(c(9)),
-    followUps: toNumber(c(10)),
-    whoFollowedUp: toText(c(11)),
-    referralToday: toYesNo(c(12)),
+    overCapacityExplanation: toText(c(4)),
+    admissions: toNumber(c(5)),
+    discharges: toNumber(c(6)),
+    hospitalizations: toNumber(c(7)),
+    vacantBeds: toYesNo(c(8)),
+    outboundContacts: toNumber(c(9)),
+    outreachContacts,
+    followUps: toNumber(c(40)),
+    followUpContacts,
+    referralToday: toYesNo(c(71)),
+    referralsFromAdmissions: toNumber(c(72)),
     referrals,
-    inquiryCalls: toNumber(c(22)),
-    walkIns: toNumber(c(23)),
-    tours: toNumber(c(24)),
-    openShifts: toNumber(c(25)),
-    staffingStatus: toText(c(26)),
+    inquiryCalls: toNumber(c(100)),
+    walkIns: toNumber(c(101)),
+    tours: toNumber(c(102)),
+    openShifts: toNumber(c(103)),
+    staffingStatus: toText(c(104)),
   };
 }
 
