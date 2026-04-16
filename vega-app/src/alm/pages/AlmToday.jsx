@@ -1,8 +1,9 @@
 // ═══════════════════════════════════════════════
 // ALM — Today / Overview View
 // Snapshot of the latest per-facility state, with
-// summary stats and referrals aggregated over the
-// selected time range.
+// summary stats (drill down to property + fund
+// level breakdown) and referrals aggregated over
+// the selected time range.
 // ═══════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
@@ -10,10 +11,23 @@ import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
 import AlmRangePicker from '../components/AlmRangePicker';
 import AlmFacilityFilter from '../components/AlmFacilityFilter';
+import AlmSparkline from '../components/AlmSparkline';
 import { latestPerFacility, uniqueFacilities } from '../services/almDataService';
-import { fmtNum, fmtDate } from '../utils/format';
+import { fmtNum, fmtDate, dateKey } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 import { ALL_SCOPE, rowInScope, facilityInScope, scopeLabel } from '../utils/scope';
+import { FUNDS, shortFacility } from '../config/funds';
+
+// Each stat card has a metric config. `kind: snapshot` means we use
+// the most recent in-range row per facility (current-state metrics);
+// `kind: sum` means we accumulate the field across every row in range.
+const STAT_METRICS = [
+  { id: 'census',           label: 'Total Census',    kind: 'snapshot', field: 'census'          },
+  { id: 'admissions',       label: 'Admits',          kind: 'sum',      field: 'admissions'      },
+  { id: 'hospitalizations', label: 'Hospitalizations', kind: 'sum',     field: 'hospitalizations' },
+  { id: 'tours',            label: 'Tours',           kind: 'sum',      field: 'tours'           },
+  { id: 'openShifts',       label: 'Open Shifts',     kind: 'snapshot', field: 'openShifts'      },
+];
 
 const STATUS_TONE = {
   'Fully staffed': { dot: 'var(--alm-up)',   label: 'Fully staffed' },
@@ -23,12 +37,63 @@ const STATUS_TONE = {
 };
 const statusTone = (s) => (s && STATUS_TONE[s]) || { dot: 'var(--alm-ink-5)', label: s || 'Unknown' };
 
-function SummaryStat({ label, value, sub }) {
+function SummaryStatCard({ metric, value, sub, sparkPoints, active, onClick }) {
   return (
-    <div className="alm-card alm-card--p">
-      <div className="alm-stat-label">{label}</div>
+    <button
+      type="button"
+      className={`alm-stat-card${active ? ' alm-stat-card--active' : ''}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <div className="alm-stat-card__top">
+        <div className="alm-stat-label" style={{ margin: 0 }}>{metric.label}</div>
+        {sparkPoints && sparkPoints.length >= 2 && (
+          <div className="alm-stat-card__spark">
+            <AlmSparkline points={sparkPoints} width={72} height={18} />
+          </div>
+        )}
+      </div>
       <div className="alm-stat-value">{value}</div>
       {sub && <div className="alm-stat-sub">{sub}</div>}
+    </button>
+  );
+}
+
+function BreakdownPanel({ metric, total, fundBlocks, onClose }) {
+  return (
+    <div className="alm-breakdown" role="region" aria-label={`${metric.label} breakdown`}>
+      <div className="alm-breakdown__head">
+        <div>
+          <div className="alm-stat-label" style={{ margin: 0 }}>{metric.label} · Breakdown</div>
+          <div className="alm-display" style={{ fontSize: 28, lineHeight: 1, marginTop: 8 }}>
+            {fmtNum(total)}
+          </div>
+        </div>
+        <button className="alm-breakdown__close" onClick={onClose} aria-label="Close breakdown">
+          Close ×
+        </button>
+      </div>
+
+      <div className="alm-two-col">
+        {fundBlocks.map(({ fund, subtotal, rows }) => (
+          <div key={fund.id}>
+            <div className="alm-breakdown__fund-head">
+              <span className="alm-breakdown__fund-label">{fund.label}</span>
+              <span className="alm-breakdown__fund-total">{fmtNum(subtotal)}</span>
+            </div>
+            {rows.length === 0 ? (
+              <div className="alm-breakdown__empty">No facilities in scope</div>
+            ) : (
+              rows.map((r) => (
+                <div key={r.facility} className="alm-breakdown__row" title={r.facility}>
+                  <span>{shortFacility(r.facility)}</span>
+                  <span className="alm-breakdown__row-value">{fmtNum(r.value)}</span>
+                </div>
+              ))
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -94,21 +159,33 @@ export default function AlmToday() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('daily'));
   const [scope, setScope] = useState(ALL_SCOPE);
+  const [activeMetricId, setActiveMetricId] = useState(null);
 
   const allFacilities = useMemo(() => uniqueFacilities(rows), [rows]);
 
-  const { facilities, inRange, latestByFacility, perFacilityTotals, referralsInRange, summary } = useMemo(() => {
+  const {
+    facilities,
+    latestByFacility,
+    perFacilityLatest,
+    perFacilityTotals,
+    referralsInRange,
+    summary,
+    sparklines,
+    breakdowns,
+  } = useMemo(() => {
     const facs = allFacilities.filter((f) => facilityInScope(f, scope));
     const ir = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
     const latest = latestPerFacility(ir);
 
+    const latestMap = new Map(latest.map((r) => [r.facility, r]));
+
     const totalsMap = new Map();
     ir.forEach((r) => {
       const cur = totalsMap.get(r.facility) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
-      cur.admissions += r.admissions || 0;
-      cur.discharges += r.discharges || 0;
+      cur.admissions       += r.admissions       || 0;
+      cur.discharges       += r.discharges       || 0;
       cur.hospitalizations += r.hospitalizations || 0;
-      cur.tours += r.tours || 0;
+      cur.tours            += r.tours            || 0;
       totalsMap.set(r.facility, cur);
     });
 
@@ -121,31 +198,85 @@ export default function AlmToday() {
     refs.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
 
     const sum = {
-      census: latest.reduce((s, r) => s + (r.census || 0), 0),
-      admissions: ir.reduce((s, r) => s + (r.admissions || 0), 0),
-      discharges: ir.reduce((s, r) => s + (r.discharges || 0), 0),
-      hospitalizations: ir.reduce((s, r) => s + (r.hospitalizations || 0), 0),
-      tours: ir.reduce((s, r) => s + (r.tours || 0), 0),
-      openShifts: latest.reduce((s, r) => s + (r.openShifts || 0), 0),
+      census:           latest.reduce((s, r) => s + (r.census           || 0), 0),
+      admissions:       ir.reduce(    (s, r) => s + (r.admissions       || 0), 0),
+      discharges:       ir.reduce(    (s, r) => s + (r.discharges       || 0), 0),
+      hospitalizations: ir.reduce(    (s, r) => s + (r.hospitalizations || 0), 0),
+      tours:            ir.reduce(    (s, r) => s + (r.tours            || 0), 0),
+      openShifts:       latest.reduce((s, r) => s + (r.openShifts       || 0), 0),
     };
+
+    // Daily sparkline points per metric: sum of the metric's field across
+    // all reporting facilities on that day. Shape over the window.
+    const sparkMap = {};
+    STAT_METRICS.forEach((m) => { sparkMap[m.id] = new Map(); });
+    ir.forEach((r) => {
+      const k = dateKey(r.date);
+      STAT_METRICS.forEach((m) => {
+        const v = r[m.field] || 0;
+        sparkMap[m.id].set(k, (sparkMap[m.id].get(k) || 0) + v);
+      });
+    });
+    const toPoints = (m) =>
+      Array.from(sparkMap[m.id].entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => ({ date: k, value: v }));
+    const sparkSeries = {};
+    STAT_METRICS.forEach((m) => { sparkSeries[m.id] = toPoints(m); });
+
+    // Breakdown tree per metric: fund → [{ facility, value }].
+    // Snapshot metrics read from the per-facility latest row; sum
+    // metrics pull from the cumulative totals map.
+    const buildBreakdown = (m) => {
+      const facValue = (fac) => {
+        if (m.kind === 'snapshot') return latestMap.get(fac)?.[m.field] || 0;
+        return totalsMap.get(fac)?.[m.field] || 0;
+      };
+      const blocks = FUNDS.map((fund) => {
+        const facsInFund = facs.filter((f) => fund.test(f));
+        const blockRows = facsInFund
+          .map((f) => ({ facility: f, value: facValue(f) }))
+          .sort((a, b) => b.value - a.value);
+        const subtotal = blockRows.reduce((s, r) => s + r.value, 0);
+        return { fund, rows: blockRows, subtotal };
+      });
+      const total = blocks.reduce((s, b) => s + b.subtotal, 0);
+      return { blocks, total };
+    };
+    const breakdownMap = {};
+    STAT_METRICS.forEach((m) => { breakdownMap[m.id] = buildBreakdown(m); });
 
     return {
       facilities: facs,
-      inRange: ir,
       latestByFacility: latest,
+      perFacilityLatest: latestMap,
       perFacilityTotals: totalsMap,
       referralsInRange: refs,
       summary: sum,
+      sparklines: sparkSeries,
+      breakdowns: breakdownMap,
     };
   }, [rows, range, scope, allFacilities]);
 
   const isMultiDay = range.preset !== 'daily';
+  const reportingFrac = `${latestByFacility.length}/${facilities.length || 0}`;
 
   const facilityCards = facilities.map((name) => {
-    const latest = latestByFacility.find((r) => r.facility === name) || null;
+    const latest = perFacilityLatest.get(name) || null;
     const totals = perFacilityTotals.get(name) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
     return { facility: name, latest, totals };
   });
+
+  const statDisplays = {
+    census:           { value: fmtNum(summary.census),           sub: `${reportingFrac} reporting` },
+    admissions:       { value: fmtNum(summary.admissions),       sub: `${summary.discharges} discharges` },
+    hospitalizations: { value: fmtNum(summary.hospitalizations), sub: null },
+    tours:            { value: fmtNum(summary.tours),            sub: `${referralsInRange.length} referrals` },
+    openShifts:       { value: fmtNum(summary.openShifts),       sub: null },
+  };
+
+  const activeMetric = STAT_METRICS.find((m) => m.id === activeMetricId);
+  const activeBreakdown = activeMetric ? breakdowns[activeMetric.id] : null;
 
   return (
     <div className="alm-page">
@@ -156,7 +287,7 @@ export default function AlmToday() {
         </h1>
         <p className="alm-page-subtitle">
           {rangeLabel(range)} · {scopeLabel(scope)}
-          {facilities.length > 0 && ` · ${facilities.length} facilit${facilities.length === 1 ? 'y' : 'ies'}`}
+          {facilities.length > 0 && ` · ${reportingFrac} reporting`}
         </p>
       </div>
 
@@ -175,13 +306,28 @@ export default function AlmToday() {
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
-            <SummaryStat label="Total Census" value={fmtNum(summary.census)} sub={`${latestByFacility.length} of ${facilities.length || '—'} reporting`} />
-            <SummaryStat label={isMultiDay ? 'Admits · Period' : 'Admits Today'} value={fmtNum(summary.admissions)} sub={`${summary.discharges} discharges`} />
-            <SummaryStat label="Hospitalizations" value={fmtNum(summary.hospitalizations)} />
-            <SummaryStat label="Tours" value={fmtNum(summary.tours)} sub={`${referralsInRange.length} referrals`} />
-            <SummaryStat label="Open Shifts" value={fmtNum(summary.openShifts)} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            {STAT_METRICS.map((m) => (
+              <SummaryStatCard
+                key={m.id}
+                metric={m}
+                value={statDisplays[m.id].value}
+                sub={statDisplays[m.id].sub}
+                sparkPoints={sparklines[m.id]}
+                active={activeMetricId === m.id}
+                onClick={() => setActiveMetricId((cur) => (cur === m.id ? null : m.id))}
+              />
+            ))}
           </div>
+
+          {activeMetric && activeBreakdown && (
+            <BreakdownPanel
+              metric={activeMetric}
+              total={activeBreakdown.total}
+              fundBlocks={activeBreakdown.blocks}
+              onClose={() => setActiveMetricId(null)}
+            />
+          )}
 
           <div className="alm-section"><span>Facilities</span></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 8 }}>
