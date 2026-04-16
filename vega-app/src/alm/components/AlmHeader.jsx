@@ -1,12 +1,14 @@
 // ═══════════════════════════════════════════════
-// ALM — Header (blank shell)
-// Back link + module label.
+// ALM — Header
+// Back link, module label, tab nav.
 // ═══════════════════════════════════════════════
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/alm' },
+  { label: 'Today', path: '/alm' },
+  { label: 'Outreach', path: '/alm/outreach' },
+  { label: 'Trends', path: '/alm/trends' },
 ];
 
 export default function AlmHeader() {
@@ -56,7 +58,10 @@ export default function AlmHeader() {
 
       <nav style={{ display: 'flex', gap: 4 }}>
         {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive =
+            item.path === '/alm'
+              ? location.pathname === '/alm' || location.pathname === '/alm/'
+              : location.pathname === item.path;
           return (
             <button
               key={item.path}
@@ -66,9 +71,11 @@ export default function AlmHeader() {
                 fontWeight: isActive ? 600 : 400,
                 background: 'transparent',
                 border: 'none',
+                borderBottom: isActive ? '2px solid var(--alm-text)' : '2px solid transparent',
                 color: isActive ? 'var(--alm-text)' : 'var(--alm-text-muted)',
-                padding: '6px 12px',
+                padding: '18px 12px 16px',
                 cursor: 'pointer',
+                letterSpacing: '0.02em',
               }}
             >
               {item.label}
