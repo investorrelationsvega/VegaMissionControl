@@ -11,16 +11,18 @@ import { fmtNum, fmtDateShort } from '../utils/format';
 // Neutral palette — color alone isn't enough to differentiate
 // many lines, so we pair grayscale shades with dash patterns.
 const PALETTE = [
-  { color: '#111111', dash: 'none'    },
-  { color: '#888888', dash: 'none'    },
-  { color: '#111111', dash: '5 3'     },
-  { color: '#888888', dash: '5 3'     },
-  { color: '#111111', dash: '1 3'     },
-  { color: '#888888', dash: '1 3'     },
-  { color: '#444444', dash: '8 3 2 3' },
-  { color: '#aaaaaa', dash: '8 3 2 3' },
+  { colorVar: 'var(--alm-ink-1)', dash: 'none'    },
+  { colorVar: 'var(--alm-ink-3)', dash: 'none'    },
+  { colorVar: 'var(--alm-ink-1)', dash: '5 3'     },
+  { colorVar: 'var(--alm-ink-3)', dash: '5 3'     },
+  { colorVar: 'var(--alm-ink-2)', dash: '1 3'     },
+  { colorVar: 'var(--alm-ink-4)', dash: '1 3'     },
+  { colorVar: 'var(--alm-ink-2)', dash: '8 3 2 3' },
+  { colorVar: 'var(--alm-ink-4)', dash: '8 3 2 3' },
 ];
 const styleFor = (i) => PALETTE[i % PALETTE.length];
+
+const MONO_FONT = '"Space Mono", monospace';
 
 export default function AlmLineChart({
   series = [],  // [{ name, points: [{x: Date, y: number|null}] }]
@@ -29,9 +31,9 @@ export default function AlmLineChart({
 }) {
   const W = 720;
   const H = height;
-  const PAD_L = 32;
-  const PAD_R = 16;
-  const PAD_T = 12;
+  const PAD_L = 36;
+  const PAD_R = 18;
+  const PAD_T = 14;
   const PAD_B = 28;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
@@ -39,8 +41,20 @@ export default function AlmLineChart({
   const allPoints = series.flatMap((s) => s.points.filter((p) => p.y != null));
   if (allPoints.length === 0 || series.length === 0) {
     return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--alm-text-faint)' }}>
-        {series.length === 0 ? 'Select one or more metrics to overlay.' : 'No data in range'}
+      <div
+        className="alm-mono"
+        style={{
+          height,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          color: 'var(--alm-ink-5)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.18em',
+        }}
+      >
+        {series.length === 0 ? 'Select one or more metrics' : 'No data in range'}
       </div>
     );
   }
@@ -85,7 +99,7 @@ export default function AlmLineChart({
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
           const y = PAD_T + plotH * (1 - t);
           return (
-            <line key={t} x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke="#eeeeee" strokeWidth={1} />
+            <line key={t} x1={PAD_L} x2={W - PAD_R} y1={y} y2={y} stroke="var(--alm-border)" strokeWidth={1} />
           );
         })}
 
@@ -96,10 +110,12 @@ export default function AlmLineChart({
             <text
               key={i}
               x={x}
-              y={H - 10}
+              y={H - 8}
               fontSize={9}
-              fill="#888"
+              fontFamily={MONO_FONT}
+              fill="var(--alm-ink-5)"
               textAnchor={i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}
+              style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}
             >
               {fmtDateShort(d)}
             </text>
@@ -108,10 +124,10 @@ export default function AlmLineChart({
 
         {/* Left axis hint — "relative" since scales differ */}
         {series.length > 1 && (
-          <text x={PAD_L - 4} y={PAD_T + 8} fontSize={8} fill="#aaa" textAnchor="end">high</text>
-        )}
-        {series.length > 1 && (
-          <text x={PAD_L - 4} y={PAD_T + plotH} fontSize={8} fill="#aaa" textAnchor="end">low</text>
+          <>
+            <text x={PAD_L - 6} y={PAD_T + 8} fontSize={8} fontFamily={MONO_FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>HIGH</text>
+            <text x={PAD_L - 6} y={PAD_T + plotH} fontSize={8} fontFamily={MONO_FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>LOW</text>
+          </>
         )}
 
         {/* Single-series: actual numeric y-axis */}
@@ -121,7 +137,15 @@ export default function AlmLineChart({
           const v = scale.min + scale.range * t;
           const y = PAD_T + plotH * (1 - t);
           return (
-            <text key={t} x={PAD_L - 4} y={y + 3} fontSize={9} fill="#888" textAnchor="end">
+            <text
+              key={t}
+              x={PAD_L - 6}
+              y={y + 3}
+              fontSize={9}
+              fontFamily={MONO_FONT}
+              fill="var(--alm-ink-4)"
+              textAnchor="end"
+            >
               {fmtNum(Math.round(v))}
             </text>
           );
@@ -136,15 +160,15 @@ export default function AlmLineChart({
             <g key={s.name}>
               <path
                 d={linePath(s.points, scale)}
-                stroke={style.color}
-                strokeWidth={1.6}
+                stroke={style.colorVar}
+                strokeWidth={1.4}
                 fill="none"
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 strokeDasharray={style.dash === 'none' ? undefined : style.dash}
               />
               {s.points.filter((p) => p.y != null).map((p, j) => (
-                <circle key={j} cx={xAt(p.x)} cy={yAt(p.y, scale)} r={1.8} fill={style.color} />
+                <circle key={j} cx={xAt(p.x)} cy={yAt(p.y, scale)} r={1.6} fill={style.colorVar} />
               ))}
             </g>
           );
@@ -152,24 +176,46 @@ export default function AlmLineChart({
       </svg>
 
       {showLegend && (
-        <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginTop: 6, fontSize: 11, color: 'var(--alm-text-muted)' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 16,
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            marginTop: 10,
+            paddingTop: 12,
+            borderTop: '1px solid var(--alm-border)',
+          }}
+        >
           {series.map((s, i) => {
             const style = styleFor(i);
             const scale = scales[i];
             return (
-              <span key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="20" height="6" style={{ display: 'inline-block' }}>
+              <span
+                key={s.name}
+                className="alm-mono"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 10,
+                  color: 'var(--alm-ink-4)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.12em',
+                }}
+              >
+                <svg width="22" height="6" style={{ display: 'inline-block' }}>
                   <line
-                    x1="0" y1="3" x2="20" y2="3"
-                    stroke={style.color}
-                    strokeWidth="1.6"
+                    x1="0" y1="3" x2="22" y2="3"
+                    stroke={style.colorVar}
+                    strokeWidth="1.4"
                     strokeDasharray={style.dash === 'none' ? undefined : style.dash}
                   />
                 </svg>
-                <span style={{ color: 'var(--alm-text)' }}>{s.name}</span>
+                <span style={{ color: 'var(--alm-ink-1)' }}>{s.name}</span>
                 {scale.hasData && (
-                  <span style={{ color: 'var(--alm-text-faint)' }}>
-                    ({fmtNum(Math.round(scale.actualMin))}–{fmtNum(Math.round(scale.actualMax))})
+                  <span style={{ color: 'var(--alm-ink-5)' }}>
+                    {fmtNum(Math.round(scale.actualMin))}–{fmtNum(Math.round(scale.actualMax))}
                   </span>
                 )}
               </span>

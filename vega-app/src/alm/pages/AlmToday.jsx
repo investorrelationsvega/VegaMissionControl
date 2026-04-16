@@ -14,74 +14,47 @@ import { fmtNum, fmtDate } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 
 const STATUS_TONE = {
-  'Fully staffed': { dot: '#3a7a3a', label: 'Fully staffed' },
-  'Understaffed':  { dot: '#a04040', label: 'Understaffed' },
-  'Short-staffed': { dot: '#a04040', label: 'Short-staffed' },
-  'Overstaffed':   { dot: '#888888', label: 'Overstaffed' },
+  'Fully staffed': { dot: 'var(--alm-up)',   label: 'Fully staffed' },
+  'Understaffed':  { dot: 'var(--alm-down)', label: 'Understaffed'  },
+  'Short-staffed': { dot: 'var(--alm-down)', label: 'Short-staffed' },
+  'Overstaffed':   { dot: 'var(--alm-ink-5)',label: 'Overstaffed'   },
 };
-function statusTone(s) {
-  if (!s) return { dot: '#cccccc', label: 'Unknown' };
-  return STATUS_TONE[s] || { dot: '#888888', label: s };
-}
-
-function Card({ children, style = {} }) {
-  return (
-    <div
-      style={{
-        background: 'var(--alm-surface)',
-        border: '1px solid var(--alm-border)',
-        borderRadius: 4,
-        padding: 20,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+const statusTone = (s) => (s && STATUS_TONE[s]) || { dot: 'var(--alm-ink-5)', label: s || 'Unknown' };
 
 function SummaryStat({ label, value, sub }) {
   return (
-    <Card>
-      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 6 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: 'var(--alm-text)', lineHeight: 1 }}>
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: 11, color: 'var(--alm-text-muted)', marginTop: 6 }}>
-          {sub}
-        </div>
-      )}
-    </Card>
+    <div className="alm-card alm-card--p">
+      <div className="alm-stat-label">{label}</div>
+      <div className="alm-stat-value">{value}</div>
+      {sub && <div className="alm-stat-sub">{sub}</div>}
+    </div>
   );
 }
 
 function FacilityCard({ facility, latest, totals, isMultiDay }) {
   const tone = statusTone(latest?.staffingStatus);
   return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+    <div className="alm-card alm-card--hover alm-card--p">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--alm-text)' }}>
+          <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
             {facility}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--alm-text-faint)', marginTop: 2 }}>
-            {latest ? `Last report ${fmtDate(latest.date)}` : 'No submissions in range'}
+          <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', marginTop: 4, letterSpacing: '0.06em' }}>
+            {latest ? `LAST REPORT · ${fmtDate(latest.date).toUpperCase()}` : 'NO SUBMISSIONS IN RANGE'}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--alm-text)', lineHeight: 1 }}>
-            {latest ? fmtNum(latest.census) : '--'}
+          <div className="alm-display" style={{ fontSize: 32, lineHeight: 1 }}>
+            {latest ? fmtNum(latest.census) : '—'}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--alm-text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>
+          <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
             Census
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--alm-border)' }}>
         {[
           { label: 'Admits',     value: totals.admissions },
           { label: 'Discharges', value: totals.discharges },
@@ -89,30 +62,29 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           { label: 'Tours',      value: totals.tours },
         ].map((m) => (
           <div key={m.label}>
-            <div style={{ fontSize: 10, color: 'var(--alm-text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              {m.label}
-              {isMultiDay && <span style={{ textTransform: 'none', letterSpacing: 0 }}> Σ</span>}
+            <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 4 }}>
+              {m.label}{isMultiDay ? ' Σ' : ''}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--alm-text)' }}>
+            <div className="alm-num" style={{ fontSize: 18, fontWeight: 300, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em', lineHeight: 1 }}>
               {fmtNum(m.value)}
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid var(--alm-border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--alm-text-muted)' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone.dot }} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="alm-mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+          <span className="alm-dot" style={{ background: tone.dot }} />
           {tone.label}
           {latest?.openShifts > 0 && (
-            <span style={{ color: 'var(--alm-text-faint)' }}> · {latest.openShifts} open shift{latest.openShifts > 1 ? 's' : ''}</span>
+            <span style={{ color: 'var(--alm-ink-4)' }}> · {latest.openShifts} Open</span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--alm-text-muted)' }}>
+        <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           {latest?.vacantBeds ? 'Vacant beds' : latest ? 'Full' : '—'}
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -125,7 +97,6 @@ export default function AlmToday() {
     const ir = rows.filter((r) => rowInRange(r, range));
     const latest = latestPerFacility(ir);
 
-    // Per-facility totals over the range
     const totalsMap = new Map();
     ir.forEach((r) => {
       const cur = totalsMap.get(r.facility) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
@@ -165,7 +136,6 @@ export default function AlmToday() {
 
   const isMultiDay = range.preset !== 'daily';
 
-  // Build the display list: every known facility, merged with its latest + totals
   const facilityCards = facilities.map((name) => {
     const latest = latestByFacility.find((r) => r.facility === name) || null;
     const totals = perFacilityTotals.get(name) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
@@ -173,85 +143,73 @@ export default function AlmToday() {
   });
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: 32 }}>
-      <div style={{ marginBottom: 8 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--alm-text)' }}>
-          {range.preset === 'daily' ? 'Today at a glance' : 'Overview'}
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+      <div className="alm-page-header">
+        <div className="alm-page-dot"><span>{isMultiDay ? 'Overview' : 'Today'}</span></div>
+        <h1 className="alm-page-title">
+          {isMultiDay ? 'Operational overview' : 'Today at a glance'}
         </h1>
-        <p style={{ fontSize: 13, color: 'var(--alm-text-muted)', margin: '4px 0 0' }}>
-          {rangeLabel(range)}
-          {facilities.length > 0 && ` · ${facilities.length} facilities reporting`}
+        <p className="alm-page-subtitle">
+          {rangeLabel(range)}{facilities.length > 0 && ` · ${facilities.length} facilities reporting`}
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 32 }}>
         <AlmRangePicker value={range} onChange={setRange} />
       </div>
 
       {rows.length === 0 && !loading ? (
-        <Card>
-          <div style={{ fontSize: 13, color: 'var(--alm-text-muted)' }}>
+        <div className="alm-card alm-card--p">
+          <div style={{ fontSize: 13, color: 'var(--alm-ink-4)' }}>
             No rows found in the sheet yet. Daily form submissions will appear here.
           </div>
-        </Card>
+        </div>
       ) : (
         <>
-          {/* Summary stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 32 }}>
-            <SummaryStat label="Total Census" value={fmtNum(summary.census)} sub={`${latestByFacility.length} of ${facilities.length || '--'} reporting`} />
-            <SummaryStat label={isMultiDay ? 'Admits (period)' : 'Admits Today'} value={fmtNum(summary.admissions)} sub={`${summary.discharges} discharges`} />
-            <SummaryStat label={isMultiDay ? 'Hospitalizations' : 'Hospitalizations'} value={fmtNum(summary.hospitalizations)} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 12 }}>
+            <SummaryStat label="Total Census" value={fmtNum(summary.census)} sub={`${latestByFacility.length} of ${facilities.length || '—'} reporting`} />
+            <SummaryStat label={isMultiDay ? 'Admits · Period' : 'Admits Today'} value={fmtNum(summary.admissions)} sub={`${summary.discharges} discharges`} />
+            <SummaryStat label="Hospitalizations" value={fmtNum(summary.hospitalizations)} />
             <SummaryStat label="Tours" value={fmtNum(summary.tours)} sub={`${referralsInRange.length} referrals`} />
             <SummaryStat label="Open Shifts" value={fmtNum(summary.openShifts)} />
           </div>
 
-          {/* Facility cards */}
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-            Facilities
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginBottom: 32 }}>
+          <div className="alm-section"><span>Facilities</span></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 8 }}>
             {facilityCards.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--alm-text-muted)' }}>No facilities reporting.</div>
+              <div style={{ fontSize: 13, color: 'var(--alm-ink-4)' }}>No facilities reporting.</div>
             ) : (
               facilityCards.map((c) => <FacilityCard key={c.facility} {...c} isMultiDay={isMultiDay} />)
             )}
           </div>
 
-          {/* Referrals in range */}
           {referralsInRange.length > 0 && (
             <>
-              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-                {isMultiDay ? 'Referrals in Range' : 'Referrals Today'}
-              </div>
-              <Card style={{ padding: 0, marginBottom: 32 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div className="alm-section"><span>{isMultiDay ? 'Referrals in Range' : 'Referrals Today'}</span></div>
+              <div className="alm-card alm-card--flush">
+                <table className="alm-table">
                   <thead>
-                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--alm-border)' }}>
-                      {['Date', 'Facility', 'Source', 'Comments'].map((h) => (
-                        <th key={h} style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'var(--alm-text-faint)', padding: '12px 16px' }}>
-                          {h}
-                        </th>
-                      ))}
+                    <tr>
+                      <th>Date</th>
+                      <th>Facility</th>
+                      <th>Source</th>
+                      <th>Comments</th>
                     </tr>
                   </thead>
                   <tbody>
                     {referralsInRange.slice(0, 50).map((r, i) => (
-                      <tr key={i} style={{ borderBottom: i < Math.min(49, referralsInRange.length - 1) ? '1px solid var(--alm-border)' : 'none' }}>
-                        <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--alm-text-muted)' }}>{fmtDate(r.date)}</td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--alm-text)' }}>{r.facility}</td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--alm-text)' }}>
-                          {r.source}{r.other ? ` — ${r.other}` : ''}
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--alm-text-muted)', whiteSpace: 'pre-wrap' }}>
-                          {r.comments || '—'}
-                        </td>
+                      <tr key={i}>
+                        <td className="muted">{fmtDate(r.date)}</td>
+                        <td>{r.facility}</td>
+                        <td>{r.source}{r.other ? ` — ${r.other}` : ''}</td>
+                        <td className="muted" style={{ whiteSpace: 'pre-wrap' }}>{r.comments || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </Card>
+              </div>
             </>
           )}
         </>

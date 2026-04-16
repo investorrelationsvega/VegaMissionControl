@@ -13,35 +13,27 @@ import { uniqueFacilities } from '../services/almDataService';
 import { fmtNum, fmtPct, fmtDate } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 
-function Card({ children, style = {} }) {
-  return (
-    <div
-      style={{
-        background: 'var(--alm-surface)',
-        border: '1px solid var(--alm-border)',
-        borderRadius: 4,
-        padding: 20,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst }) {
-  const width = Math.max(6, pctOfTop);
+  const width = Math.max(4, pctOfTop);
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6 }}>
-        <span style={{ color: 'var(--alm-text)' }}>{label}</span>
-        <span style={{ color: 'var(--alm-text-muted)' }}>
-          {fmtNum(value)}
-          {!isFirst && <span style={{ color: 'var(--alm-text-faint)' }}>  ·  {fmtPct(pctOfPrev, 0)} of prev</span>}
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+        <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+          {label}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span className="alm-num" style={{ fontSize: 18, fontWeight: 300, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em' }}>
+            {fmtNum(value)}
+          </span>
+          {!isFirst && (
+            <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em' }}>
+              {fmtPct(pctOfPrev, 0) || '—'} of prev
+            </span>
+          )}
         </span>
       </div>
-      <div style={{ height: 8, background: '#f2f2f2', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${width}%`, height: '100%', background: '#333' }} />
+      <div style={{ height: 4, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${width}%`, height: '100%', background: 'var(--alm-ink-1)', transition: 'width 0.3s' }} />
       </div>
     </div>
   );
@@ -134,169 +126,162 @@ export default function AlmOutreach() {
   const maxSource = Math.max(1, ...sources.map((s) => s.count));
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: 32 }}>
-      <div style={{ marginBottom: 8 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--alm-text)' }}>
-          Outreach & Referrals
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--alm-text-muted)', margin: '4px 0 0' }}>
-          {rangeLabel(range)} · activity and conversion across facilities.
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+      <div className="alm-page-header">
+        <div className="alm-page-dot"><span>Outreach</span></div>
+        <h1 className="alm-page-title">Outreach &amp; referrals</h1>
+        <p className="alm-page-subtitle">
+          {rangeLabel(range)} · activity and conversion across facilities
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 28, flexWrap: 'wrap' }}>
         <AlmRangePicker value={range} onChange={setRange} />
         <select
           value={facilityFilter}
           onChange={(e) => setFacilityFilter(e.target.value)}
-          style={{
-            fontSize: 12,
-            padding: '5px 8px',
-            border: '1px solid var(--alm-border)',
-            borderRadius: 3,
-            background: 'var(--alm-bg)',
-            color: 'var(--alm-text)',
-          }}
+          className="alm-select"
         >
           <option value="all">All facilities</option>
           {facilities.map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
         </select>
-        <span style={{ fontSize: 11, color: 'var(--alm-text-faint)' }}>
+        <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: 16, marginBottom: 24 }}>
-        <Card>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 16 }}>
-            Activity Funnel
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: 12, marginBottom: 8 }}>
+        <div className="alm-card alm-card--p">
+          <div className="alm-stat-label">Activity Funnel</div>
+          <div style={{ marginTop: 4 }}>
+            {funnelSteps.map((step, i) => (
+              <FunnelStep
+                key={step.label}
+                label={step.label}
+                value={step.value}
+                pctOfPrev={i === 0 ? null : pct(step.value, funnelSteps[i - 1].value)}
+                pctOfTop={pct(step.value, topOfFunnel) || 0}
+                isFirst={i === 0}
+              />
+            ))}
           </div>
-          {funnelSteps.map((step, i) => (
-            <FunnelStep
-              key={step.label}
-              label={step.label}
-              value={step.value}
-              pctOfPrev={i === 0 ? null : pct(step.value, funnelSteps[i - 1].value)}
-              pctOfTop={pct(step.value, topOfFunnel) || 0}
-              isFirst={i === 0}
-            />
-          ))}
-          <div style={{ fontSize: 11, color: 'var(--alm-text-faint)', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--alm-border)' }}>
-            Tours → Admits: <span style={{ color: 'var(--alm-text)' }}>{fmtPct(pct(funnel.admits, funnel.tours), 0) || '--'}</span>
-            {'   ·   '}
-            Referrals → Tours: <span style={{ color: 'var(--alm-text)' }}>{fmtPct(pct(funnel.tours, funnel.referrals), 0) || '--'}</span>
+          <div
+            className="alm-mono"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              fontSize: 10,
+              color: 'var(--alm-ink-4)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.14em',
+              marginTop: 16,
+              paddingTop: 16,
+              borderTop: '1px solid var(--alm-border)',
+            }}
+          >
+            <span>
+              Tours → Admits <span style={{ color: 'var(--alm-ink-1)', marginLeft: 6 }}>{fmtPct(pct(funnel.admits, funnel.tours), 0) || '—'}</span>
+            </span>
+            <span>
+              Refs → Tours <span style={{ color: 'var(--alm-ink-1)', marginLeft: 6 }}>{fmtPct(pct(funnel.tours, funnel.referrals), 0) || '—'}</span>
+            </span>
           </div>
-        </Card>
+        </div>
 
-        <Card>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 16 }}>
-            Referral Sources
-          </div>
+        <div className="alm-card alm-card--p">
+          <div className="alm-stat-label">Referral Sources</div>
           {sources.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--alm-text-muted)' }}>No referrals in this window.</div>
+            <div style={{ fontSize: 13, color: 'var(--alm-ink-4)', marginTop: 4 }}>No referrals in this window.</div>
           ) : (
-            sources.map((s) => (
-              <div key={s.source} style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: 'var(--alm-text)' }}>{s.source}</span>
-                  <span style={{ color: 'var(--alm-text-muted)' }}>{s.count}</span>
+            <div style={{ marginTop: 4 }}>
+              {sources.map((s) => (
+                <div key={s.source} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: 'var(--alm-ink-2)' }}>{s.source}</span>
+                    <span className="alm-num" style={{ fontSize: 15, fontWeight: 300, color: 'var(--alm-ink-1)' }}>{s.count}</span>
+                  </div>
+                  <div style={{ height: 3, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: `${(s.count / maxSource) * 100}%`, height: '100%', background: 'var(--alm-ink-3)', transition: 'width 0.3s' }} />
+                  </div>
                 </div>
-                <div style={{ height: 6, background: '#f2f2f2', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ width: `${(s.count / maxSource) * 100}%`, height: '100%', background: '#555' }} />
-                </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
-        </Card>
+        </div>
       </div>
 
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-        By Facility
-      </div>
-      <Card style={{ padding: 0, marginBottom: 24 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="alm-section"><span>By Facility</span></div>
+      <div className="alm-card alm-card--flush" style={{ marginBottom: 8 }}>
+        <table className="alm-table">
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--alm-border)' }}>
-              {['Facility', 'Outbound', 'Follow-ups', 'Referrals', 'Tours', 'Admits', 'Ref→Tour', 'Tour→Admit'].map((h, i) => (
-                <th key={h} style={{
-                  fontSize: 10,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em',
-                  fontWeight: 500,
-                  color: 'var(--alm-text-faint)',
-                  padding: '12px 14px',
-                  textAlign: i === 0 ? 'left' : 'right',
-                }}>
-                  {h}
-                </th>
-              ))}
+            <tr>
+              <th>Facility</th>
+              <th className="right">Outbound</th>
+              <th className="right">Follow-ups</th>
+              <th className="right">Referrals</th>
+              <th className="right">Tours</th>
+              <th className="right">Admits</th>
+              <th className="right">Ref→Tour</th>
+              <th className="right">Tour→Admit</th>
             </tr>
           </thead>
           <tbody>
             {perFacility.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: 16, fontSize: 12, color: 'var(--alm-text-muted)' }}>
-                  No activity in this window.
-                </td>
+                <td colSpan={8} className="muted">No activity in this window.</td>
               </tr>
             ) : (
-              perFacility.map((r, i) => (
-                <tr key={r.facility} style={{ borderBottom: i < perFacility.length - 1 ? '1px solid var(--alm-border)' : 'none' }}>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)' }}>{r.facility}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)', textAlign: 'right' }}>{fmtNum(r.outbound)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)', textAlign: 'right' }}>{fmtNum(r.followUps)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)', textAlign: 'right' }}>{fmtNum(r.referrals)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)', textAlign: 'right' }}>{fmtNum(r.tours)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)', textAlign: 'right' }}>{fmtNum(r.admits)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--alm-text-muted)', textAlign: 'right' }}>{fmtPct(pct(r.tours, r.referrals), 0) || '--'}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--alm-text-muted)', textAlign: 'right' }}>{fmtPct(pct(r.admits, r.tours), 0) || '--'}</td>
+              perFacility.map((r) => (
+                <tr key={r.facility}>
+                  <td>{r.facility}</td>
+                  <td className="right">{fmtNum(r.outbound)}</td>
+                  <td className="right">{fmtNum(r.followUps)}</td>
+                  <td className="right">{fmtNum(r.referrals)}</td>
+                  <td className="right">{fmtNum(r.tours)}</td>
+                  <td className="right">{fmtNum(r.admits)}</td>
+                  <td className="right muted">{fmtPct(pct(r.tours, r.referrals), 0) || '—'}</td>
+                  <td className="right muted">{fmtPct(pct(r.admits, r.tours), 0) || '—'}</td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
-      </Card>
-
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-        Recent Referrals
       </div>
-      <Card style={{ padding: 0 }}>
+
+      <div className="alm-section"><span>Recent Referrals</span></div>
+      <div className="alm-card alm-card--flush">
         {recentReferrals.length === 0 ? (
-          <div style={{ padding: 16, fontSize: 12, color: 'var(--alm-text-muted)' }}>
+          <div style={{ padding: 20, fontSize: 13, color: 'var(--alm-ink-4)' }}>
             No referrals in this window.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="alm-table">
             <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--alm-border)' }}>
-                {['Date', 'Facility', 'Source', 'Comments'].map((h) => (
-                  <th key={h} style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 500, color: 'var(--alm-text-faint)', padding: '12px 14px' }}>
-                    {h}
-                  </th>
-                ))}
+              <tr>
+                <th>Date</th>
+                <th>Facility</th>
+                <th>Source</th>
+                <th>Comments</th>
               </tr>
             </thead>
             <tbody>
               {recentReferrals.slice(0, 20).map((r, i) => (
-                <tr key={i} style={{ borderBottom: i < Math.min(19, recentReferrals.length - 1) ? '1px solid var(--alm-border)' : 'none' }}>
-                  <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--alm-text-muted)' }}>{fmtDate(r.date)}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)' }}>{r.facility}</td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--alm-text)' }}>
-                    {r.source}{r.other ? ` — ${r.other}` : ''}
-                  </td>
-                  <td style={{ padding: '12px 14px', fontSize: 12, color: 'var(--alm-text-muted)', whiteSpace: 'pre-wrap' }}>
-                    {r.comments || '—'}
-                  </td>
+                <tr key={i}>
+                  <td className="muted">{fmtDate(r.date)}</td>
+                  <td>{r.facility}</td>
+                  <td>{r.source}{r.other ? ` — ${r.other}` : ''}</td>
+                  <td className="muted" style={{ whiteSpace: 'pre-wrap' }}>{r.comments || '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

@@ -40,37 +40,12 @@ function valueForDay(rows, metric) {
   return rows.reduce((s, r) => s + (r[metric.field] || 0), 0);
 }
 
-function Card({ children, style = {} }) {
-  return (
-    <div
-      style={{
-        background: 'var(--alm-surface)',
-        border: '1px solid var(--alm-border)',
-        borderRadius: 4,
-        padding: 20,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function MetricChip({ metric, active, disabled, onClick }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled && !active}
-      style={{
-        fontSize: 12,
-        padding: '6px 12px',
-        borderRadius: 999,
-        border: '1px solid ' + (active ? 'var(--alm-text)' : 'var(--alm-border)'),
-        background: active ? 'var(--alm-text)' : 'transparent',
-        color: active ? '#fff' : (disabled ? 'var(--alm-text-faint)' : 'var(--alm-text-muted)'),
-        cursor: disabled && !active ? 'not-allowed' : 'pointer',
-        opacity: disabled && !active ? 0.5 : 1,
-      }}
+      className={`alm-chip${active ? ' alm-chip--active' : ''}`}
     >
       {metric.label}
     </button>
@@ -149,50 +124,54 @@ export default function AlmTrends() {
   const atMax = selectedMetrics.length >= MAX_OVERLAY;
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: 32 }}>
-      <div style={{ marginBottom: 8 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0, color: 'var(--alm-text)' }}>
-          Trends
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--alm-text-muted)', margin: '4px 0 0' }}>
-          {rangeLabel(range)} · pick any metrics to overlay and compare shape.
+    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '36px 32px 64px' }}>
+      <div className="alm-page-header">
+        <div className="alm-page-dot"><span>Trends</span></div>
+        <h1 className="alm-page-title">Trends &amp; patterns</h1>
+        <p className="alm-page-subtitle">
+          {rangeLabel(range)} · pick any metrics to overlay and compare shape
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24, flexWrap: 'wrap' }}>
         <AlmRangePicker value={range} onChange={setRange} />
         <select
           value={facilityFilter}
           onChange={(e) => setFacilityFilter(e.target.value)}
-          style={{ fontSize: 12, padding: '5px 8px', border: '1px solid var(--alm-border)', borderRadius: 3, background: 'var(--alm-bg)', color: 'var(--alm-text)' }}
+          className="alm-select"
         >
           <option value="all">All facilities</option>
           {facilities.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
-        <span style={{ fontSize: 11, color: 'var(--alm-text-faint)' }}>
+        <span className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           {recordCount} daily record{recordCount === 1 ? '' : 's'}
         </span>
       </div>
 
       {/* Metric toggles */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
             Metrics · {selectedMetrics.length}/{MAX_OVERLAY} selected
           </div>
           {selectedMetrics.length > 0 && (
             <button
               onClick={() => setSelectedMetrics([])}
+              className="alm-mono"
               style={{
-                fontSize: 11,
+                fontSize: 10,
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--alm-text-muted)',
+                color: 'var(--alm-ink-4)',
                 cursor: 'pointer',
-                textDecoration: 'underline',
+                textTransform: 'uppercase',
+                letterSpacing: '0.16em',
+                padding: 0,
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--alm-ink-1)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--alm-ink-4)')}
             >
               Clear
             </button>
@@ -212,33 +191,48 @@ export default function AlmTrends() {
       </div>
 
       {/* Main overlay chart */}
-      <Card style={{ marginBottom: 24 }}>
+      <div className="alm-card alm-card--p" style={{ marginBottom: 8 }}>
         <AlmLineChart series={series} height={280} />
-      </Card>
+      </div>
 
       {/* Per-facility mini charts */}
       {selectedMetrics.length > 0 && (
         <>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-            By Facility {primaryLabel && <span style={{ color: 'var(--alm-text-muted)', textTransform: 'none', letterSpacing: 0 }}> · latest {primaryLabel}</span>}
+          <div className="alm-section">
+            <span>By Facility{primaryLabel ? ` · Latest ${primaryLabel}` : ''}</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
             {perFacilitySeries.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--alm-text-muted)' }}>No data in this window.</div>
+              <div style={{ fontSize: 13, color: 'var(--alm-ink-4)' }}>No data in this window.</div>
             ) : (
               perFacilitySeries.map((f) => (
-                <Card key={f.facility}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--alm-text)' }}>{f.facility}</div>
+                <div key={f.facility} className="alm-card alm-card--hover alm-card--p">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
+                        {f.facility}
+                      </div>
+                      <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>
+                        {primaryLabel}
+                      </div>
+                    </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-text)', lineHeight: 1 }}>{fmtNum(f.latest)}</div>
-                      <div style={{ fontSize: 10, color: f.delta === 0 ? 'var(--alm-text-faint)' : f.delta > 0 ? '#3a7a3a' : '#a04040' }}>
-                        {f.delta === 0 ? '—' : `${f.delta > 0 ? '+' : ''}${fmtNum(f.delta)} vs start`}
+                      <div className="alm-display" style={{ fontSize: 24, lineHeight: 1 }}>{fmtNum(f.latest)}</div>
+                      <div
+                        className="alm-mono"
+                        style={{
+                          fontSize: 10,
+                          marginTop: 4,
+                          letterSpacing: '0.08em',
+                          color: f.delta === 0 ? 'var(--alm-ink-5)' : f.delta > 0 ? 'var(--alm-up)' : 'var(--alm-down)',
+                        }}
+                      >
+                        {f.delta === 0 ? '—' : `${f.delta > 0 ? '+' : ''}${fmtNum(f.delta)}`}
                       </div>
                     </div>
                   </div>
-                  <AlmLineChart series={f.series} height={110} showLegend={false} />
-                </Card>
+                  <AlmLineChart series={f.series} height={100} showLegend={false} />
+                </div>
               ))
             )}
           </div>

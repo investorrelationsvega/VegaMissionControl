@@ -1,28 +1,29 @@
 // ═══════════════════════════════════════════════
 // ALM — Header
-// Back link, module label, tab nav.
+// Elevated Vega nav: mono labels, hairline divider,
+// underline-active tabs.
 // ═══════════════════════════════════════════════
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { label: 'Today', path: '/alm' },
+  { label: 'Today',    path: '/alm' },
   { label: 'Outreach', path: '/alm/outreach' },
-  { label: 'Trends', path: '/alm/trends' },
+  { label: 'Trends',   path: '/alm/trends' },
 ];
 
 export default function AlmHeader() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isActive = (path) =>
+    path === '/alm'
+      ? location.pathname === '/alm' || location.pathname === '/alm/'
+      : location.pathname === path;
+
   return (
     <header
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 24px',
-        height: 56,
         borderBottom: '1px solid var(--alm-border)',
         background: 'var(--alm-bg)',
         position: 'sticky',
@@ -30,59 +31,99 @@ export default function AlmHeader() {
         zIndex: 100,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span
-          onClick={() => navigate('/')}
-          style={{
-            fontSize: 12,
-            color: 'var(--alm-text-muted)',
-            cursor: 'pointer',
-          }}
-        >
-          &larr; Mission Control
-        </span>
-        <span style={{ width: 1, height: 20, background: 'var(--alm-border)' }} />
-        <span
-          onClick={() => navigate('/alm')}
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: 'var(--alm-text)',
-            cursor: 'pointer',
-            letterSpacing: '0.02em',
-          }}
-        >
-          Assisted Living
-        </span>
-      </div>
-
-      <nav style={{ display: 'flex', gap: 4 }}>
-        {NAV_ITEMS.map((item) => {
-          const isActive =
-            item.path === '/alm'
-              ? location.pathname === '/alm' || location.pathname === '/alm/'
-              : location.pathname === item.path;
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: '0 auto',
+          padding: '0 32px',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'space-between',
+          height: 60,
+        }}
+      >
+        {/* Left: back link + module label */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <button
+            onClick={() => navigate('/')}
+            className="alm-mono"
+            style={{
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              color: 'var(--alm-ink-4)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--alm-ink-1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--alm-ink-4)')}
+          >
+            ← Mission Control
+          </button>
+          <span style={{ width: 1, height: 20, background: 'var(--alm-border)' }} />
+          <div
+            onClick={() => navigate('/alm')}
+            style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer', lineHeight: 1 }}
+          >
+            <span
+              className="alm-mono"
               style={{
-                fontSize: 12,
-                fontWeight: isActive ? 600 : 400,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActive ? '2px solid var(--alm-text)' : '2px solid transparent',
-                color: isActive ? 'var(--alm-text)' : 'var(--alm-text-muted)',
-                padding: '18px 12px 16px',
-                cursor: 'pointer',
-                letterSpacing: '0.02em',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.22em',
+                color: 'var(--alm-ink-4)',
+                marginBottom: 3,
               }}
             >
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
+              Vega · Operations
+            </span>
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 500,
+                color: 'var(--alm-ink-1)',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Assisted Living
+            </span>
+          </div>
+        </div>
+
+        {/* Right: tabs */}
+        <nav style={{ display: 'flex', alignItems: 'stretch' }}>
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className="alm-mono"
+                style={{
+                  fontSize: 11,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.18em',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: active ? '2px solid var(--alm-accent)' : '2px solid transparent',
+                  color: active ? 'var(--alm-ink-1)' : 'var(--alm-ink-4)',
+                  padding: '0 16px',
+                  marginLeft: 4,
+                  cursor: 'pointer',
+                  transition: 'color 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = 'var(--alm-ink-2)'; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = 'var(--alm-ink-4)'; }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
     </header>
   );
 }
