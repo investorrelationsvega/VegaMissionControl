@@ -1,30 +1,44 @@
 // ═══════════════════════════════════════════════
 // ALM — Trends
-// Per-facility time series with overlay between
-// census and sales activity (tours) on dual axes.
-// Also exposes hospitalizations and open shifts.
+// Pick any combination of metrics to overlay on a
+// shared time axis. Each line is independently
+// normalized so metrics with different scales can
+// be compared by shape.
 // ═══════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
+import AlmRangePicker from '../components/AlmRangePicker';
 import AlmLineChart from '../components/AlmLineChart';
 import { uniqueFacilities } from '../services/almDataService';
 import { fmtNum, dateKey } from '../utils/format';
+import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 
-const RANGES = [
-  { label: '14d',  days: 14 },
-  { label: '30d',  days: 30 },
-  { label: '90d',  days: 90 },
-  { label: 'All',  days: null },
+// Every metric is individually toggleable. `aggregate` controls how
+// we combine multiple rows on the same day (e.g. across facilities).
+const METRICS = [
+  { id: 'census',            label: 'Census',            field: 'census',           aggregate: 'sum' },
+  { id: 'admissions',        label: 'Admits',            field: 'admissions',       aggregate: 'sum' },
+  { id: 'discharges',        label: 'Discharges',        field: 'discharges',       aggregate: 'sum' },
+  { id: 'hospitalizations',  label: 'Hospitalizations',  field: 'hospitalizations', aggregate: 'sum' },
+  { id: 'tours',             label: 'Tours',             field: 'tours',            aggregate: 'sum' },
+  { id: 'inquiryCalls',      label: 'Inquiry Calls',     field: 'inquiryCalls',     aggregate: 'sum' },
+  { id: 'walkIns',           label: 'Walk-ins',          field: 'walkIns',          aggregate: 'sum' },
+  { id: 'outboundContacts',  label: 'Outbound Contacts', field: 'outboundContacts', aggregate: 'sum' },
+  { id: 'followUps',         label: 'Follow-ups',        field: 'followUps',        aggregate: 'sum' },
+  { id: 'referrals',         label: 'Referrals',         field: null,               aggregate: 'referrals' },
+  { id: 'openShifts',        label: 'Open Shifts',       field: 'openShifts',       aggregate: 'sum' },
 ];
 
-const METRIC_SETS = [
-  { id: 'census-tours',   label: 'Census + Tours',           left: 'census',           right: 'tours',           leftName: 'Census',           rightName: 'Tours' },
-  { id: 'admits-disc',    label: 'Admits vs Discharges',     left: 'admissions',       right: 'discharges',      leftName: 'Admits',           rightName: 'Discharges' },
-  { id: 'hosp-shifts',    label: 'Hospitalizations + Open Shifts', left: 'hospitalizations', right: 'openShifts',  leftName: 'Hospitalizations', rightName: 'Open Shifts' },
-  { id: 'outreach-refs',  label: 'Outreach + Referrals',     left: 'outboundContacts', right: 'referralsCount',  leftName: 'Outbound',         rightName: 'Referrals' },
-];
+const MAX_OVERLAY = 6;
+
+function valueForDay(rows, metric) {
+  if (metric.aggregate === 'referrals') {
+    return rows.reduce((s, r) => s + (r.referrals?.length || 0), 0);
+  }
+  return rows.reduce((s, r) => s + (r[metric.field] || 0), 0);
+}
 
 function Card({ children, style = {} }) {
   return (
@@ -42,101 +56,97 @@ function Card({ children, style = {} }) {
   );
 }
 
-function sumDay(rows, key) {
-  if (key === 'referralsCount') {
-    return rows.reduce((s, r) => s + (r.referrals?.length || 0), 0);
-  }
-  return rows.reduce((s, r) => s + (r[key] || 0), 0);
+function MetricChip({ metric, active, disabled, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled && !active}
+      style={{
+        fontSize: 12,
+        padding: '6px 12px',
+        borderRadius: 999,
+        border: '1px solid ' + (active ? 'var(--alm-text)' : 'var(--alm-border)'),
+        background: active ? 'var(--alm-text)' : 'transparent',
+        color: active ? '#fff' : (disabled ? 'var(--alm-text-faint)' : 'var(--alm-text-muted)'),
+        cursor: disabled && !active ? 'not-allowed' : 'pointer',
+        opacity: disabled && !active ? 0.5 : 1,
+      }}
+    >
+      {metric.label}
+    </button>
+  );
 }
 
-// For census we want to show the last-known value per day, not a sum
-// (since multiple facilities each report their own census).
-function valueForDay(rows, key) {
-  if (key === 'census') {
-    // Sum of latest census reported that day across the filtered rows
-    return rows.reduce((s, r) => s + (r.census || 0), 0);
-  }
-  return sumDay(rows, key);
+function buildSeries(rows, metricIds, range, facilityFilter) {
+  const chosen = METRICS.filter((m) => metricIds.includes(m.id));
+  const filtered = rows.filter((r) => {
+    if (!rowInRange(r, range)) return false;
+    if (facilityFilter !== 'all' && r.facility !== facilityFilter) return false;
+    return true;
+  });
+
+  const byDay = new Map();
+  filtered.forEach((r) => {
+    const k = dateKey(r.date);
+    if (!byDay.has(k)) byDay.set(k, []);
+    byDay.get(k).push(r);
+  });
+  const sortedKeys = Array.from(byDay.keys()).sort();
+
+  return {
+    series: chosen.map((m) => ({
+      name: m.label,
+      points: sortedKeys.map((k) => ({
+        x: byDay.get(k)[0].date,
+        y: valueForDay(byDay.get(k), m),
+      })),
+    })),
+    recordCount: filtered.length,
+  };
 }
 
 export default function AlmTrends() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
-  const [rangeIdx, setRangeIdx] = useState(1);
+  const [range, setRange] = useState(() => computeRange('monthly'));
   const [facilityFilter, setFacilityFilter] = useState('all');
-  const [metricSetId, setMetricSetId] = useState('census-tours');
+  const [selectedMetrics, setSelectedMetrics] = useState(['census']);
 
   const facilities = useMemo(() => uniqueFacilities(rows), [rows]);
-  const metricSet = METRIC_SETS.find((m) => m.id === metricSetId) || METRIC_SETS[0];
 
-  const { series, filteredCount } = useMemo(() => {
-    const range = RANGES[rangeIdx];
-    const cutoff = range.days ? new Date(Date.now() - range.days * 24 * 60 * 60 * 1000) : null;
+  const toggleMetric = (id) => {
+    setSelectedMetrics((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_OVERLAY) return prev;
+      return [...prev, id];
+    });
+  };
 
-    const f = rows.filter((r) => {
-      if (!r.date) return false;
-      if (cutoff && r.date < cutoff) return false;
-      if (facilityFilter !== 'all' && r.facility !== facilityFilter) return false;
-      return true;
+  const { series, recordCount } = useMemo(
+    () => buildSeries(rows, selectedMetrics, range, facilityFilter),
+    [rows, selectedMetrics, range, facilityFilter],
+  );
+
+  // Per-facility mini charts: same metrics per card
+  const perFacilitySeries = useMemo(() => {
+    if (selectedMetrics.length === 0) return [];
+    const perFacFiltered = rows.filter((r) => rowInRange(r, range));
+    const byFacility = new Map();
+    perFacFiltered.forEach((r) => {
+      if (!byFacility.has(r.facility)) byFacility.set(r.facility, []);
+      byFacility.get(r.facility).push(r);
     });
 
-    // Group by day
-    const byDay = new Map();
-    f.forEach((r) => {
-      const k = dateKey(r.date);
-      if (!byDay.has(k)) byDay.set(k, []);
-      byDay.get(k).push(r);
-    });
-    const sortedKeys = Array.from(byDay.keys()).sort();
-
-    const leftPts = sortedKeys.map((k) => {
-      const dayRows = byDay.get(k);
-      return { x: dayRows[0].date, y: valueForDay(dayRows, metricSet.left) };
-    });
-    const rightPts = sortedKeys.map((k) => {
-      const dayRows = byDay.get(k);
-      return { x: dayRows[0].date, y: valueForDay(dayRows, metricSet.right) };
-    });
-
-    return {
-      series: [
-        { name: metricSet.leftName,  points: leftPts,  axis: 'left' },
-        { name: metricSet.rightName, points: rightPts, axis: 'right' },
-      ],
-      filteredCount: f.length,
-    };
-  }, [rows, rangeIdx, facilityFilter, metricSetId, metricSet]);
-
-  // Per-facility sparkline data for the primary (left) metric
-  const perFacility = useMemo(() => {
-    const range = RANGES[rangeIdx];
-    const cutoff = range.days ? new Date(Date.now() - range.days * 24 * 60 * 60 * 1000) : null;
-
-    const facRows = new Map();
-    rows.forEach((r) => {
-      if (!r.date) return;
-      if (cutoff && r.date < cutoff) return;
-      if (!facRows.has(r.facility)) facRows.set(r.facility, []);
-      facRows.get(r.facility).push(r);
-    });
-
-    return Array.from(facRows.entries()).map(([facility, rs]) => {
-      const byDay = new Map();
-      rs.forEach((r) => {
-        const k = dateKey(r.date);
-        if (!byDay.has(k)) byDay.set(k, []);
-        byDay.get(k).push(r);
-      });
-      const sortedKeys = Array.from(byDay.keys()).sort();
-      const points = sortedKeys.map((k) => ({
-        x: byDay.get(k)[0].date,
-        y: valueForDay(byDay.get(k), metricSet.left),
-      }));
-      const latest = points[points.length - 1]?.y ?? 0;
-      const first = points[0]?.y ?? 0;
-      const delta = latest - first;
-      return { facility, points, latest, delta };
+    return Array.from(byFacility.entries()).map(([facility, fRows]) => {
+      const { series: s } = buildSeries(fRows, selectedMetrics, range, 'all');
+      const primary = s[0];
+      const latest = primary?.points[primary.points.length - 1]?.y ?? 0;
+      const first = primary?.points[0]?.y ?? 0;
+      return { facility, series: s, latest, delta: latest - first };
     }).sort((a, b) => b.latest - a.latest);
-  }, [rows, rangeIdx, metricSet]);
+  }, [rows, selectedMetrics, range]);
+
+  const primaryLabel = METRICS.find((m) => m.id === selectedMetrics[0])?.label;
+  const atMax = selectedMetrics.length >= MAX_OVERLAY;
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: 32 }}>
@@ -145,33 +155,14 @@ export default function AlmTrends() {
           Trends
         </h1>
         <p style={{ fontSize: 13, color: 'var(--alm-text-muted)', margin: '4px 0 0' }}>
-          Overlay operational signals to see how they move together.
+          {rangeLabel(range)} · pick any metrics to overlay and compare shape.
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 0, border: '1px solid var(--alm-border)', borderRadius: 3, overflow: 'hidden' }}>
-          {RANGES.map((r, i) => (
-            <button
-              key={r.label}
-              onClick={() => setRangeIdx(i)}
-              style={{
-                fontSize: 11,
-                padding: '6px 12px',
-                background: rangeIdx === i ? 'var(--alm-text)' : 'transparent',
-                color: rangeIdx === i ? '#fff' : 'var(--alm-text-muted)',
-                border: 'none',
-                borderRight: i < RANGES.length - 1 ? '1px solid var(--alm-border)' : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <AlmRangePicker value={range} onChange={setRange} />
         <select
           value={facilityFilter}
           onChange={(e) => setFacilityFilter(e.target.value)}
@@ -180,50 +171,79 @@ export default function AlmTrends() {
           <option value="all">All facilities</option>
           {facilities.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
-        <select
-          value={metricSetId}
-          onChange={(e) => setMetricSetId(e.target.value)}
-          style={{ fontSize: 12, padding: '5px 8px', border: '1px solid var(--alm-border)', borderRadius: 3, background: 'var(--alm-bg)', color: 'var(--alm-text)' }}
-        >
-          {METRIC_SETS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-        </select>
         <span style={{ fontSize: 11, color: 'var(--alm-text-faint)' }}>
-          {filteredCount} daily record{filteredCount === 1 ? '' : 's'}
+          {recordCount} daily record{recordCount === 1 ? '' : 's'}
         </span>
+      </div>
+
+      {/* Metric toggles */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)' }}>
+            Metrics · {selectedMetrics.length}/{MAX_OVERLAY} selected
+          </div>
+          {selectedMetrics.length > 0 && (
+            <button
+              onClick={() => setSelectedMetrics([])}
+              style={{
+                fontSize: 11,
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--alm-text-muted)',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {METRICS.map((m) => (
+            <MetricChip
+              key={m.id}
+              metric={m}
+              active={selectedMetrics.includes(m.id)}
+              disabled={atMax}
+              onClick={() => toggleMetric(m.id)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Main overlay chart */}
       <Card style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 14 }}>
-          {metricSet.label}
-        </div>
-        <AlmLineChart series={series} height={260} />
+        <AlmLineChart series={series} height={280} />
       </Card>
 
-      {/* Per-facility mini-sparklines for the left metric */}
-      <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
-        {metricSet.leftName} by Facility
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-        {perFacility.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--alm-text-muted)' }}>No data in this window.</div>
-        ) : (
-          perFacility.map((f) => (
-            <Card key={f.facility}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--alm-text)' }}>{f.facility}</div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-text)', lineHeight: 1 }}>{fmtNum(f.latest)}</div>
-                  <div style={{ fontSize: 10, color: f.delta === 0 ? 'var(--alm-text-faint)' : f.delta > 0 ? '#3a7a3a' : '#a04040' }}>
-                    {f.delta === 0 ? '—' : `${f.delta > 0 ? '+' : ''}${fmtNum(f.delta)} vs start`}
+      {/* Per-facility mini charts */}
+      {selectedMetrics.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
+            By Facility {primaryLabel && <span style={{ color: 'var(--alm-text-muted)', textTransform: 'none', letterSpacing: 0 }}> · latest {primaryLabel}</span>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+            {perFacilitySeries.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--alm-text-muted)' }}>No data in this window.</div>
+            ) : (
+              perFacilitySeries.map((f) => (
+                <Card key={f.facility}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--alm-text)' }}>{f.facility}</div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-text)', lineHeight: 1 }}>{fmtNum(f.latest)}</div>
+                      <div style={{ fontSize: 10, color: f.delta === 0 ? 'var(--alm-text-faint)' : f.delta > 0 ? '#3a7a3a' : '#a04040' }}>
+                        {f.delta === 0 ? '—' : `${f.delta > 0 ? '+' : ''}${fmtNum(f.delta)} vs start`}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <AlmLineChart series={[{ name: metricSet.leftName, points: f.points, axis: 'left' }]} height={90} />
-            </Card>
-          ))
-        )}
-      </div>
+                  <AlmLineChart series={f.series} height={110} showLegend={false} />
+                </Card>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

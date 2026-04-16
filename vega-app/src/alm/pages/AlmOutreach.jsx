@@ -8,15 +8,10 @@
 import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
 import AlmStatusBar from '../components/AlmStatusBar';
+import AlmRangePicker from '../components/AlmRangePicker';
 import { uniqueFacilities } from '../services/almDataService';
 import { fmtNum, fmtPct, fmtDate } from '../utils/format';
-
-const RANGES = [
-  { label: '7d',  days: 7 },
-  { label: '30d', days: 30 },
-  { label: '90d', days: 90 },
-  { label: 'All', days: null },
-];
+import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 
 function Card({ children, style = {} }) {
   return (
@@ -34,7 +29,6 @@ function Card({ children, style = {} }) {
   );
 }
 
-// Horizontal bar relative to the step above it in the funnel.
 function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst }) {
   const width = Math.max(6, pctOfTop);
   return (
@@ -60,18 +54,14 @@ function pct(numer, denom) {
 
 export default function AlmOutreach() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
-  const [rangeIdx, setRangeIdx] = useState(1); // default 30d
+  const [range, setRange] = useState(() => computeRange('monthly'));
   const [facilityFilter, setFacilityFilter] = useState('all');
 
   const { filtered, facilities, funnel, sources, recentReferrals, perFacility } = useMemo(() => {
     const facs = uniqueFacilities(rows);
-    const range = RANGES[rangeIdx];
-    const cutoff = range.days
-      ? new Date(Date.now() - range.days * 24 * 60 * 60 * 1000)
-      : null;
 
     const f = rows.filter((r) => {
-      if (cutoff && r.date && r.date < cutoff) return false;
+      if (!rowInRange(r, range)) return false;
       if (facilityFilter !== 'all' && r.facility !== facilityFilter) return false;
       return true;
     });
@@ -90,7 +80,6 @@ export default function AlmOutreach() {
       { outbound: 0, followUps: 0, referrals: 0, inquiry: 0, walkIns: 0, tours: 0, admits: 0 },
     );
 
-    // Source breakdown
     const sourceMap = new Map();
     f.forEach((r) => {
       (r.referrals || []).forEach((ref) => {
@@ -102,7 +91,6 @@ export default function AlmOutreach() {
       .map(([source, count]) => ({ source, count }))
       .sort((a, b) => b.count - a.count);
 
-    // Recent referrals feed
     const recent = [];
     f.forEach((r) => {
       (r.referrals || []).forEach((ref) => {
@@ -111,7 +99,6 @@ export default function AlmOutreach() {
     });
     recent.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
 
-    // Per-facility activity
     const facMap = new Map();
     f.forEach((r) => {
       const key = r.facility;
@@ -133,7 +120,7 @@ export default function AlmOutreach() {
       recentReferrals: recent,
       perFacility: pf,
     };
-  }, [rows, rangeIdx, facilityFilter]);
+  }, [rows, range, facilityFilter]);
 
   const topOfFunnel = Math.max(funnel.outbound, 1);
   const funnelSteps = [
@@ -153,33 +140,14 @@ export default function AlmOutreach() {
           Outreach & Referrals
         </h1>
         <p style={{ fontSize: 13, color: 'var(--alm-text-muted)', margin: '4px 0 0' }}>
-          Activity and conversion across facilities over the selected window.
+          {rangeLabel(range)} · activity and conversion across facilities.
         </p>
       </div>
 
       <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 0, border: '1px solid var(--alm-border)', borderRadius: 3, overflow: 'hidden' }}>
-          {RANGES.map((r, i) => (
-            <button
-              key={r.label}
-              onClick={() => setRangeIdx(i)}
-              style={{
-                fontSize: 11,
-                padding: '6px 12px',
-                background: rangeIdx === i ? 'var(--alm-text)' : 'transparent',
-                color: rangeIdx === i ? '#fff' : 'var(--alm-text-muted)',
-                border: 'none',
-                borderRight: i < RANGES.length - 1 ? '1px solid var(--alm-border)' : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <AlmRangePicker value={range} onChange={setRange} />
         <select
           value={facilityFilter}
           onChange={(e) => setFacilityFilter(e.target.value)}
@@ -203,7 +171,6 @@ export default function AlmOutreach() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: 16, marginBottom: 24 }}>
-        {/* Funnel */}
         <Card>
           <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 16 }}>
             Activity Funnel
@@ -225,7 +192,6 @@ export default function AlmOutreach() {
           </div>
         </Card>
 
-        {/* Referral Sources */}
         <Card>
           <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 16 }}>
             Referral Sources
@@ -248,7 +214,6 @@ export default function AlmOutreach() {
         </Card>
       </div>
 
-      {/* Per-facility breakdown */}
       <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
         By Facility
       </div>
@@ -296,7 +261,6 @@ export default function AlmOutreach() {
         </table>
       </Card>
 
-      {/* Recent referrals */}
       <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--alm-text-faint)', marginBottom: 12 }}>
         Recent Referrals
       </div>
