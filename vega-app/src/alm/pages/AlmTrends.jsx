@@ -201,7 +201,7 @@ export default function AlmTrends() {
                 <div key={f.facility} className="alm-card alm-card--hover alm-card--p">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
+                      <div className="alm-serif" style={{ fontSize: 17, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
                         {f.facility}
                       </div>
                       <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>

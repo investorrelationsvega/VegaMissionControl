@@ -24,7 +24,7 @@ function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst }) {
           {label}
         </span>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span className="alm-num" style={{ fontSize: 18, fontWeight: 300, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em' }}>
+          <span className="alm-num" style={{ fontSize: 20, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em' }}>
             {fmtNum(value)}
           </span>
           {!isFirst && (
@@ -189,7 +189,7 @@ export default function AlmOutreach() {
                 <div key={s.source} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
                     <span style={{ fontSize: 13, color: 'var(--alm-ink-2)' }}>{s.source}</span>
-                    <span className="alm-num" style={{ fontSize: 15, fontWeight: 300, color: 'var(--alm-ink-1)' }}>{s.count}</span>
+                    <span className="alm-num" style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-ink-1)' }}>{s.count}</span>
                   </div>
                   <div style={{ height: 3, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${(s.count / maxSource) * 100}%`, height: '100%', background: 'var(--alm-ink-3)', transition: 'width 0.3s' }} />
