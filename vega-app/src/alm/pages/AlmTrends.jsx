@@ -148,13 +148,13 @@ export default function AlmTrends() {
       {/* Metric toggles */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+          <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
             Metrics · {selectedMetrics.length}/{MAX_OVERLAY} selected
           </div>
           {selectedMetrics.length > 0 && (
             <button
               onClick={() => setSelectedMetrics([])}
-              className="alm-mono"
+              className="alm-serif"
               style={{
                 fontSize: 10,
                 background: 'transparent',
@@ -207,14 +207,14 @@ export default function AlmTrends() {
                       <div className="alm-serif" style={{ fontSize: 17, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
                         {f.facility}
                       </div>
-                      <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>
+                      <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>
                         {primaryLabel}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div className="alm-display" style={{ fontSize: 24, lineHeight: 1 }}>{fmtNum(f.latest)}</div>
                       <div
-                        className="alm-mono"
+                        className="alm-serif"
                         style={{
                           fontSize: 10,
                           marginTop: 4,

@@ -58,7 +58,7 @@ export default function AlmRangePicker({ value, onChange }) {
             onChange={setFrom}
             className="alm-input"
           />
-          <span className="alm-mono" style={{ fontSize: 11, color: 'var(--alm-ink-5)' }}>→</span>
+          <span className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-5)' }}>→</span>
           <input
             type="date"
             value={toDateInputValue(to)}

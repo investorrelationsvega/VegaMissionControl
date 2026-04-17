@@ -147,7 +147,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           <div className="alm-serif" style={{ fontSize: 19, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em', lineHeight: 1.15 }}>
             {facility}
           </div>
-          <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', marginTop: 4, letterSpacing: '0.06em' }}>
+          <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', marginTop: 4, letterSpacing: '0.06em' }}>
             {latest ? `LAST REPORT · ${fmtDate(latest.date).toUpperCase()}` : 'NO SUBMISSIONS IN RANGE'}
           </div>
         </div>
@@ -155,7 +155,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           <div className="alm-display" style={{ fontSize: 32, lineHeight: 1 }}>
             {latest ? fmtNum(latest.census) : '—'}
           </div>
-          <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
+          <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
             Census
           </div>
         </div>
@@ -169,7 +169,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           { label: 'Tours',      value: totals.tours },
         ].map((m) => (
           <div key={m.label}>
-            <div className="alm-mono" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 4 }}>
+            <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 4 }}>
               {m.label}{isMultiDay ? ' Σ' : ''}
             </div>
             <div className="alm-num" style={{ fontSize: 20, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em', lineHeight: 1 }}>
@@ -180,14 +180,14 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="alm-mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <div className="alm-serif" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           <span className="alm-dot" style={{ background: tone.dot }} />
           {tone.label}
           {latest?.openShifts > 0 && (
             <span style={{ color: 'var(--alm-ink-4)' }}> · {latest.openShifts} Open</span>
           )}
         </div>
-        <div className="alm-mono" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           {latest?.vacantBeds ? 'Vacant beds' : latest ? 'Full' : '—'}
         </div>
       </div>
