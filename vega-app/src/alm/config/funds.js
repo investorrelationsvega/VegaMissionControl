@@ -19,9 +19,10 @@ export function fundForFacility(facility) {
 }
 
 export function facilitiesInFund(fundId, allFacilities) {
-  const fund = FUNDS.find((f) => f.id === fundId);
-  if (!fund) return [];
-  return allFacilities.filter((fac) => fund.test(fac));
+  return allFacilities.filter((fac) => {
+    const f = fundForFacility(fac);
+    return f && f.id === fundId;
+  });
 }
 
 // Many sheet facility names follow the pattern

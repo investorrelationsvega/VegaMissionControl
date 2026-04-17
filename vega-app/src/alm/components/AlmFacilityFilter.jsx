@@ -6,7 +6,7 @@
 // structure stays visible even in the compact UI.
 // ═══════════════════════════════════════════════
 
-import { FUNDS, shortFacility } from '../config/funds';
+import { FUNDS, facilitiesInFund } from '../config/funds';
 import { ALL_HOMES } from '../config/facilities';
 
 export default function AlmFacilityFilter({ value, onChange }) {
@@ -48,12 +48,12 @@ export default function AlmFacilityFilter({ value, onChange }) {
       >
         <option value="">Any facility</option>
         {FUNDS.map((fund) => {
-          const homesInFund = ALL_HOMES.filter((f) => fund.test(f));
+          const homesInFund = facilitiesInFund(fund.id, ALL_HOMES);
           if (homesInFund.length === 0) return null;
           return (
             <optgroup key={fund.id} label={fund.label}>
               {homesInFund.map((f) => (
-                <option key={f} value={f}>{shortFacility(f)}</option>
+                <option key={f} value={f}>{f}</option>
               ))}
             </optgroup>
           );

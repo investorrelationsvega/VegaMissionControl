@@ -16,7 +16,7 @@ import { latestPerFacility } from '../services/almDataService';
 import { fmtNum, fmtDate, dateKey } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 import { ALL_SCOPE, rowInScope, facilityInScope } from '../utils/scope';
-import { FUNDS, fundForFacility, shortFacility } from '../config/funds';
+import { FUNDS, fundForFacility, facilitiesInFund } from '../config/funds';
 import { ALL_HOMES } from '../config/facilities';
 
 // Each stat card has a metric config. `kind: snapshot` means we use
@@ -125,8 +125,8 @@ function BreakdownPanel({ metric, total, fundBlocks, onClose }) {
               <div className="alm-breakdown__empty">No facilities in scope</div>
             ) : (
               rows.map((r) => (
-                <div key={r.facility} className="alm-breakdown__row" title={r.facility}>
-                  <span>{shortFacility(r.facility)}</span>
+                <div key={r.facility} className="alm-breakdown__row">
+                  <span>{r.facility}</span>
                   <span className="alm-breakdown__row-value">{fmtNum(r.value)}</span>
                 </div>
               ))
@@ -278,7 +278,7 @@ export default function AlmToday() {
         return totalsMap.get(fac)?.[m.field] || 0;
       };
       const blocks = FUNDS.map((fund) => {
-        const facsInFund = facs.filter((f) => fund.test(f));
+        const facsInFund = facilitiesInFund(fund.id, facs);
         const blockRows = facsInFund
           .map((f) => ({ facility: f, value: facValue(f) }))
           .sort((a, b) => b.value - a.value);
