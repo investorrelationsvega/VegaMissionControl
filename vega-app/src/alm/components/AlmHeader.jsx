@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Today',        path: '/alm' },
   { label: 'Outreach',     path: '/alm/outreach' },
   { label: 'Trends',       path: '/alm/trends' },
+  { label: 'Directory',    path: '/alm/directory' },
   { label: 'Daily Report', path: '/alm/form' },
 ];
 
