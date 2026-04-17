@@ -7,7 +7,7 @@
 
 import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
-import AlmStatusBar from '../components/AlmStatusBar';
+import AlmInlineSync from '../components/AlmInlineSync';
 import AlmRangePicker from '../components/AlmRangePicker';
 import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import { uniqueFacilities } from '../services/almDataService';
@@ -126,18 +126,21 @@ export default function AlmOutreach() {
   return (
     <div className="alm-page">
       <div className="alm-page-header">
-        <div className="alm-page-dot"><span>Outreach</span></div>
-        <h1 className="alm-page-title">Outreach &amp; referrals</h1>
-        <p className="alm-page-subtitle">
-          {rangeLabel(range)} · {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
-        </p>
+        <div className="alm-page-header__row">
+          <div className="alm-page-header__main">
+            <div className="alm-page-dot"><span>Outreach</span></div>
+            <h1 className="alm-page-title">Outreach &amp; Referrals</h1>
+            <p className="alm-page-subtitle">
+              {rangeLabel(range)} · {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
+            </p>
+          </div>
+          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+        </div>
       </div>
-
-      <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         <AlmRangePicker value={range} onChange={setRange} />
-        <AlmFacilityFilter facilities={facilities} value={scope} onChange={setScope} />
+        <AlmFacilityFilter value={scope} onChange={setScope} />
       </div>
 
       <div className="alm-two-col" style={{ marginBottom: 8 }}>

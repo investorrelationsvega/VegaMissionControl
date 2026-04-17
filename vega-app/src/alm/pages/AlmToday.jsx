@@ -8,15 +8,16 @@
 
 import { useMemo, useState } from 'react';
 import useAlmData from '../hooks/useAlmData';
-import AlmStatusBar from '../components/AlmStatusBar';
 import AlmRangePicker from '../components/AlmRangePicker';
 import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import AlmSparkline from '../components/AlmSparkline';
-import { latestPerFacility, uniqueFacilities } from '../services/almDataService';
+import AlmInlineSync from '../components/AlmInlineSync';
+import { latestPerFacility } from '../services/almDataService';
 import { fmtNum, fmtDate, dateKey } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
-import { ALL_SCOPE, rowInScope, facilityInScope, scopeLabel } from '../utils/scope';
-import { FUNDS, shortFacility } from '../config/funds';
+import { ALL_SCOPE, rowInScope, facilityInScope } from '../utils/scope';
+import { FUNDS, fundForFacility, shortFacility } from '../config/funds';
+import { ALL_HOMES } from '../config/facilities';
 
 // Each stat card has a metric config. `kind: snapshot` means we use
 // the most recent in-range row per facility (current-state metrics);
@@ -36,6 +37,45 @@ const STATUS_TONE = {
   'Overstaffed':   { dot: 'var(--alm-ink-5)',label: 'Overstaffed'   },
 };
 const statusTone = (s) => (s && STATUS_TONE[s]) || { dot: 'var(--alm-ink-5)', label: s || 'Unknown' };
+
+function ReportingPanel({ reportedSet, scope }) {
+  const inScope = ALL_HOMES.filter((h) => facilityInScope(h, scope));
+  const reportedCount = inScope.filter((h) => reportedSet.has(h)).length;
+  return (
+    <div className="alm-reporting-panel">
+      <div className="alm-reporting-panel__head">
+        <span>Reporting status</span>
+        <span>{reportedCount} of {inScope.length} reported</span>
+      </div>
+      {inScope.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--alm-ink-4)', padding: '6px 0' }}>
+          No homes in scope.
+        </div>
+      ) : (
+        inScope.map((home) => {
+          const reported = reportedSet.has(home);
+          const fund = fundForFacility(home);
+          return (
+            <div key={home} className="alm-reporting-row">
+              <div className="alm-reporting-row__name">
+                <span>{home}</span>
+                {fund && <span className="alm-reporting-row__fund">{fund.label}</span>}
+              </div>
+              <span
+                className={`alm-reporting-row__status alm-reporting-row__status--${reported ? 'reported' : 'pending'}`}
+              >
+                <span className={`alm-reporting-row__mark${reported ? ' alm-reporting-row__mark--reported' : ''}`}>
+                  {reported ? '✓' : ''}
+                </span>
+                {reported ? 'Reported' : 'Not yet'}
+              </span>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
 
 function SummaryStatCard({ metric, value, sub, sparkPoints, active, onClick }) {
   return (
@@ -155,13 +195,20 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
   );
 }
 
+// When preset=daily, rangeLabel returns "Today · Apr 17, 2026".
+// The word "Today" is redundant with the page title, so strip the
+// "Today · " prefix for the subtitle on daily.
+function subtitleDateLabel(range) {
+  const label = rangeLabel(range);
+  return label.replace(/^Today\s*·\s*/, '');
+}
+
 export default function AlmToday() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('daily'));
   const [scope, setScope] = useState(ALL_SCOPE);
   const [activeMetricId, setActiveMetricId] = useState(null);
-
-  const allFacilities = useMemo(() => uniqueFacilities(rows), [rows]);
+  const [reportingOpen, setReportingOpen] = useState(false);
 
   const {
     facilities,
@@ -173,7 +220,7 @@ export default function AlmToday() {
     sparklines,
     breakdowns,
   } = useMemo(() => {
-    const facs = allFacilities.filter((f) => facilityInScope(f, scope));
+    const facs = ALL_HOMES.filter((f) => facilityInScope(f, scope));
     const ir = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
     const latest = latestPerFacility(ir);
 
@@ -225,8 +272,6 @@ export default function AlmToday() {
     STAT_METRICS.forEach((m) => { sparkSeries[m.id] = toPoints(m); });
 
     // Breakdown tree per metric: fund → [{ facility, value }].
-    // Snapshot metrics read from the per-facility latest row; sum
-    // metrics pull from the cumulative totals map.
     const buildBreakdown = (m) => {
       const facValue = (fac) => {
         if (m.kind === 'snapshot') return latestMap.get(fac)?.[m.field] || 0;
@@ -256,19 +301,35 @@ export default function AlmToday() {
       sparklines: sparkSeries,
       breakdowns: breakdownMap,
     };
-  }, [rows, range, scope, allFacilities]);
+  }, [rows, range, scope]);
 
   const isMultiDay = range.preset !== 'daily';
-  const reportingFrac = `${latestByFacility.length}/${facilities.length || 0}`;
+  const reportedSet = useMemo(
+    () => new Set(latestByFacility.map((r) => r.facility)),
+    [latestByFacility],
+  );
+  const inScopeHomes = useMemo(
+    () => ALL_HOMES.filter((h) => facilityInScope(h, scope)),
+    [scope],
+  );
+  const reportedInScope = useMemo(
+    () => inScopeHomes.filter((h) => reportedSet.has(h)).length,
+    [inScopeHomes, reportedSet],
+  );
 
-  const facilityCards = facilities.map((name) => {
-    const latest = perFacilityLatest.get(name) || null;
-    const totals = perFacilityTotals.get(name) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
-    return { facility: name, latest, totals };
-  });
+  // Only render cards for homes that have actually submitted in range.
+  // (Homes that haven't reported are visible via the "X/N Homes Reporting"
+  // panel — avoids making the facility grid feel empty.)
+  const facilityCards = facilities
+    .filter((name) => perFacilityLatest.has(name))
+    .map((name) => {
+      const latest = perFacilityLatest.get(name) || null;
+      const totals = perFacilityTotals.get(name) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
+      return { facility: name, latest, totals };
+    });
 
   const statDisplays = {
-    census:           { value: fmtNum(summary.census),           sub: `${reportingFrac} reporting` },
+    census:           { value: fmtNum(summary.census),           sub: `${reportedInScope}/${inScopeHomes.length} reporting` },
     admissions:       { value: fmtNum(summary.admissions),       sub: `${summary.discharges} discharges` },
     hospitalizations: { value: fmtNum(summary.hospitalizations), sub: null },
     tours:            { value: fmtNum(summary.tours),            sub: `${referralsInRange.length} referrals` },
@@ -281,21 +342,37 @@ export default function AlmToday() {
   return (
     <div className="alm-page">
       <div className="alm-page-header">
-        <div className="alm-page-dot"><span>{isMultiDay ? 'Overview' : 'Today'}</span></div>
-        <h1 className="alm-page-title">
-          {isMultiDay ? 'Operational overview' : 'Today at a glance'}
-        </h1>
-        <p className="alm-page-subtitle">
-          {rangeLabel(range)} · {scopeLabel(scope)}
-          {facilities.length > 0 && ` · ${reportingFrac} reporting`}
-        </p>
+        <div className="alm-page-header__row">
+          <div className="alm-page-header__main">
+            <div className="alm-page-dot"><span>{isMultiDay ? 'Overview' : 'Today'}</span></div>
+            <h1 className="alm-page-title">
+              {isMultiDay ? 'Operational Overview' : 'Today at a Glance'}
+            </h1>
+            <p className="alm-page-subtitle">
+              {subtitleDateLabel(range)}
+              {' · '}
+              <button
+                type="button"
+                className={`alm-reporting-trigger${reportingOpen ? ' alm-reporting-trigger--open' : ''}`}
+                onClick={() => setReportingOpen((v) => !v)}
+                aria-expanded={reportingOpen}
+              >
+                {reportedInScope}/{inScopeHomes.length} Homes Reporting
+                <span className="alm-reporting-trigger__caret" aria-hidden="true">▾</span>
+              </button>
+            </p>
+          </div>
+          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+        </div>
       </div>
 
-      <AlmStatusBar loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+      {reportingOpen && (
+        <ReportingPanel reportedSet={reportedSet} scope={scope} />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         <AlmRangePicker value={range} onChange={setRange} />
-        <AlmFacilityFilter facilities={allFacilities} value={scope} onChange={setScope} />
+        <AlmFacilityFilter value={scope} onChange={setScope} />
       </div>
 
       {rows.length === 0 && !loading ? (

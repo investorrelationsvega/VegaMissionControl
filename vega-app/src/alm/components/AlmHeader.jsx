@@ -72,7 +72,7 @@ export default function AlmHeader() {
             <VegaMark className="alm-header-lockup__icon" />
             <span className="alm-header-lockup__text">
               <span className="alm-header-lockup__wordmark">Vega</span>
-              <span className="alm-header-lockup__sub">Assisted Living</span>
+              <span className="alm-header-lockup__sub">Assisted Living Management</span>
             </span>
           </div>
         </div>
