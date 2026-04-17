@@ -13,6 +13,7 @@
 import { useState, useMemo } from 'react';
 import useKpiStore, { CUSTODIANS, OPINION_TYPES, FILING_TYPES, DTCC_REPORT_TYPES } from '../stores/kpiStore';
 import useUiStore from '../stores/uiStore';
+import useGoogleStore from '../stores/googleStore';
 import useResponsive from '../hooks/useResponsive';
 import {
   DateRangeFilter, getThisYearRange, fmtDate,
@@ -21,7 +22,6 @@ import {
 } from './KpiComponents';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
-const USER = 'j@vegarei.com';
 const today = new Date().toISOString().split('T')[0];
 const currentYear = new Date().getFullYear();
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -30,6 +30,7 @@ const US_STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','
 export default function ComplianceKpis() {
   const store = useKpiStore();
   const showToast = useUiStore((s) => s.showToast);
+  const USER = useGoogleStore((s) => s.userEmail) || 'unknown';
   const { isMobile } = useResponsive();
   const [range, setRange] = useState(getThisYearRange);
   const [expanded, setExpanded] = useState(null);

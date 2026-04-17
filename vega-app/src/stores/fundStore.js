@@ -6,6 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getCurrentUserEmail } from '../utils/currentUser';
 import {
   funds as seedFunds,
   advisors as seedAdvisors,
@@ -143,7 +144,7 @@ const useFundStore = create(
       };
     }),
 
-  removeAdvisor: (id, user = 'j@vegarei.com') =>
+  removeAdvisor: (id, user = getCurrentUserEmail()) =>
     set((state) => {
       const advisor = state.advisors.find((a) => a.id === id);
       if (!advisor) return state;
@@ -162,7 +163,7 @@ const useFundStore = create(
       };
     }),
 
-  restoreAdvisor: (advisor, user = 'j@vegarei.com') =>
+  restoreAdvisor: (advisor, user = getCurrentUserEmail()) =>
     set((state) => ({
       advisors: [...state.advisors, advisor],
       deletionLog: [...state.deletionLog, {
@@ -221,7 +222,7 @@ const useFundStore = create(
       ? get().custodianAuditLog.filter((e) => e.entityId === id)
       : get().custodianAuditLog,
 
-  removeCustodian: (id, user = 'j@vegarei.com') =>
+  removeCustodian: (id, user = getCurrentUserEmail()) =>
     set((state) => {
       const custodian = state.custodians.find((c) => c.id === id);
       if (!custodian) return state;
@@ -240,7 +241,7 @@ const useFundStore = create(
       };
     }),
 
-  restoreCustodian: (custodian, user = 'j@vegarei.com') =>
+  restoreCustodian: (custodian, user = getCurrentUserEmail()) =>
     set((state) => ({
       custodians: [...state.custodians, custodian],
       deletionLog: [...state.deletionLog, {
@@ -258,7 +259,7 @@ const useFundStore = create(
   // ── Deletion Log ────────────────────────────────────────────────────────
   getDeletionLog: () => get().deletionLog,
 
-  logDeletion: (type, entityId, entityName, detail, user = 'j@vegarei.com') =>
+  logDeletion: (type, entityId, entityName, detail, user = getCurrentUserEmail()) =>
     set((state) => ({
       deletionLog: [...state.deletionLog, {
         id: `DEL-${Date.now()}`,

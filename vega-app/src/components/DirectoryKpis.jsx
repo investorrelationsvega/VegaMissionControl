@@ -9,6 +9,7 @@
 import { useState, useMemo } from 'react';
 import useKpiStore from '../stores/kpiStore';
 import useUiStore from '../stores/uiStore';
+import useGoogleStore from '../stores/googleStore';
 import useResponsive from '../hooks/useResponsive';
 import {
   DateRangeFilter, getThisQuarterRange, fmtDate,
@@ -17,12 +18,12 @@ import {
 } from './KpiComponents';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
-const USER = 'j@vegarei.com';
 const today = new Date().toISOString().split('T')[0];
 
 export default function DirectoryKpis() {
   const store = useKpiStore();
   const showToast = useUiStore((s) => s.showToast);
+  const USER = useGoogleStore((s) => s.userEmail) || 'unknown';
   const { isMobile } = useResponsive();
   const [range, setRange] = useState(getThisQuarterRange);
   const [expanded, setExpanded] = useState(null);

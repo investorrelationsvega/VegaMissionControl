@@ -15,6 +15,7 @@
 import { useState, useMemo } from 'react';
 import useKpiStore, { MATERIAL_CREATE_TYPES, RECIPIENT_TYPES, REQUESTERS } from '../stores/kpiStore';
 import useUiStore from '../stores/uiStore';
+import useGoogleStore from '../stores/googleStore';
 import useResponsive from '../hooks/useResponsive';
 import {
   DateRangeFilter, getThisMonthRange, fmtDate, fmtCurrency,
@@ -23,7 +24,6 @@ import {
 } from './KpiComponents';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
-const USER = 'j@vegarei.com';
 const today = new Date().toISOString().split('T')[0];
 const currentMonth = new Date().getMonth() + 1;
 const currentYear = new Date().getFullYear();
@@ -31,6 +31,7 @@ const currentYear = new Date().getFullYear();
 export default function SalesOpsKpis() {
   const store = useKpiStore();
   const showToast = useUiStore((s) => s.showToast);
+  const USER = useGoogleStore((s) => s.userEmail) || 'unknown';
   const { isMobile } = useResponsive();
   const [range, setRange] = useState(getThisMonthRange);
   const [expanded, setExpanded] = useState(null);

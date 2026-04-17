@@ -48,6 +48,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
   const showToast = useUiStore((s) => s.showToast);
   const googleAuth = useGoogleStore((s) => s.isAuthenticated);
   const accessToken = useGoogleStore((s) => s.accessToken);
+  const googleUserEmail = useGoogleStore((s) => s.userEmail);
 
   const [notes, setNotes] = useState('');
   const [attachedEmails, setAttachedEmails] = useState([]);
@@ -92,7 +93,7 @@ export default function BlueskyFilingModal({ filingId, onClose }) {
       showToast('Notes are required to mark as filed');
       return;
     }
-    resolveFiling(filingId, 'j@vegarei.com', notes.trim(), attachedEmails);
+    resolveFiling(filingId, googleUserEmail, notes.trim(), attachedEmails);
 
     // Dismiss the matching bluesky notification
     const matchingNotif = notifications.find(

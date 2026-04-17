@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import useTaskStore from '../stores/taskStore'
 import useInvestorStore from '../stores/investorStore'
 import useUiStore from '../stores/uiStore'
+import useGoogleStore from '../stores/googleStore'
 import useResponsive from '../hooks/useResponsive'
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -22,15 +23,15 @@ function isOverdue(task) {
   return task.status !== 'Done' && task.dueDate && task.dueDate < TODAY
 }
 
-const EMPTY_FORM = {
+const emptyForm = (defaultAssignee = '') => ({
   title: '',
   description: '',
-  assignee: 'j@vegarei.com',
+  assignee: defaultAssignee,
   dueDate: '',
   priority: 'Medium',
   status: 'To Do',
   linkedInvestor: '',
-}
+})
 
 // ═══════════════════════════════════════════════
 // TASKS PAGE COMPONENT
@@ -50,6 +51,7 @@ export default function Tasks() {
   const investorList = useMemo(() => investors(), [investors])
 
   const showToast = useUiStore((s) => s.showToast)
+  const googleUserEmail = useGoogleStore((s) => s.userEmail)
 
   // ── Local state ─────────────────────────────
   const [assigneeFilter, setAssigneeFilter] = useState('All')
@@ -57,7 +59,7 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState('All')
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [form, setForm] = useState(emptyForm(googleUserEmail || ''))
 
   // ── Derived stats ───────────────────────────
   const totalCount = tasks.length
@@ -93,7 +95,7 @@ export default function Tasks() {
   // ── Handlers ────────────────────────────────
   const openAddModal = () => {
     setEditingId(null)
-    setForm({ ...EMPTY_FORM })
+    setForm(emptyForm(googleUserEmail || ''))
     setShowModal(true)
   }
 
@@ -102,7 +104,7 @@ export default function Tasks() {
     setForm({
       title: task.title,
       description: task.description || '',
-      assignee: task.assignee || 'j@vegarei.com',
+      assignee: task.assignee || googleUserEmail || '',
       dueDate: task.dueDate || '',
       priority: task.priority || 'Medium',
       status: task.status || 'To Do',

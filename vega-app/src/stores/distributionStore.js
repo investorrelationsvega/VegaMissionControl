@@ -9,6 +9,7 @@ import { persist } from 'zustand/middleware';
 import { distributions as seedDistributions } from '../data/seedData';
 import { updateDistributionField, appendDistributionRow, appendAuditLog } from '../services/sheetsService';
 import { reliableWrite } from '../services/sheetsWriteQueue';
+import { getCurrentUserEmail } from '../utils/currentUser';
 
 const useDistributionStore = create(
   persist(
@@ -62,7 +63,7 @@ const useDistributionStore = create(
               id: `DL-${Date.now()}`,
               action: 'Created',
               detail: 'Payment record created',
-              user: 'j@vegarei.com',
+              user: getCurrentUserEmail(),
               timestamp: new Date().toISOString(),
             }],
           };
@@ -72,7 +73,7 @@ const useDistributionStore = create(
           return { distributions: [...state.distributions, newPayment] };
         }),
 
-      updatePayment: (id, updates, user = 'j@vegarei.com') =>
+      updatePayment: (id, updates, user = getCurrentUserEmail()) =>
         set((state) => {
           // Write back changed fields to Google Sheet (with retry)
           const fieldMap = { amt: 'amount', method: 'method', status: 'status', date: 'sent_date', notes: 'notes' };

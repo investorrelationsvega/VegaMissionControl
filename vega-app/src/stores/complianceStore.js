@@ -9,6 +9,7 @@ import { persist } from 'zustand/middleware';
 import { complianceItems as seedComplianceItems } from '../data/seedData';
 import { updateComplianceStatus, appendAuditLog, appendComplianceRow } from '../services/sheetsService';
 import { reliableWrite } from '../services/sheetsWriteQueue';
+import { getCurrentUserEmail } from '../utils/currentUser';
 
 const useComplianceStore = create(
   persist(
@@ -177,7 +178,7 @@ const useComplianceStore = create(
           };
         }),
 
-      addItem: ({ invId, name, entity, fund, doc, issue, priority = 'standard' }, email = 'j@vegarei.com') =>
+      addItem: ({ invId, name, entity, fund, doc, issue, priority = 'standard' }, email = getCurrentUserEmail()) =>
         set((state) => {
           const now = new Date().toISOString();
           const nextNum = state.items.length + 1;

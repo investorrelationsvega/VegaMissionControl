@@ -8,6 +8,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useComplianceStore from '../stores/complianceStore'
 import useUiStore from '../stores/uiStore'
+import useGoogleStore from '../stores/googleStore'
 import useBlueskyStore from '../stores/blueskyStore'
 import BlueskyFilingModal from '../components/BlueskyFilingModal'
 import useResponsive from '../hooks/useResponsive'
@@ -88,6 +89,7 @@ export default function Compliance() {
   const togglePriority = useComplianceStore((s) => s.togglePriority)
   const updateNotes = useComplianceStore((s) => s.updateNotes)
   const auditLog = useComplianceStore((s) => s.auditLog)
+  const googleUserEmail = useGoogleStore((s) => s.userEmail)
   const showToast = useUiStore((s) => s.showToast)
 
   // ── Bluesky Filings ──────────────────────────
@@ -183,7 +185,7 @@ export default function Compliance() {
       delete next[id]
       return next
     })
-    resolve(id, 'j@vegarei.com', notes)
+    resolve(id, googleUserEmail, notes)
     setResolveNotes((prev) => {
       const next = { ...prev }
       delete next[id]
@@ -194,7 +196,7 @@ export default function Compliance() {
 
   const handleReopen = (id) => {
     const notes = (reopenNotes[id] || '').trim()
-    reopen(id, 'j@vegarei.com', notes || 'Reopened for further review')
+    reopen(id, googleUserEmail, notes || 'Reopened for further review')
     setReopenNotes((prev) => {
       const next = { ...prev }
       delete next[id]
@@ -213,7 +215,7 @@ export default function Compliance() {
       showToast('Notes are required for bulk resolve')
       return
     }
-    bulkResolve(invId, 'j@vegarei.com', bulkNote.trim())
+    bulkResolve(invId, googleUserEmail, bulkNote.trim())
     setConfirmBulk(null)
     setBulkNote('')
     const inv = investorGroups.find((g) => g.invId === invId)

@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { positions as seedPositions, activityFeed as seedActivityFeed } from '../data/seedData';
 import { updateInvestorField, updatePositionField, appendAuditLog, updateSubscriptionField } from '../services/sheetsService';
+import { getCurrentUserEmail } from '../utils/currentUser';
 import { reliableWrite } from '../services/sheetsWriteQueue';
 import useBlueskyStore from './blueskyStore';
 import useUiStore from './uiStore';
@@ -438,7 +439,7 @@ const useInvestorStore = create(
       : get().auditLog,
 
   // ── Remove / Restore Investor ─────────────────────────────────────────
-  removeInvestor: (invId, user = 'j@vegarei.com') =>
+  removeInvestor: (invId, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -457,7 +458,7 @@ const useInvestorStore = create(
       };
     }),
 
-  restoreInvestor: (investorData, positions, user = 'j@vegarei.com') =>
+  restoreInvestor: (investorData, positions, user = getCurrentUserEmail()) =>
     set((state) => ({
       investors: { ...state.investors, [investorData.id]: investorData },
       positions: [...state.positions, ...positions],
@@ -831,7 +832,7 @@ const useInvestorStore = create(
     }),
 
   // ── Profile Type ─────────────────────────────────────────────────────
-  updateProfileType: (invId, newType, user = 'j@vegarei.com') =>
+  updateProfileType: (invId, newType, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -933,7 +934,7 @@ const useInvestorStore = create(
     }),
 
   // ── Date Entered ──────────────────────────────────────────────────
-  updateDateEntered: (invId, newDate, user = 'j@vegarei.com') =>
+  updateDateEntered: (invId, newDate, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -986,7 +987,7 @@ const useInvestorStore = create(
     }),
 
   // ── Status ────────────────────────────────────────────────────────
-  updateInvestorStatus: (invId, newStatus, user = 'j@vegarei.com') =>
+  updateInvestorStatus: (invId, newStatus, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -1040,7 +1041,7 @@ const useInvestorStore = create(
     }),
 
   // ── Investor Name ──────────────────────────────────────────────────
-  updateInvestorName: (invId, newName, user = 'j@vegarei.com') =>
+  updateInvestorName: (invId, newName, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -1151,7 +1152,7 @@ const useInvestorStore = create(
     }),
 
   // ── Entity Name ──────────────────────────────────────────────────
-  updateEntityName: (invId, newEntity, user = 'j@vegarei.com') =>
+  updateEntityName: (invId, newEntity, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -1205,7 +1206,7 @@ const useInvestorStore = create(
     }),
 
   // ── Add / Remove Entities ───────────────────────────────────────────
-  addEntity: (invId, entityName, user = 'j@vegarei.com') =>
+  addEntity: (invId, entityName, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor || !entityName) return state;
@@ -1244,7 +1245,7 @@ const useInvestorStore = create(
       };
     }),
 
-  removeEntity: (invId, entityName, user = 'j@vegarei.com') =>
+  removeEntity: (invId, entityName, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;
@@ -1376,7 +1377,7 @@ const useInvestorStore = create(
   },
 
   // ── Investor Contacts / Owners ──────────────────────────────────────
-  updateInvestorContacts: (invId, contacts, user = 'j@vegarei.com') =>
+  updateInvestorContacts: (invId, contacts, user = getCurrentUserEmail()) =>
     set((state) => {
       const investor = state.investors[invId];
       if (!investor) return state;

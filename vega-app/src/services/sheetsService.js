@@ -805,7 +805,7 @@ export async function appendAuditLog(entry) {
     entry.recordId || '',
     entry.action || '',
     entry.notes || entry.detail || '',
-    entry.user || 'j@vegarei.com',
+    entry.user || useGoogleStore.getState().userEmail || 'unknown',
     entry.timestamp || new Date().toISOString(),
     '',
   ];

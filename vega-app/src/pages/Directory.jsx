@@ -414,7 +414,7 @@ export default function Directory() {
 
   const handleAddNote = () => {
     if (!noteText.trim() || !sel) return
-    investorStore.addNote(sel, noteText.trim(), 'j@vegarei.com')
+    investorStore.addNote(sel, noteText.trim(), googleUserEmail)
     setNoteText('')
   }
 
@@ -424,20 +424,20 @@ export default function Directory() {
       setResolveErrors((prev) => ({ ...prev, [id]: true }))
       return
     }
-    complianceStore.resolve(id, 'j@vegarei.com', notes)
+    complianceStore.resolve(id, googleUserEmail, notes)
     setResolveNotes((prev) => { const n = { ...prev }; delete n[id]; return n })
     setResolveErrors((prev) => { const n = { ...prev }; delete n[id]; return n })
   }
 
   const handleReopen = (id) => {
     const notes = reopenNotes[id]?.trim() || ''
-    complianceStore.reopen(id, 'j@vegarei.com', notes)
+    complianceStore.reopen(id, googleUserEmail, notes)
     setReopenNotes((prev) => { const n = { ...prev }; delete n[id]; return n })
     setShowReopenInput((prev) => { const n = { ...prev }; delete n[id]; return n })
   }
 
   const handleTogglePriority = (id) => {
-    complianceStore.togglePriority(id, 'j@vegarei.com')
+    complianceStore.togglePriority(id, googleUserEmail)
   }
 
   const handleDecline = () => {
@@ -561,7 +561,7 @@ export default function Directory() {
         to: replyTo,
         subject: expandedThread.subject,
         body: replyText.trim(),
-        from: googleUserEmail || 'j@vegarei.com',
+        from: googleUserEmail,
       })
       setReplyText('')
       // Refresh the thread to show the new message
@@ -1541,7 +1541,7 @@ export default function Directory() {
                         >
                           <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--t1)' }}>{ent}</span>
                           <button
-                            onClick={() => investorStore.removeEntity(selectedInvestor.id, ent, googleUserEmail || 'j@vegarei.com')}
+                            onClick={() => investorStore.removeEntity(selectedInvestor.id, ent, googleUserEmail)}
                             title="Remove entity"
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
                           >
@@ -1561,7 +1561,7 @@ export default function Directory() {
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && addEntityValue.trim()) {
-                                investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail || 'j@vegarei.com')
+                                investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail)
                                 setAddEntityValue('')
                                 setShowAddEntity(false)
                               }
@@ -1576,7 +1576,7 @@ export default function Directory() {
                           <button
                             onClick={() => {
                               if (!addEntityValue.trim()) return
-                              investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail || 'j@vegarei.com')
+                              investorStore.addEntity(selectedInvestor.id, addEntityValue.trim(), googleUserEmail)
                               setAddEntityValue('')
                               setShowAddEntity(false)
                             }}
@@ -1664,7 +1664,7 @@ export default function Directory() {
                                     if (!contactForm.name.trim()) return
                                     const updated = [...(selectedInvestor.contacts || [])]
                                     updated[idx] = { ...contactForm }
-                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, googleUserEmail)
                                     setEditingContact(null)
                                   }}
                                   style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
@@ -1707,7 +1707,7 @@ export default function Directory() {
                                 <svg
                                   onClick={() => {
                                     const updated = (selectedInvestor.contacts || []).filter((_, i) => i !== idx)
-                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                    investorStore.updateInvestorContacts(selectedInvestor.id, updated, googleUserEmail)
                                   }}
                                   viewBox="0 0 24 24" style={{ width: 12, height: 12, fill: 'var(--red)', cursor: 'pointer', opacity: 0.6 }} title="Remove"
                                 >
@@ -1754,7 +1754,7 @@ export default function Directory() {
                               onClick={() => {
                                 if (!contactForm.name.trim()) return
                                 const updated = [...(selectedInvestor.contacts || []), { ...contactForm }]
-                                investorStore.updateInvestorContacts(selectedInvestor.id, updated, 'j@vegarei.com')
+                                investorStore.updateInvestorContacts(selectedInvestor.id, updated, googleUserEmail)
                                 setEditingContact(null)
                               }}
                               style={{ ...mono, fontSize: 9, fontWeight: 700, padding: '4px 10px', border: '1px solid rgba(52,211,153,0.3)', background: 'var(--grnM)', color: 'var(--grn)', borderRadius: 4, cursor: 'pointer' }}
@@ -1909,14 +1909,14 @@ export default function Directory() {
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
                                         savedRef.current = true
-                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, googleUserEmail)
                                         setEditingPosDate(null)
                                       }
                                       if (e.key === 'Escape') setEditingPosDate(null)
                                     }}
                                     onBlur={(e) => {
                                       if (!savedRef.current && e.target.value !== (p.signed || '')) {
-                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, 'j@vegarei.com')
+                                        useInvestorStore.getState().updatePositionDates(p.id, { signed: e.target.value }, googleUserEmail)
                                       }
                                       setEditingPosDate(null)
                                     }}
@@ -1964,14 +1964,14 @@ export default function Directory() {
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
                                         savedRef.current = true
-                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, googleUserEmail)
                                         setEditingPosDate(null)
                                       }
                                       if (e.key === 'Escape') setEditingPosDate(null)
                                     }}
                                     onBlur={(e) => {
                                       if (!savedRef.current && e.target.value !== (p.funded || '')) {
-                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, 'j@vegarei.com')
+                                        useInvestorStore.getState().updatePositionDates(p.id, { funded: e.target.value }, googleUserEmail)
                                       }
                                       setEditingPosDate(null)
                                     }}
@@ -2048,7 +2048,7 @@ export default function Directory() {
                                       fund: selectedInvestor.funds[0] || '',
                                       doc: newComplianceForm.doc.trim() || 'General',
                                       issue: newComplianceForm.issue.trim(),
-                                    }, googleUserEmail || 'j@vegarei.com')
+                                    }, googleUserEmail)
                                     setNewComplianceForm({ doc: '', issue: '', entity: '' })
                                     setShowAddCompliance(false)
                                   }
@@ -2070,7 +2070,7 @@ export default function Directory() {
                                     fund: selectedInvestor.funds[0] || '',
                                     doc: newComplianceForm.doc.trim() || 'General',
                                     issue: newComplianceForm.issue.trim(),
-                                  }, googleUserEmail || 'j@vegarei.com')
+                                  }, googleUserEmail)
                                   setNewComplianceForm({ doc: '', issue: '', entity: '' })
                                   setShowAddCompliance(false)
                                 }}
@@ -2197,7 +2197,7 @@ export default function Directory() {
                               {resolved && (
                                 <div style={{ marginTop: 8, opacity: 0.7 }}>
                                   <div style={{ ...mono, fontSize: 10, color: 'var(--t5)', marginBottom: 4 }}>
-                                    Resolved by {c.resolvedBy || 'j@vegarei.com'}
+                                    Resolved by {c.resolvedBy || 'unknown'}
                                     {c.resolvedDate && ` on ${new Date(c.resolvedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
                                   </div>
                                   {c.notes && (
@@ -2774,7 +2774,7 @@ export default function Directory() {
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                               <span className="mono" style={{ fontSize: 10, color: 'var(--grn)', fontWeight: 600 }}>
-                                {note.by || 'j@vegarei.com'}
+                                {note.by || 'unknown'}
                               </span>
                               <span className="mono" style={{ fontSize: 10, color: 'var(--t5)' }}>
                                 {new Date(note.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -2964,7 +2964,7 @@ export default function Directory() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          fundStore.updateAdvisor(adv.id, editingAdvisorFields, 'j@vegarei.com')
+                          fundStore.updateAdvisor(adv.id, editingAdvisorFields, googleUserEmail)
                           setEditingAdvisor(null)
                           setEditingAdvisorFields({})
                         }}
@@ -3230,7 +3230,7 @@ export default function Directory() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          fundStore.updateCustodian(cust.id, editingCustodianFields, 'j@vegarei.com')
+                          fundStore.updateCustodian(cust.id, editingCustodianFields, googleUserEmail)
                           setEditingCustodian(null)
                           setEditingCustodianFields({})
                         }}

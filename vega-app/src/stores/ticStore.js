@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { updateTicField, appendAuditLog } from '../services/sheetsService';
+import { getCurrentUserEmail } from '../utils/currentUser';
 import { reliableWrite } from '../services/sheetsWriteQueue';
 
 // ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ const useTicStore = create(
       // ── Mutations ───────────────────────────────────────────────────────────
 
       /** Update a monthly distribution amount for a TIC record */
-      updateDistribution: (id, period, amount, user = 'j@vegarei.com') =>
+      updateDistribution: (id, period, amount, user = getCurrentUserEmail()) =>
         set((state) => {
           const updated = state.ticProperties.map((t) => {
             if (t.id !== id) return t;
@@ -161,7 +162,7 @@ const useTicStore = create(
         }),
 
       /** Add a new TIC ownership record */
-      addRecord: (record, user = 'j@vegarei.com') =>
+      addRecord: (record, user = getCurrentUserEmail()) =>
         set((state) => {
           const newRecord = {
             ...record,
@@ -184,7 +185,7 @@ const useTicStore = create(
         }),
 
       /** Update a TIC record's ownership/entity/funds fields */
-      updateRecord: (id, updates, user = 'j@vegarei.com') =>
+      updateRecord: (id, updates, user = getCurrentUserEmail()) =>
         set((state) => {
           // Write back changed fields to sheet
           const fieldMap = {

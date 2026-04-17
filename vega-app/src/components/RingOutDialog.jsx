@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import useRingCentralStore from '../stores/ringcentralStore';
 import useInvestorStore from '../stores/investorStore';
+import useGoogleStore from '../stores/googleStore';
 import { initiateRingOut, getRingOutStatus, cancelRingOut, formatPhoneForDisplay } from '../services/ringcentralService';
 
 const mono = { fontFamily: "'Space Mono', monospace" };
@@ -35,6 +36,7 @@ export default function RingOutDialog({ to, toName, invId, onClose }) {
   const userPhoneNumber = useRingCentralStore((s) => s.userPhoneNumber);
   const setActiveCall = useRingCentralStore((s) => s.setActiveCall);
   const addNote = useInvestorStore((s) => s.addNote);
+  const googleUserEmail = useGoogleStore((s) => s.userEmail);
 
   const [status, setStatus] = useState('initiating'); // initiating | InProgress | Success | error
   const [ringOutId, setRingOutId] = useState(null);
@@ -130,7 +132,7 @@ export default function RingOutDialog({ to, toName, invId, onClose }) {
       const duration = formatTime(elapsed);
       const statusLabel = STATUS_LABELS[status] || status;
       const prefix = `[Call to ${toName || formatPhoneForDisplay(to)} — ${duration}, ${statusLabel}]`;
-      addNote(invId, `${prefix}\n${callNotes.trim()}`, 'j@vegarei.com');
+      addNote(invId, `${prefix}\n${callNotes.trim()}`, googleUserEmail);
     }
     onClose();
   };

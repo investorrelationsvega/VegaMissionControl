@@ -83,7 +83,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
         to,
         subject: subject.trim(),
         body: body.trim(),
-        from: userEmail || 'j@vegarei.com',
+        from: userEmail,
       });
 
       showToast(`Email sent to ${toName || to}`);
@@ -196,7 +196,7 @@ export default function EmailComposeDialog({ to, toName, onClose }) {
                   borderRadius: 4,
                 }}
               >
-                {userEmail || 'j@vegarei.com'}
+                {userEmail || '(not signed in)'}
               </div>
             </div>
 

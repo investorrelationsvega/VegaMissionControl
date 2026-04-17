@@ -12,6 +12,7 @@ import useInvestorStore from '../stores/investorStore'
 import useDistributionStore from '../stores/distributionStore'
 import useTicStore from '../stores/ticStore'
 import useUiStore from '../stores/uiStore'
+import useGoogleStore from '../stores/googleStore'
 import { fmt, fmtK } from '../utils/format'
 import DriveDocuments from '../components/DriveDocuments'
 import { PipelineBadge } from '../components/PipelineTracker'
@@ -63,6 +64,7 @@ export default function FundOverview() {
   const distributionStore = useDistributionStore()
   const ticStore = useTicStore()
   const showToast = useUiStore((s) => s.showToast)
+  const googleUserEmail = useGoogleStore((s) => s.userEmail)
 
   // ── State ───────────────────────────────────
   const [selectedFundIdx, setSelectedFundIdx] = useState(null)
@@ -283,7 +285,7 @@ export default function FundOverview() {
       invName: showActionModal.name,
       action: actionLabel,
       detail: `${showActionModal.name}: ${fmt(showActionModal.amt)} — ${actionNotes.trim()}`,
-      user: 'j@vegarei.com',
+      user: googleUserEmail,
       notes: actionNotes.trim(),
     })
 

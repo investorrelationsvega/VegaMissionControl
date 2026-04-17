@@ -98,7 +98,7 @@ export default function Sales() {
   const auditLog = useInvestorStore((s) => s.auditLog);
   const googleUserEmail = useGoogleStore((s) => s.userEmail);
   const googleUserName = useGoogleStore((s) => s.userName);
-  const USER = googleUserEmail || 'j@vegarei.com';
+  const USER = googleUserEmail || 'unknown';
 
   // ── Tab / filter state ───────────────────────────────────────────────────
   const [tab, setTab] = useState('activity');
