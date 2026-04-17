@@ -349,8 +349,6 @@ export default function AlmToday() {
               {isMultiDay ? 'Operational Overview' : 'Today at a Glance'}
             </h1>
             <p className="alm-page-subtitle">
-              {subtitleDateLabel(range)}
-              {' · '}
               <button
                 type="button"
                 className={`alm-reporting-trigger${reportingOpen ? ' alm-reporting-trigger--open' : ''}`}
@@ -362,7 +360,7 @@ export default function AlmToday() {
               </button>
             </p>
           </div>
-          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} dateLabel={subtitleDateLabel(range)} />
         </div>
       </div>
 

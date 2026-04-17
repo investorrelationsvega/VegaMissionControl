@@ -85,12 +85,11 @@ export default function AlmHeader() {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className="alm-mono"
+                className="alm-serif"
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.18em',
+                  fontSize: 16,
+                  fontWeight: 500,
+                  letterSpacing: '-0.01em',
                   background: 'transparent',
                   border: 'none',
                   borderBottom: active ? '2px solid var(--alm-accent)' : '2px solid transparent',

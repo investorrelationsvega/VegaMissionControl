@@ -8,7 +8,7 @@
 
 import { fmtRelative } from '../utils/format';
 
-export default function AlmInlineSync({ loading, error, lastSynced, onRefresh }) {
+export default function AlmInlineSync({ loading, error, lastSynced, onRefresh, dateLabel }) {
   const dotClass = error
     ? 'alm-sync__dot alm-sync__dot--error'
     : loading
@@ -25,6 +25,8 @@ export default function AlmInlineSync({ loading, error, lastSynced, onRefresh })
 
   return (
     <div className="alm-page-header__status">
+      {dateLabel && <span className="alm-status-date">{dateLabel}</span>}
+      {dateLabel && <span className="alm-status-sep" />}
       <span className="alm-sync">
         <span className={dotClass} />
         {label}

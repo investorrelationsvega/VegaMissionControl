@@ -133,10 +133,10 @@ export default function AlmTrends() {
             <div className="alm-page-dot"><span>Trends</span></div>
             <h1 className="alm-page-title">Trends &amp; Patterns</h1>
             <p className="alm-page-subtitle">
-              {rangeLabel(range)} · {scopeLabel(scope)} · {recordCount} daily record{recordCount === 1 ? '' : 's'}
+              {scopeLabel(scope)} · {recordCount} daily record{recordCount === 1 ? '' : 's'}
             </p>
           </div>
-          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} dateLabel={rangeLabel(range)} />
         </div>
       </div>
 

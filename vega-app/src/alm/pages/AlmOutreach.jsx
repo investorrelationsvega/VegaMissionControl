@@ -131,10 +131,10 @@ export default function AlmOutreach() {
             <div className="alm-page-dot"><span>Outreach</span></div>
             <h1 className="alm-page-title">Outreach &amp; Referrals</h1>
             <p className="alm-page-subtitle">
-              {rangeLabel(range)} · {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
+              {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
             </p>
           </div>
-          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} />
+          <AlmInlineSync loading={loading} error={error} lastSynced={lastSynced} onRefresh={() => refresh(true)} dateLabel={rangeLabel(range)} />
         </div>
       </div>
 
