@@ -10,9 +10,10 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const NAV_ITEMS = [
-  { label: 'Today',    path: '/alm' },
-  { label: 'Outreach', path: '/alm/outreach' },
-  { label: 'Trends',   path: '/alm/trends' },
+  { label: 'Today',        path: '/alm' },
+  { label: 'Outreach',     path: '/alm/outreach' },
+  { label: 'Trends',       path: '/alm/trends' },
+  { label: 'Daily Report', path: '/alm/form' },
 ];
 
 // Inline Vega V + star-burst mark, sourced from /public/vega-icon.svg

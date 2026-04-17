@@ -11,6 +11,7 @@ import AlmToast from './components/AlmToast';
 import AlmToday from './pages/AlmToday';
 import AlmOutreach from './pages/AlmOutreach';
 import AlmTrends from './pages/AlmTrends';
+import AlmForm from './pages/AlmForm';
 import './alm-theme.css';
 
 export default function AlmApp() {
@@ -21,6 +22,7 @@ export default function AlmApp() {
         <Route path="/" element={<AlmToday />} />
         <Route path="/outreach" element={<AlmOutreach />} />
         <Route path="/trends" element={<AlmTrends />} />
+        <Route path="/form" element={<AlmForm />} />
         <Route path="*" element={<Navigate to="/alm" replace />} />
       </Routes>
       <AlmToast />
