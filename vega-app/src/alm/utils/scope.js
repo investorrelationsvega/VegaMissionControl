@@ -14,8 +14,8 @@ export function rowInScope(row, scope) {
   if (!scope || scope.type === 'all') return true;
   if (scope.type === 'facility') return row.facility === scope.value;
   if (scope.type === 'fund') {
-    const fund = FUNDS.find((f) => f.id === scope.value);
-    return fund ? fund.test(row.facility) : true;
+    const fund = fundForFacility(row.facility);
+    return fund ? fund.id === scope.value : false;
   }
   return true;
 }
@@ -24,8 +24,8 @@ export function facilityInScope(facility, scope) {
   if (!scope || scope.type === 'all') return true;
   if (scope.type === 'facility') return facility === scope.value;
   if (scope.type === 'fund') {
-    const fund = FUNDS.find((f) => f.id === scope.value);
-    return fund ? fund.test(facility) : true;
+    const fund = fundForFacility(facility);
+    return fund ? fund.id === scope.value : false;
   }
   return true;
 }
@@ -46,8 +46,8 @@ export function facilityMatchesScope(facility, scope) {
   if (!scope || scope.type === 'all') return true;
   if (scope.type === 'facility') return facility === scope.value;
   if (scope.type === 'fund') {
-    const fund = FUNDS.find((f) => f.id === scope.value);
-    return fund ? fund.test(facility) : false;
+    const fund = fundForFacility(facility);
+    return fund ? fund.id === scope.value : false;
   }
   return true;
 }
