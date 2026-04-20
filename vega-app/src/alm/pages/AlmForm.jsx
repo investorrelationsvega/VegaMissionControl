@@ -125,8 +125,7 @@ export default function AlmForm() {
           letterSpacing: 0,
         }}
       >
-        Each link opens that facility's form in a new tab. Only admins signed in with a vegarei.com
-        account can submit.
+        Each link opens that facility's form in a new tab. Anyone with the link can submit.
       </p>
     </div>
   );
