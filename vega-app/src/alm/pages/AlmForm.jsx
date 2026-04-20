@@ -8,7 +8,9 @@
 
 import { useState } from 'react';
 
-const FORM_URL = 'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=hearthstone';
+const FORM_BASE = 'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec';
+const PREVIEW_URL = FORM_BASE + '?facility=hearthstone';
+const BLANK_URL = FORM_BASE;
 
 export default function AlmForm() {
   const [loaded, setLoaded] = useState(false);
@@ -21,12 +23,11 @@ export default function AlmForm() {
             <div className="alm-page-dot"><span>Daily Report</span></div>
             <h1 className="alm-page-title">Admin Submission Form</h1>
             <p className="alm-page-subtitle">
-              A preview of what facility admins fill out each day. Identical across all homes —
-              this sample uses Hearthstone.
+              A read-only preview of what facility admins fill out each day. Identical across all homes.
             </p>
           </div>
           <a
-            href={FORM_URL}
+            href={BLANK_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="alm-refresh-btn"
@@ -62,8 +63,40 @@ export default function AlmForm() {
             Loading form…
           </div>
         )}
+
+        {/* Transparent overlay prevents all interaction — preview only */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 2,
+            cursor: 'default',
+          }}
+        />
+
+        {/* Preview badge */}
+        <div
+          className="alm-serif"
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 16,
+            zIndex: 3,
+            background: 'var(--alm-ink-6, rgba(0,0,0,0.7))',
+            color: '#fff',
+            fontSize: 11,
+            fontWeight: 600,
+            padding: '4px 12px',
+            borderRadius: 4,
+            letterSpacing: '0.04em',
+            pointerEvents: 'none',
+          }}
+        >
+          PREVIEW ONLY
+        </div>
+
         <iframe
-          src={FORM_URL}
+          src={PREVIEW_URL}
           onLoad={() => setLoaded(true)}
           title="ALM Daily Report Form"
           style={{
@@ -87,7 +120,7 @@ export default function AlmForm() {
           letterSpacing: 0,
         }}
       >
-        If the form doesn't appear, it may be blocked from embedding. Use the "Open in New Tab" link above.
+        This is a non-interactive preview. Use "Open in New Tab" to access a blank, submittable form.
       </p>
     </div>
   );
