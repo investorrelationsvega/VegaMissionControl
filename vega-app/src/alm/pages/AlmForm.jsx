@@ -9,7 +9,7 @@
 import { useState } from 'react';
 
 const FORM_BASE = 'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec';
-const PREVIEW_URL = FORM_BASE + '?facility=hearthstone';
+const PREVIEW_URL = FORM_BASE;
 const BLANK_URL = FORM_BASE;
 
 export default function AlmForm() {
