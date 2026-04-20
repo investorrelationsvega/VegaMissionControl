@@ -1,126 +1,132 @@
 // ═══════════════════════════════════════════════
 // ALM — Daily Report Form
-// Embeds the Apps Script web app so leadership can
-// see exactly what admins are asked to submit each
-// day. Form is identical across facilities; we use
-// Hearthstone's link as the sample.
+// One link per facility. Each facility has its own
+// unique Apps Script URL. Update FACILITY_LINKS
+// with the correct URL for each home.
 // ═══════════════════════════════════════════════
 
-import { useState } from 'react';
+import { ALL_HOMES } from '../config/facilities';
 
-const FORM_BASE = 'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec';
-const PREVIEW_URL = FORM_BASE;
-const BLANK_URL = FORM_BASE;
+// Map each facility to its deployed Apps Script form URL.
+// Hearthstone's URL is confirmed; update the rest as needed.
+const FACILITY_LINKS = {
+  'All Seasons Senior Living of Cedar City':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=cedarcity',
+  'Elk Ridge Assisted Living':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=elkridge',
+  'Hearthstone Manor Assisted Living':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=hearthstone',
+  'Beehive Homes of Riverton':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=riverton',
+  'Beehive Homes of Sandy':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=sandy',
+  'Beehive Homes of West Jordan':
+    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=westjordan',
+};
 
 export default function AlmForm() {
-  const [loaded, setLoaded] = useState(false);
-
   return (
     <div className="alm-page">
       <div className="alm-page-header">
         <div className="alm-page-header__row">
           <div className="alm-page-header__main">
             <div className="alm-page-dot"><span>Daily Report</span></div>
-            <h1 className="alm-page-title">Admin Submission Form</h1>
+            <h1 className="alm-page-title">Admin Submission Forms</h1>
             <p className="alm-page-subtitle">
-              A read-only preview of what facility admins fill out each day. Identical across all homes.
+              Each facility has a dedicated daily report form. The form itself is identical across
+              homes — only the target facility differs.
             </p>
           </div>
-          <a
-            href={BLANK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="alm-refresh-btn"
-            style={{ textDecoration: 'none' }}
-          >
-            Open in New Tab ↗
-          </a>
         </div>
       </div>
 
       <div
-        className="alm-card"
         style={{
-          padding: 0,
-          overflow: 'hidden',
-          position: 'relative',
-          minHeight: 720,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+          gap: 14,
         }}
       >
-        {!loaded && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--alm-ink-4)',
-              fontSize: 14,
-              pointerEvents: 'none',
-            }}
-          >
-            Loading form…
-          </div>
-        )}
-
-        {/* Transparent overlay prevents all interaction — preview only */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 2,
-            cursor: 'default',
-          }}
-        />
-
-        {/* Preview badge */}
-        <div
-          className="alm-serif"
-          style={{
-            position: 'absolute',
-            top: 12,
-            right: 16,
-            zIndex: 3,
-            background: 'var(--alm-ink-6, rgba(0,0,0,0.7))',
-            color: '#fff',
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '4px 12px',
-            borderRadius: 4,
-            letterSpacing: '0.04em',
-            pointerEvents: 'none',
-          }}
-        >
-          PREVIEW ONLY
-        </div>
-
-        <iframe
-          src={PREVIEW_URL}
-          onLoad={() => setLoaded(true)}
-          title="ALM Daily Report Form"
-          style={{
-            width: '100%',
-            height: 'calc(100vh - 260px)',
-            minHeight: 720,
-            border: 'none',
-            display: 'block',
-            background: 'var(--alm-surface)',
-          }}
-        />
+        {ALL_HOMES.map((facility) => {
+          const url = FACILITY_LINKS[facility];
+          return (
+            <a
+              key={facility}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="alm-card"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: 18,
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'transform 120ms ease, border-color 120ms ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.borderColor = 'var(--alm-accent, #3b82f6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = '';
+              }}
+            >
+              <div
+                className="alm-serif"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'var(--alm-ink-4)',
+                }}
+              >
+                Daily Report Form
+              </div>
+              <div
+                className="alm-serif"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  lineHeight: 1.25,
+                  color: 'var(--alm-ink-1)',
+                }}
+              >
+                {facility}
+              </div>
+              <div
+                className="alm-serif"
+                style={{
+                  marginTop: 'auto',
+                  fontSize: 12,
+                  color: 'var(--alm-accent, #3b82f6)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                Open form ↗
+              </div>
+            </a>
+          );
+        })}
       </div>
 
       <p
         className="alm-serif"
         style={{
-          marginTop: 14,
+          marginTop: 18,
           fontSize: 12,
           color: 'var(--alm-ink-4)',
           textAlign: 'center',
           letterSpacing: 0,
         }}
       >
-        This is a non-interactive preview. Use "Open in New Tab" to access a blank, submittable form.
+        Each link opens that facility's form in a new tab. Only admins signed in with a vegarei.com
+        account can submit.
       </p>
     </div>
   );
