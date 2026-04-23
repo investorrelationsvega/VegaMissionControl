@@ -38,13 +38,13 @@ const STATUS_TONE = {
 };
 const statusTone = (s) => (s && STATUS_TONE[s]) || { dot: 'var(--alm-ink-5)', label: s || 'Unknown' };
 
-function ReportingPanel({ reportedSet, scope }) {
+function ReportingPanel({ reportedSet, scope, lastReportByFacility, rangeLabel }) {
   const inScope = ALL_HOMES.filter((h) => facilityInScope(h, scope));
   const reportedCount = inScope.filter((h) => reportedSet.has(h)).length;
   return (
     <div className="alm-reporting-panel">
       <div className="alm-reporting-panel__head">
-        <span>Reporting status</span>
+        <span>Reporting status · {rangeLabel}</span>
         <span>{reportedCount} of {inScope.length} reported</span>
       </div>
       {inScope.length === 0 ? (
@@ -55,20 +55,33 @@ function ReportingPanel({ reportedSet, scope }) {
         inScope.map((home) => {
           const reported = reportedSet.has(home);
           const fund = fundForFacility(home);
+          const lastSeen = lastReportByFacility?.get(home);
           return (
             <div key={home} className="alm-reporting-row">
               <div className="alm-reporting-row__name">
                 <span>{home}</span>
                 {fund && <span className="alm-reporting-row__fund">{fund.label}</span>}
               </div>
-              <span
-                className={`alm-reporting-row__status alm-reporting-row__status--${reported ? 'reported' : 'pending'}`}
-              >
-                <span className={`alm-reporting-row__mark${reported ? ' alm-reporting-row__mark--reported' : ''}`}>
-                  {reported ? '✓' : ''}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                {!reported && lastSeen && (
+                  <span style={{ fontSize: 12, color: 'var(--alm-ink-4)', fontStyle: 'italic' }}>
+                    last: {fmtDate(lastSeen)}
+                  </span>
+                )}
+                {!reported && !lastSeen && (
+                  <span style={{ fontSize: 12, color: 'var(--alm-ink-4)', fontStyle: 'italic' }}>
+                    never reported
+                  </span>
+                )}
+                <span
+                  className={`alm-reporting-row__status alm-reporting-row__status--${reported ? 'reported' : 'pending'}`}
+                >
+                  <span className={`alm-reporting-row__mark${reported ? ' alm-reporting-row__mark--reported' : ''}`}>
+                    {reported ? '✓' : ''}
+                  </span>
+                  {reported ? 'Reported' : 'Not yet'}
                 </span>
-                {reported ? 'Reported' : 'Not yet'}
-              </span>
+              </div>
             </div>
           );
         })
@@ -208,7 +221,7 @@ export default function AlmToday() {
   const [range, setRange] = useState(() => computeRange('daily'));
   const [scope, setScope] = useState(ALL_SCOPE);
   const [activeMetricId, setActiveMetricId] = useState(null);
-  const [reportingOpen, setReportingOpen] = useState(false);
+  const [reportingOpen, setReportingOpen] = useState(true);
 
   const {
     facilities,
@@ -308,6 +321,17 @@ export default function AlmToday() {
     () => new Set(latestByFacility.map((r) => r.facility)),
     [latestByFacility],
   );
+  // Last report date per facility across ALL rows — used to show
+  // "last: Apr 22" for facilities that didn't report in-range.
+  const lastReportByFacility = useMemo(() => {
+    const map = new Map();
+    rows.forEach((r) => {
+      if (!r.facility || !r.date) return;
+      const existing = map.get(r.facility);
+      if (!existing || r.date > existing) map.set(r.facility, r.date);
+    });
+    return map;
+  }, [rows]);
   const inScopeHomes = useMemo(
     () => ALL_HOMES.filter((h) => facilityInScope(h, scope)),
     [scope],
@@ -365,7 +389,12 @@ export default function AlmToday() {
       </div>
 
       {reportingOpen && (
-        <ReportingPanel reportedSet={reportedSet} scope={scope} />
+        <ReportingPanel
+          reportedSet={reportedSet}
+          scope={scope}
+          lastReportByFacility={lastReportByFacility}
+          rangeLabel={isMultiDay ? rangeLabel(range) : fmtDate(range.to)}
+        />
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>

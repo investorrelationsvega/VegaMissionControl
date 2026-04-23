@@ -5,24 +5,10 @@
 // while the sheet is shared as view-only-by-link.
 // ═══════════════════════════════════════════════
 
-import { ALL_HOMES } from '../config/facilities';
+import { canonicalizeFacility } from '../config/facilities';
 
 const SHEET_ID = '18GTugnLQOoHlWnj61M9hLNOJQfnlQxRppZeyQ6JVQYc';
 const SHEET_NAME = 'ALF Daily Operations Data';
-
-const _canonicalIndex = ALL_HOMES.map((h) => [h.toLowerCase().trim(), h]);
-
-function normalizeFacility(raw) {
-  if (!raw) return raw;
-  const lower = raw.toLowerCase().trim();
-  for (const [key, canonical] of _canonicalIndex) {
-    if (lower === key) return canonical;
-  }
-  for (const [key, canonical] of _canonicalIndex) {
-    if (lower.includes(key) || key.includes(lower)) return canonical;
-  }
-  return raw.trim();
-}
 
 const GVIZ_URL =
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
@@ -128,7 +114,7 @@ function mapRow(cells) {
 
   return {
     timestamp: parseGvizDate(c(0)),
-    facility: normalizeFacility(toText(c(1))),
+    facility: canonicalizeFacility(toText(c(1))),
     date: parseGvizDate(c(2)),
     census: toNumber(c(3)),
     overCapacityExplanation: toText(c(4)),
