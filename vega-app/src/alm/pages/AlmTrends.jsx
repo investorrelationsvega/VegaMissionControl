@@ -20,25 +20,19 @@ import { ALL_SCOPE, rowInScope, facilityInScope, scopeLabel } from '../utils/sco
 // Every metric is individually toggleable. `aggregate` controls how
 // we combine multiple rows on the same day (e.g. across facilities).
 const METRICS = [
-  { id: 'census',            label: 'Census',            field: 'census',           aggregate: 'sum' },
-  { id: 'admissions',        label: 'Admits',            field: 'admissions',       aggregate: 'sum' },
-  { id: 'discharges',        label: 'Discharges',        field: 'discharges',       aggregate: 'sum' },
-  { id: 'hospitalizations',  label: 'Hospitalizations',  field: 'hospitalizations', aggregate: 'sum' },
-  { id: 'tours',             label: 'Tours',             field: 'tours',            aggregate: 'sum' },
-  { id: 'inquiryCalls',      label: 'Inquiry Calls',     field: 'inquiryCalls',     aggregate: 'sum' },
-  { id: 'walkIns',           label: 'Walk-ins',          field: 'walkIns',          aggregate: 'sum' },
-  { id: 'outboundContacts',  label: 'Outbound Contacts', field: 'outboundContacts', aggregate: 'sum' },
-  { id: 'followUps',         label: 'Follow-ups',        field: 'followUps',        aggregate: 'sum' },
-  { id: 'referrals',         label: 'Referrals',         field: null,               aggregate: 'referrals' },
-  { id: 'openShifts',        label: 'Open Shifts',       field: 'openShifts',       aggregate: 'sum' },
+  { id: 'census',                  label: 'Census',                   field: 'census',                  aggregate: 'sum' },
+  { id: 'admissions',              label: 'Admits',                   field: 'admissions',              aggregate: 'sum' },
+  { id: 'referralsFromAdmissions', label: 'Admits from Referral',     field: 'referralsFromAdmissions', aggregate: 'sum' },
+  { id: 'discharges',              label: 'Discharges',               field: 'discharges',              aggregate: 'sum' },
+  { id: 'inquiryCalls',            label: 'Inbound Call Inquiries',   field: 'inquiryCalls',            aggregate: 'sum' },
+  { id: 'tours',                   label: 'Tour Inquiries',           field: 'tours',                   aggregate: 'sum' },
+  { id: 'incidentCount',           label: 'Incidents',                field: 'incidentCount',           aggregate: 'sum' },
+  { id: 'changeOfConditionCount',  label: 'Changes of Condition',     field: 'changeOfConditionCount',  aggregate: 'sum' },
 ];
 
 const MAX_OVERLAY = 6;
 
 function valueForDay(rows, metric) {
-  if (metric.aggregate === 'referrals') {
-    return rows.reduce((s, r) => s + (r.referrals?.length || 0), 0);
-  }
   return rows.reduce((s, r) => s + (r[metric.field] || 0), 0);
 }
 

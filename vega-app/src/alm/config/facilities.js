@@ -1,48 +1,64 @@
 // ═══════════════════════════════════════════════
 // ALM — Facility roster
-// Canonical list of all homes. Used as the source
-// of truth for the filter dropdown and the
-// "X/N Homes Reporting" denominator, independent
-// of who has actually submitted data. New homes
-// are added here.
-//
-// `aliases` lets us map whatever variant of the
-// facility name shows up in the sheet (slugs like
-// "hearthstone" from the form URL, shortened names,
-// typos) back to the canonical name. Each alias is
-// matched as a case-insensitive substring.
+// Canonical list of all homes. Names here must
+// match exactly what the Apps Script writes to
+// the "Daily Log" sheet. Capacities are hardcoded
+// in the form and mirrored here so the dashboard
+// can show occupancy %.
 // ═══════════════════════════════════════════════
 
 export const FACILITY_CONFIG = [
   {
-    name: 'All Seasons Senior Living of Cedar City',
-    aliases: ['all seasons', 'cedar city', 'cedarcity', 'cedar'],
+    name: 'All Seasons Assisted Living of Cedar City',
+    slug: 'cedar-city',
+    capacity: 20,
+    aliases: ['all seasons', 'cedar city', 'cedar-city', 'cedarcity', 'cedar'],
   },
   {
-    name: 'Elk Ridge Assisted Living',
-    aliases: ['elk ridge', 'elkridge', 'elk'],
+    name: 'Elkridge Assisted Living',
+    slug: 'elkridge',
+    capacity: 28,
+    aliases: ['elkridge', 'elk ridge', 'elk-ridge', 'elk'],
   },
   {
-    name: 'Hearthstone Manor Assisted Living',
-    aliases: ['hearthstone', 'hearth stone'],
+    name: 'Hearthstone Assisted Living',
+    slug: 'hearthstone',
+    capacity: 35,
+    aliases: ['hearthstone', 'hearth stone', 'hearthstone manor'],
   },
   {
     name: 'Beehive Homes of Riverton',
+    slug: 'riverton',
+    capacity: 16,
     aliases: ['riverton'],
   },
   {
     name: 'Beehive Homes of Sandy',
+    slug: 'sandy',
+    capacity: 16,
     aliases: ['sandy'],
   },
   {
     name: 'Beehive Homes of West Jordan',
-    aliases: ['west jordan', 'westjordan', 'west-jordan'],
+    slug: 'west-jordan',
+    capacity: 52,
+    aliases: ['west jordan', 'west-jordan', 'westjordan'],
   },
 ];
 
 export const ALL_HOMES = FACILITY_CONFIG.map((f) => f.name);
 
 export const totalHomes = () => ALL_HOMES.length;
+
+const _byName = new Map(FACILITY_CONFIG.map((f) => [f.name, f]));
+
+export function facilityCapacity(name) {
+  return _byName.get(name)?.capacity || 0;
+}
+
+export function facilitySlug(name) {
+  return _byName.get(name)?.slug || '';
+}
 
 // Map whatever the sheet calls a facility to the canonical name.
 // Case-insensitive. Returns original (trimmed) if no match.

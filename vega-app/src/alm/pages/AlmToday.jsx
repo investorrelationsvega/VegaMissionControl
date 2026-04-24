@@ -13,28 +13,27 @@ import AlmFacilityFilter from '../components/AlmFacilityFilter';
 import AlmSparkline from '../components/AlmSparkline';
 import AlmInlineSync from '../components/AlmInlineSync';
 import { latestPerFacility } from '../services/almDataService';
-import { fmtNum, fmtDate, dateKey } from '../utils/format';
+import { fmtNum, fmtDate, fmtPct, dateKey } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 import { ALL_SCOPE, rowInScope, facilityInScope } from '../utils/scope';
 import { FUNDS, fundForFacility, facilitiesInFund } from '../config/funds';
-import { ALL_HOMES } from '../config/facilities';
+import { ALL_HOMES, facilityCapacity } from '../config/facilities';
 
 // Each stat card has a metric config. `kind: snapshot` means we use
 // the most recent in-range row per facility (current-state metrics);
 // `kind: sum` means we accumulate the field across every row in range.
 const STAT_METRICS = [
-  { id: 'census',           label: 'Total Census',    kind: 'snapshot', field: 'census'          },
-  { id: 'admissions',       label: 'Admits',          kind: 'sum',      field: 'admissions'      },
-  { id: 'hospitalizations', label: 'Hospitalizations', kind: 'sum',     field: 'hospitalizations' },
-  { id: 'tours',            label: 'Tours',           kind: 'sum',      field: 'tours'           },
-  { id: 'openShifts',       label: 'Open Shifts',     kind: 'snapshot', field: 'openShifts'      },
+  { id: 'census',         label: 'Total Census',   kind: 'snapshot', field: 'census'         },
+  { id: 'admissions',     label: 'Admits',         kind: 'sum',      field: 'admissions'     },
+  { id: 'discharges',     label: 'Discharges',     kind: 'sum',      field: 'discharges'     },
+  { id: 'tours',          label: 'Tour Inquiries', kind: 'sum',      field: 'tours'          },
+  { id: 'incidentCount',  label: 'Incidents',      kind: 'sum',      field: 'incidentCount'  },
 ];
 
 const STATUS_TONE = {
-  'Fully staffed': { dot: 'var(--alm-up)',   label: 'Fully staffed' },
-  'Understaffed':  { dot: 'var(--alm-down)', label: 'Understaffed'  },
-  'Short-staffed': { dot: 'var(--alm-down)', label: 'Short-staffed' },
-  'Overstaffed':   { dot: 'var(--alm-ink-5)',label: 'Overstaffed'   },
+  'Fully staffed': { dot: 'var(--alm-up)',    label: 'Fully staffed' },
+  'Manageable':    { dot: 'var(--alm-ink-5)', label: 'Manageable'    },
+  'Short-staffed': { dot: 'var(--alm-down)',  label: 'Short-staffed' },
 };
 const statusTone = (s) => (s && STATUS_TONE[s]) || { dot: 'var(--alm-ink-5)', label: s || 'Unknown' };
 
@@ -153,6 +152,8 @@ function BreakdownPanel({ metric, total, fundBlocks, onClose }) {
 
 function FacilityCard({ facility, latest, totals, isMultiDay }) {
   const tone = statusTone(latest?.staffingStatus);
+  const capacity = facilityCapacity(facility);
+  const occupancy = capacity && latest?.census ? (latest.census / capacity) * 100 : null;
   return (
     <div className="alm-card alm-card--hover alm-card--p">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
@@ -169,7 +170,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
             {latest ? fmtNum(latest.census) : '—'}
           </div>
           <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
-            Census
+            {capacity ? `of ${capacity} · ${fmtPct(occupancy, 0) || '—'}` : 'Census'}
           </div>
         </div>
       </div>
@@ -178,7 +179,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
         {[
           { label: 'Admits',     value: totals.admissions },
           { label: 'Discharges', value: totals.discharges },
-          { label: 'Hosp.',      value: totals.hospitalizations },
+          { label: 'Inquiries',  value: totals.inquiryCalls },
           { label: 'Tours',      value: totals.tours },
         ].map((m) => (
           <div key={m.label}>
@@ -196,12 +197,11 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
         <div className="alm-serif" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
           <span className="alm-dot" style={{ background: tone.dot }} />
           {tone.label}
-          {latest?.openShifts > 0 && (
-            <span style={{ color: 'var(--alm-ink-4)' }}> · {latest.openShifts} Open</span>
-          )}
         </div>
-        <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-          {latest?.vacantBeds ? 'Vacant beds' : latest ? 'Full' : '—'}
+        <div className="alm-serif" style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+          {totals.incidents > 0 && <span>{totals.incidents} Incident{totals.incidents === 1 ? '' : 's'}</span>}
+          {totals.changes > 0 && <span>{totals.changes} Change{totals.changes === 1 ? '' : 's'}</span>}
+          {totals.incidents === 0 && totals.changes === 0 && <span>No incidents</span>}
         </div>
       </div>
     </div>
@@ -241,29 +241,29 @@ export default function AlmToday() {
 
     const totalsMap = new Map();
     ir.forEach((r) => {
-      const cur = totalsMap.get(r.facility) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
-      cur.admissions       += r.admissions       || 0;
-      cur.discharges       += r.discharges       || 0;
-      cur.hospitalizations += r.hospitalizations || 0;
-      cur.tours            += r.tours            || 0;
+      const cur = totalsMap.get(r.facility) || {
+        admissions: 0, discharges: 0, tours: 0, inquiryCalls: 0,
+        referralsFromAdmissions: 0, incidents: 0, changes: 0,
+      };
+      cur.admissions              += r.admissions              || 0;
+      cur.discharges              += r.discharges              || 0;
+      cur.tours                   += r.tours                   || 0;
+      cur.inquiryCalls            += r.inquiryCalls            || 0;
+      cur.referralsFromAdmissions += r.referralsFromAdmissions || 0;
+      cur.incidents               += r.incidentCount           || 0;
+      cur.changes                 += r.changeOfConditionCount  || 0;
       totalsMap.set(r.facility, cur);
     });
 
-    const refs = [];
-    ir.forEach((r) => {
-      (r.referrals || []).forEach((ref) => {
-        refs.push({ ...ref, facility: r.facility, date: r.date });
-      });
-    });
-    refs.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
-
     const sum = {
-      census:           latest.reduce((s, r) => s + (r.census           || 0), 0),
-      admissions:       ir.reduce(    (s, r) => s + (r.admissions       || 0), 0),
-      discharges:       ir.reduce(    (s, r) => s + (r.discharges       || 0), 0),
-      hospitalizations: ir.reduce(    (s, r) => s + (r.hospitalizations || 0), 0),
-      tours:            ir.reduce(    (s, r) => s + (r.tours            || 0), 0),
-      openShifts:       latest.reduce((s, r) => s + (r.openShifts       || 0), 0),
+      census:                  latest.reduce((s, r) => s + (r.census                  || 0), 0),
+      admissions:              ir.reduce(    (s, r) => s + (r.admissions              || 0), 0),
+      discharges:              ir.reduce(    (s, r) => s + (r.discharges              || 0), 0),
+      tours:                   ir.reduce(    (s, r) => s + (r.tours                   || 0), 0),
+      inquiryCalls:            ir.reduce(    (s, r) => s + (r.inquiryCalls            || 0), 0),
+      referralsFromAdmissions: ir.reduce(    (s, r) => s + (r.referralsFromAdmissions || 0), 0),
+      incidentCount:           ir.reduce(    (s, r) => s + (r.incidentCount           || 0), 0),
+      changeOfConditionCount:  ir.reduce(    (s, r) => s + (r.changeOfConditionCount  || 0), 0),
     };
 
     // Daily sparkline points per metric: sum of the metric's field across
@@ -309,7 +309,6 @@ export default function AlmToday() {
       latestByFacility: latest,
       perFacilityLatest: latestMap,
       perFacilityTotals: totalsMap,
-      referralsInRange: refs,
       summary: sum,
       sparklines: sparkSeries,
       breakdowns: breakdownMap,
@@ -348,16 +347,19 @@ export default function AlmToday() {
     .filter((name) => perFacilityLatest.has(name))
     .map((name) => {
       const latest = perFacilityLatest.get(name) || null;
-      const totals = perFacilityTotals.get(name) || { admissions: 0, discharges: 0, hospitalizations: 0, tours: 0 };
+      const totals = perFacilityTotals.get(name) || {
+        admissions: 0, discharges: 0, tours: 0, inquiryCalls: 0,
+        referralsFromAdmissions: 0, incidents: 0, changes: 0,
+      };
       return { facility: name, latest, totals };
     });
 
   const statDisplays = {
-    census:           { value: fmtNum(summary.census),           sub: `${reportedInScope}/${inScopeHomes.length} reporting` },
-    admissions:       { value: fmtNum(summary.admissions),       sub: `${summary.discharges} discharges` },
-    hospitalizations: { value: fmtNum(summary.hospitalizations), sub: null },
-    tours:            { value: fmtNum(summary.tours),            sub: `${referralsInRange.length} referrals` },
-    openShifts:       { value: fmtNum(summary.openShifts),       sub: null },
+    census:        { value: fmtNum(summary.census),        sub: `${reportedInScope}/${inScopeHomes.length} reporting` },
+    admissions:    { value: fmtNum(summary.admissions),    sub: `${summary.referralsFromAdmissions} from referral` },
+    discharges:    { value: fmtNum(summary.discharges),    sub: null },
+    tours:         { value: fmtNum(summary.tours),         sub: `${summary.inquiryCalls} inbound calls` },
+    incidentCount: { value: fmtNum(summary.incidentCount), sub: `${summary.changeOfConditionCount} changes of condition` },
   };
 
   const activeMetric = STAT_METRICS.find((m) => m.id === activeMetricId);
@@ -442,33 +444,6 @@ export default function AlmToday() {
             )}
           </div>
 
-          {referralsInRange.length > 0 && (
-            <>
-              <div className="alm-section"><span>{isMultiDay ? 'Referrals in Range' : 'Referrals Today'}</span></div>
-              <div className="alm-card alm-card--flush">
-                <table className="alm-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Facility</th>
-                      <th>Source</th>
-                      <th>Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {referralsInRange.slice(0, 50).map((r, i) => (
-                      <tr key={i}>
-                        <td className="muted">{fmtDate(r.date)}</td>
-                        <td>{r.facility}</td>
-                        <td>{r.source}{r.other ? ` — ${r.other}` : ''}</td>
-                        <td className="muted" style={{ whiteSpace: 'pre-wrap' }}>{r.comments || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
         </>
       )}
     </div>

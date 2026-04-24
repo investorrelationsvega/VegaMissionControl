@@ -1,14 +1,39 @@
 // ═══════════════════════════════════════════════
 // ALM — Data Service
-// Reads the public ALF Daily Operations sheet via
-// Google's gviz JSON endpoint. No OAuth required
-// while the sheet is shared as view-only-by-link.
+// Reads the Daily Log sheet via Google's gviz JSON
+// endpoint. No OAuth required while the sheet is
+// shared as view-only-by-link.
+//
+// Column layout (0-indexed) mirrors the Apps Script
+// buildHeaders() output — 59 columns total:
+//   0   Timestamp
+//   1   Facility
+//   2   Date
+//   3   Census Count
+//   4   Over-Capacity Explanation
+//   5   Admissions
+//   6   Referrals from Admissions
+//   7   Discharges (count)
+//   8–27 Discharge 1–10 (Cause, Other × 10)
+//  28   Discharge Notes (overflow)
+//  29   Inbound Call Inquiries
+//  30   Tour Inquiries
+//  31   Staffing Status
+//  32   Staffing Assistance Needed
+//  33   Incidents Today? (Yes/No)
+//  34   Incident Count
+//  35–44 Incident 1–10 Report Filed? (Yes/No)
+//  45   Incident Notes (overflow)
+//  46   Change of Condition Today? (Yes/No)
+//  47   Change of Condition Count
+//  48–57 Change 1–10 Log Filed? (Yes/No)
+//  58   Change Notes (overflow)
 // ═══════════════════════════════════════════════
 
 import { canonicalizeFacility } from '../config/facilities';
 
 const SHEET_ID = '18GTugnLQOoHlWnj61M9hLNOJQfnlQxRppZeyQ6JVQYc';
-const SHEET_NAME = 'ALF Daily Operations Data';
+const SHEET_NAME = 'Daily Log';
 
 const GVIZ_URL =
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
@@ -49,67 +74,30 @@ const toNumber = (v) => {
 
 const toText = (v) => (v == null ? '' : String(v).trim());
 
-// Map the gviz row (array of cells) to a normalized operations record.
-// Column order is fixed by the Form, so positional access is safe.
-//
-// Layout (0-indexed):
-//   0  Timestamp         1  Facility         2  Date
-//   3  Census            4  Over-Capacity    5  Admissions
-//   6  Discharges        7  Hospitalizations 8  Vacant Beds?
-//   9  Outbound Contacts
-//  10–39  Outreach 1–10 (Name/Phone/Email × 10)
-//  40  Follow-ups Today
-//  41–70  Follow-up 1–10 (Name/Phone/Email × 10)
-//  71  Referral Today?   72  Referrals from Admissions
-//  73–99  Referral 1–3 (Source, Other, Referrer N/P/E, Resident N/P/E, Comments × 3)
-// 100  Inquiry Calls    101  Walk-ins         102  Tours
-// 103  Open Shifts      104  Staffing Status
 function mapRow(cells) {
   const c = (i) => (cells[i] ? cells[i].v : null);
 
-  const outreachContacts = [];
+  // Discharges: up to 10 (Cause, Other) pairs starting at col 8
+  const dischargeDetail = [];
   for (let i = 0; i < 10; i++) {
-    const base = 10 + i * 3;
-    const name = toText(c(base));
-    const phone = toText(c(base + 1));
-    const email = toText(c(base + 2));
-    if (name || phone || email) outreachContacts.push({ name, phone, email });
-  }
-
-  const followUpContacts = [];
-  for (let i = 0; i < 10; i++) {
-    const base = 41 + i * 3;
-    const name = toText(c(base));
-    const phone = toText(c(base + 1));
-    const email = toText(c(base + 2));
-    if (name || phone || email) followUpContacts.push({ name, phone, email });
-  }
-
-  const referrals = [];
-  for (let i = 0; i < 3; i++) {
-    const base = 73 + i * 9;
-    const source = toText(c(base));
+    const base = 8 + i * 2;
+    const cause = toText(c(base));
     const other = toText(c(base + 1));
-    const referrerName = toText(c(base + 2));
-    const referrerPhone = toText(c(base + 3));
-    const referrerEmail = toText(c(base + 4));
-    const residentName = toText(c(base + 5));
-    const residentPhone = toText(c(base + 6));
-    const residentEmail = toText(c(base + 7));
-    const comments = toText(c(base + 8));
-    if (source || other || referrerName || residentName || comments) {
-      referrals.push({
-        source,
-        other,
-        referrerName,
-        referrerPhone,
-        referrerEmail,
-        residentName,
-        residentPhone,
-        residentEmail,
-        comments,
-      });
-    }
+    if (cause) dischargeDetail.push({ cause, other });
+  }
+
+  // Incidents: up to 10 "Report Filed?" yes/no starting at col 35
+  const incidentDetail = [];
+  for (let i = 0; i < 10; i++) {
+    const reportFiled = toText(c(35 + i));
+    if (reportFiled) incidentDetail.push({ reportFiled });
+  }
+
+  // Changes of condition: up to 10 "Log Filed?" yes/no starting at col 48
+  const changeDetail = [];
+  for (let i = 0; i < 10; i++) {
+    const logFiled = toText(c(48 + i));
+    if (logFiled) changeDetail.push({ logFiled });
   }
 
   return {
@@ -119,21 +107,22 @@ function mapRow(cells) {
     census: toNumber(c(3)),
     overCapacityExplanation: toText(c(4)),
     admissions: toNumber(c(5)),
-    discharges: toNumber(c(6)),
-    hospitalizations: toNumber(c(7)),
-    vacantBeds: toYesNo(c(8)),
-    outboundContacts: toNumber(c(9)),
-    outreachContacts,
-    followUps: toNumber(c(40)),
-    followUpContacts,
-    referralToday: toYesNo(c(71)),
-    referralsFromAdmissions: toNumber(c(72)),
-    referrals,
-    inquiryCalls: toNumber(c(100)),
-    walkIns: toNumber(c(101)),
-    tours: toNumber(c(102)),
-    openShifts: toNumber(c(103)),
-    staffingStatus: toText(c(104)),
+    referralsFromAdmissions: toNumber(c(6)),
+    discharges: toNumber(c(7)),
+    dischargeDetail,
+    dischargeNotes: toText(c(28)),
+    inquiryCalls: toNumber(c(29)),
+    tours: toNumber(c(30)),
+    staffingStatus: toText(c(31)),
+    staffingAssistance: toText(c(32)),
+    incidentsToday: toYesNo(c(33)),
+    incidentCount: toNumber(c(34)),
+    incidentDetail,
+    incidentNotes: toText(c(45)),
+    changeOfConditionToday: toYesNo(c(46)),
+    changeOfConditionCount: toNumber(c(47)),
+    changeDetail,
+    changeNotes: toText(c(58)),
   };
 }
 

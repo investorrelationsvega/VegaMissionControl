@@ -1,28 +1,14 @@
 // ═══════════════════════════════════════════════
 // ALM — Daily Report Form
-// One link per facility. Each facility has its own
-// unique Apps Script URL. Update FACILITY_LINKS
-// with the correct URL for each home.
+// One link per facility. Each facility opens the
+// shared Apps Script web app with its slug appended
+// so the form pre-fills the facility + capacity.
 // ═══════════════════════════════════════════════
 
-import { ALL_HOMES } from '../config/facilities';
+import { FACILITY_CONFIG } from '../config/facilities';
 
-// Map each facility to its deployed Apps Script form URL.
-// Hearthstone's URL is confirmed; update the rest as needed.
-const FACILITY_LINKS = {
-  'All Seasons Senior Living of Cedar City':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=cedarcity',
-  'Elk Ridge Assisted Living':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=elkridge',
-  'Hearthstone Manor Assisted Living':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=hearthstone',
-  'Beehive Homes of Riverton':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=riverton',
-  'Beehive Homes of Sandy':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=sandy',
-  'Beehive Homes of West Jordan':
-    'https://script.google.com/a/macros/vegarei.com/s/AKfycbwiPSh-ZUHPbyl-OXHhhaF-W1I6YxpwHUb-wqvvSgGojg6KkjR0noUcrR1vIAv2kogfHw/exec?facility=westjordan',
-};
+const FORM_BASE =
+  'https://script.google.com/macros/s/AKfycbwRFCSnhd-nsiC7SPwv-spzjNiM423WvnazC2tzyPTmco7pfC2D_pjQoQnpYiXi92b7/exec';
 
 export default function AlmForm() {
   return (
@@ -47,11 +33,11 @@ export default function AlmForm() {
           gap: 14,
         }}
       >
-        {ALL_HOMES.map((facility) => {
-          const url = FACILITY_LINKS[facility];
+        {FACILITY_CONFIG.map((f) => {
+          const url = `${FORM_BASE}?facility=${f.slug}`;
           return (
             <a
-              key={facility}
+              key={f.name}
               href={url}
               target="_blank"
               rel="noopener noreferrer"
@@ -95,7 +81,16 @@ export default function AlmForm() {
                   color: 'var(--alm-ink-1)',
                 }}
               >
-                {facility}
+                {f.name}
+              </div>
+              <div
+                className="alm-serif"
+                style={{
+                  fontSize: 12,
+                  color: 'var(--alm-ink-4)',
+                }}
+              >
+                Capacity · {f.capacity} rooms
               </div>
               <div
                 className="alm-serif"
