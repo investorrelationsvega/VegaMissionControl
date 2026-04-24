@@ -1,12 +1,10 @@
 // ═══════════════════════════════════════════════
-// ALM — Outreach & Referrals
-// Split into two lenses:
-//   1. Lead Pipeline — inbound leads (inquiries +
-//      walk-ins + referrals) → tours → admits.
-//   2. Outreach Activity — proactive outbound
-//      contacts + follow-ups, with names surfaced.
-// Referral detail expanded to show referrer &
-// resident names alongside source + comments.
+// ALM — Admissions & Discharges
+// Operational movement view: the inquiry-to-admit
+// funnel, discharge cause analysis, per-facility
+// performance, and a recent discharge log. Built
+// around the fields the admin form actually writes
+// to the Daily Log sheet.
 // ═══════════════════════════════════════════════
 
 import { useMemo, useState } from 'react';
@@ -18,10 +16,64 @@ import { fmtNum, fmtPct, fmtDate } from '../utils/format';
 import { computeRange, rangeLabel, rowInRange } from '../utils/range';
 import { ALL_SCOPE, rowInScope, scopeLabel } from '../utils/scope';
 
+function pct(numer, denom) {
+  if (!denom) return null;
+  return (numer / denom) * 100;
+}
+
+function KpiCard({ label, value, sub, tone }) {
+  const toneColor =
+    tone === 'up' ? 'var(--alm-up)' :
+    tone === 'down' ? 'var(--alm-down)' :
+    'var(--alm-ink-1)';
+  return (
+    <div className="alm-card" style={{ padding: '18px 20px' }}>
+      <div
+        className="alm-serif"
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          color: 'var(--alm-ink-4)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.14em',
+          marginBottom: 10,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="alm-num"
+        style={{
+          fontSize: 32,
+          fontWeight: 600,
+          color: toneColor,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div
+          className="alm-serif"
+          style={{
+            fontSize: 12,
+            color: 'var(--alm-ink-4)',
+            marginTop: 8,
+            lineHeight: 1.4,
+          }}
+        >
+          {sub}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst, sublabel }) {
   const width = Math.max(4, pctOfTop);
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
@@ -34,11 +86,11 @@ function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst, sublabel }) {
           )}
         </div>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <span className="alm-num" style={{ fontSize: 20, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em' }}>
+          <span className="alm-num" style={{ fontSize: 22, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em' }}>
             {fmtNum(value)}
           </span>
           {!isFirst && (
-            <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em' }}>
+            <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               {fmtPct(pctOfPrev, 0) || '—'} of prev
             </span>
           )}
@@ -51,73 +103,6 @@ function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst, sublabel }) {
   );
 }
 
-function pct(numer, denom) {
-  if (!denom) return null;
-  return (numer / denom) * 100;
-}
-
-function ContactList({ title, contacts, empty }) {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? contacts : contacts.slice(0, 6);
-  return (
-    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--alm-border)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-        <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
-          {title} ({contacts.length})
-        </span>
-        {contacts.length > 6 && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="alm-serif"
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              fontSize: 11,
-              color: 'var(--alm-ink-3)',
-              textDecoration: 'underline',
-              textUnderlineOffset: 3,
-            }}
-          >
-            {expanded ? 'Show fewer' : `Show all ${contacts.length}`}
-          </button>
-        )}
-      </div>
-      {contacts.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--alm-ink-4)', fontStyle: 'italic' }}>{empty}</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {visible.map((c, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                fontSize: 13,
-                color: 'var(--alm-ink-2)',
-                padding: '6px 0',
-                borderBottom: i < visible.length - 1 ? '1px dashed var(--alm-border)' : 'none',
-              }}
-            >
-              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {c.name || '(unnamed)'}
-              </span>
-              <span style={{ color: 'var(--alm-ink-4)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                {c.facility}
-              </span>
-              <span style={{ color: 'var(--alm-ink-5)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                {fmtDate(c.date)}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function AlmOutreach() {
   const { rows, loading, error, lastSynced, refresh } = useAlmData();
   const [range, setRange] = useState(() => computeRange('monthly'));
@@ -125,131 +110,100 @@ export default function AlmOutreach() {
 
   const {
     filtered,
-    pipeline,
-    activity,
-    sources,
-    recentReferrals,
+    totals,
+    dischargeCauses,
+    recentDischarges,
     perFacility,
-    outreachContactsFlat,
-    followUpContactsFlat,
   } = useMemo(() => {
     const f = rows.filter((r) => rowInRange(r, range) && rowInScope(r, scope));
 
-    // Lead pipeline: inquiry + walk-ins + referrals → tours → admits
-    const pipe = f.reduce(
+    const t = f.reduce(
       (acc, r) => {
-        acc.inquiries += r.inquiryCalls || 0;
-        acc.walkIns += r.walkIns || 0;
-        acc.referrals += (r.referrals || []).length;
+        acc.admissions += r.admissions || 0;
+        acc.fromReferral += r.referralsFromAdmissions || 0;
+        acc.discharges += r.discharges || 0;
+        acc.inquiryCalls += r.inquiryCalls || 0;
         acc.tours += r.tours || 0;
-        acc.admits += r.admissions || 0;
         return acc;
       },
-      { inquiries: 0, walkIns: 0, referrals: 0, tours: 0, admits: 0 },
+      { admissions: 0, fromReferral: 0, discharges: 0, inquiryCalls: 0, tours: 0 },
     );
-    pipe.leads = pipe.inquiries + pipe.walkIns + pipe.referrals;
+    t.net = t.admissions - t.discharges;
 
-    // Outreach activity: outbound + follow-ups (count-based)
-    const act = f.reduce(
-      (acc, r) => {
-        acc.outbound += r.outboundContacts || 0;
-        acc.followUps += r.followUps || 0;
-        return acc;
-      },
-      { outbound: 0, followUps: 0 },
-    );
-
-    // Flattened contact lists with date/facility metadata
-    const outreach = [];
-    const follows = [];
+    // Discharge cause aggregation from per-discharge detail rows.
+    const causeMap = new Map();
     f.forEach((r) => {
-      (r.outreachContacts || []).forEach((c) =>
-        outreach.push({ ...c, facility: r.facility, date: r.date }),
-      );
-      (r.followUpContacts || []).forEach((c) =>
-        follows.push({ ...c, facility: r.facility, date: r.date }),
-      );
-    });
-    outreach.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
-    follows.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
-
-    const sourceMap = new Map();
-    f.forEach((r) => {
-      (r.referrals || []).forEach((ref) => {
-        const key = ref.source || 'Unspecified';
-        sourceMap.set(key, (sourceMap.get(key) || 0) + 1);
+      (r.dischargeDetail || []).forEach((d) => {
+        const key = d.cause || 'Unspecified';
+        causeMap.set(key, (causeMap.get(key) || 0) + 1);
       });
     });
-    const srcRows = Array.from(sourceMap.entries())
-      .map(([source, count]) => ({ source, count }))
+    const causes = Array.from(causeMap.entries())
+      .map(([cause, count]) => ({ cause, count }))
       .sort((a, b) => b.count - a.count);
 
+    // Flattened recent discharge entries with date + facility + cause/other.
     const recent = [];
     f.forEach((r) => {
-      (r.referrals || []).forEach((ref) => {
-        recent.push({ ...ref, facility: r.facility, date: r.date });
+      (r.dischargeDetail || []).forEach((d) => {
+        recent.push({
+          date: r.date,
+          facility: r.facility,
+          cause: d.cause,
+          other: d.other,
+        });
       });
     });
     recent.sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
 
+    // Per-facility roll-up.
     const facMap = new Map();
     f.forEach((r) => {
       const key = r.facility;
       const cur = facMap.get(key) || {
         facility: key,
-        outbound: 0,
-        followUps: 0,
-        inquiries: 0,
-        walkIns: 0,
-        referrals: 0,
+        admissions: 0,
+        fromReferral: 0,
+        discharges: 0,
+        inquiryCalls: 0,
         tours: 0,
-        admits: 0,
       };
-      cur.outbound += r.outboundContacts || 0;
-      cur.followUps += r.followUps || 0;
-      cur.inquiries += r.inquiryCalls || 0;
-      cur.walkIns += r.walkIns || 0;
-      cur.referrals += (r.referrals || []).length;
+      cur.admissions += r.admissions || 0;
+      cur.fromReferral += r.referralsFromAdmissions || 0;
+      cur.discharges += r.discharges || 0;
+      cur.inquiryCalls += r.inquiryCalls || 0;
       cur.tours += r.tours || 0;
-      cur.admits += r.admissions || 0;
       facMap.set(key, cur);
     });
     const pf = Array.from(facMap.values())
-      .map((r) => ({ ...r, leads: r.inquiries + r.walkIns + r.referrals }))
-      .sort((a, b) => b.tours - a.tours);
+      .map((r) => ({ ...r, net: r.admissions - r.discharges }))
+      .sort((a, b) => b.admissions - a.admissions);
 
     return {
       filtered: f,
-      pipeline: pipe,
-      activity: act,
-      sources: srcRows,
-      recentReferrals: recent,
+      totals: t,
+      dischargeCauses: causes,
+      recentDischarges: recent,
       perFacility: pf,
-      outreachContactsFlat: outreach,
-      followUpContactsFlat: follows,
     };
   }, [rows, range, scope]);
 
-  const pipelineSteps = [
-    {
-      label: 'Leads',
-      value: pipeline.leads,
-      sublabel: `${pipeline.inquiries} inquiry · ${pipeline.walkIns} walk-in · ${pipeline.referrals} referral`,
-    },
-    { label: 'Tours', value: pipeline.tours },
-    { label: 'Admits', value: pipeline.admits },
+  const funnelSteps = [
+    { label: 'Inbound Calls', value: totals.inquiryCalls, sublabel: 'Placement inquiries' },
+    { label: 'Tour Inquiries', value: totals.tours, sublabel: 'Scheduled or completed' },
+    { label: 'Admits', value: totals.admissions, sublabel: `${totals.fromReferral} from referral` },
   ];
-  const pipelineTop = Math.max(pipeline.leads, 1);
-
-  const maxSource = Math.max(1, ...sources.map((s) => s.count));
+  const funnelTop = Math.max(totals.inquiryCalls, totals.tours, totals.admissions, 1);
+  const maxCause = Math.max(1, ...dischargeCauses.map((c) => c.count));
+  const netTone = totals.net > 0 ? 'up' : totals.net < 0 ? 'down' : null;
 
   return (
     <div className="alm-page">
       <div className="alm-page-header">
         <div className="alm-page-header__row">
           <div className="alm-page-header__main">
-            <div className="alm-page-dot"><span>Outreach</span></div>
-            <h1 className="alm-page-title">Outreach &amp; Referrals</h1>
+            <div className="alm-page-dot"><span>Admissions</span></div>
+            <h1 className="alm-page-title">Admissions &amp; Discharges</h1>
             <p className="alm-page-subtitle">
               {scopeLabel(scope)} · {filtered.length} daily record{filtered.length === 1 ? '' : 's'}
             </p>
@@ -263,119 +217,113 @@ export default function AlmOutreach() {
         <AlmFacilityFilter value={scope} onChange={setScope} />
       </div>
 
-      <div className="alm-two-col" style={{ marginBottom: 8 }}>
+      {/* KPI strip */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+          marginBottom: 28,
+        }}
+      >
+        <KpiCard
+          label="Admits"
+          value={fmtNum(totals.admissions)}
+          sub={
+            totals.admissions > 0
+              ? `${totals.fromReferral} from referral · ${fmtPct(pct(totals.fromReferral, totals.admissions), 0) || '—'}`
+              : 'No admissions in range'
+          }
+        />
+        <KpiCard
+          label="Discharges"
+          value={fmtNum(totals.discharges)}
+          sub={
+            dischargeCauses[0]
+              ? `Top cause · ${dischargeCauses[0].cause}`
+              : 'No discharges in range'
+          }
+        />
+        <KpiCard
+          label="Net Movement"
+          value={`${totals.net > 0 ? '+' : ''}${fmtNum(totals.net)}`}
+          sub="Admits − Discharges"
+          tone={netTone}
+        />
+        <KpiCard
+          label="Tour → Admit"
+          value={fmtPct(pct(totals.admissions, totals.tours), 0) || '—'}
+          sub={`${fmtNum(totals.tours)} tour inquiries`}
+        />
+        <KpiCard
+          label="Call → Admit"
+          value={fmtPct(pct(totals.admissions, totals.inquiryCalls), 0) || '—'}
+          sub={`${fmtNum(totals.inquiryCalls)} inbound calls`}
+        />
+      </div>
+
+      {/* Funnel + Discharge causes */}
+      <div className="alm-two-col" style={{ marginBottom: 28 }}>
         <div className="alm-card alm-card--p">
-          <div className="alm-stat-label">Lead Pipeline</div>
-          <div style={{ marginTop: 4 }}>
-            {pipelineSteps.map((step, i) => (
+          <div className="alm-stat-label">Inquiry Funnel</div>
+          <div style={{ marginTop: 6 }}>
+            {funnelSteps.map((step, i) => (
               <FunnelStep
                 key={step.label}
                 label={step.label}
                 value={step.value}
                 sublabel={step.sublabel}
-                pctOfPrev={i === 0 ? null : pct(step.value, pipelineSteps[i - 1].value)}
-                pctOfTop={pct(step.value, pipelineTop) || 0}
+                pctOfPrev={i === 0 ? null : pct(step.value, funnelSteps[i - 1].value)}
+                pctOfTop={pct(step.value, funnelTop) || 0}
                 isFirst={i === 0}
               />
             ))}
           </div>
-          <div
-            className="alm-serif"
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 16,
-              fontSize: 10,
-              color: 'var(--alm-ink-4)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.14em',
-              marginTop: 16,
-              paddingTop: 16,
-              borderTop: '1px solid var(--alm-border)',
-            }}
-          >
-            <span>
-              Leads → Tours <span style={{ color: 'var(--alm-ink-1)', marginLeft: 6 }}>{fmtPct(pct(pipeline.tours, pipeline.leads), 0) || '—'}</span>
-            </span>
-            <span>
-              Tours → Admits <span style={{ color: 'var(--alm-ink-1)', marginLeft: 6 }}>{fmtPct(pct(pipeline.admits, pipeline.tours), 0) || '—'}</span>
-            </span>
-          </div>
         </div>
 
         <div className="alm-card alm-card--p">
-          <div className="alm-stat-label">Outreach Activity</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 4 }}>
-            <div>
-              <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.16em', marginBottom: 6 }}>
-                Outbound Contacts
-              </div>
-              <div className="alm-num" style={{ fontSize: 28, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.015em', lineHeight: 1 }}>
-                {fmtNum(activity.outbound)}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', marginTop: 4 }}>
-                {outreachContactsFlat.length} named
-              </div>
+          <div className="alm-stat-label">Discharge Causes</div>
+          {dischargeCauses.length === 0 ? (
+            <div style={{ fontSize: 13, color: 'var(--alm-ink-4)', marginTop: 8 }}>
+              No discharges in this window.
             </div>
-            <div>
-              <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.16em', marginBottom: 6 }}>
-                Follow-ups
-              </div>
-              <div className="alm-num" style={{ fontSize: 28, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.015em', lineHeight: 1 }}>
-                {fmtNum(activity.followUps)}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', marginTop: 4 }}>
-                {followUpContactsFlat.length} named
-              </div>
+          ) : (
+            <div style={{ marginTop: 6 }}>
+              {dischargeCauses.map((c) => (
+                <div key={c.cause} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: 'var(--alm-ink-2)' }}>{c.cause}</span>
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                      <span className="alm-num" style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-ink-1)' }}>
+                        {c.count}
+                      </span>
+                      <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        {fmtPct(pct(c.count, totals.discharges), 0)}
+                      </span>
+                    </span>
+                  </div>
+                  <div style={{ height: 3, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: `${(c.count / maxCause) * 100}%`, height: '100%', background: 'var(--alm-accent)', transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-
-          <ContactList
-            title="Outreach Contacts"
-            contacts={outreachContactsFlat}
-            empty="No named outreach contacts in this window."
-          />
-          <ContactList
-            title="Follow-up Contacts"
-            contacts={followUpContactsFlat}
-            empty="No named follow-up contacts in this window."
-          />
+          )}
         </div>
       </div>
 
-      <div className="alm-section"><span>Referral Sources</span></div>
-      <div className="alm-card alm-card--p" style={{ marginBottom: 8 }}>
-        {sources.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--alm-ink-4)' }}>No referrals in this window.</div>
-        ) : (
-          <div>
-            {sources.map((s) => (
-              <div key={s.source} style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, color: 'var(--alm-ink-2)' }}>{s.source}</span>
-                  <span className="alm-num" style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-ink-1)' }}>{s.count}</span>
-                </div>
-                <div style={{ height: 3, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ width: `${(s.count / maxSource) * 100}%`, height: '100%', background: 'var(--alm-ink-3)', transition: 'width 0.3s' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       <div className="alm-section"><span>By Facility</span></div>
-      <div className="alm-card alm-card--flush" style={{ marginBottom: 8 }}>
+      <div className="alm-card alm-card--flush" style={{ marginBottom: 28 }}>
         <table className="alm-table">
           <thead>
             <tr>
               <th>Facility</th>
-              <th className="right">Outbound</th>
-              <th className="right">Follow-ups</th>
-              <th className="right">Leads</th>
-              <th className="right">Tours</th>
               <th className="right">Admits</th>
-              <th className="right">Lead→Tour</th>
+              <th className="right">From Ref.</th>
+              <th className="right">Discharges</th>
+              <th className="right">Net</th>
+              <th className="right">Calls</th>
+              <th className="right">Tours</th>
               <th className="right">Tour→Admit</th>
             </tr>
           </thead>
@@ -388,13 +336,21 @@ export default function AlmOutreach() {
               perFacility.map((r) => (
                 <tr key={r.facility}>
                   <td>{r.facility}</td>
-                  <td className="right">{fmtNum(r.outbound)}</td>
-                  <td className="right">{fmtNum(r.followUps)}</td>
-                  <td className="right">{fmtNum(r.leads)}</td>
-                  <td className="right">{fmtNum(r.tours)}</td>
-                  <td className="right">{fmtNum(r.admits)}</td>
-                  <td className="right muted">{fmtPct(pct(r.tours, r.leads), 0) || '—'}</td>
-                  <td className="right muted">{fmtPct(pct(r.admits, r.tours), 0) || '—'}</td>
+                  <td className="right">{fmtNum(r.admissions)}</td>
+                  <td className="right muted">{fmtNum(r.fromReferral)}</td>
+                  <td className="right">{fmtNum(r.discharges)}</td>
+                  <td
+                    className="right"
+                    style={{
+                      color: r.net > 0 ? 'var(--alm-up)' : r.net < 0 ? 'var(--alm-down)' : 'var(--alm-ink-3)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {r.net > 0 ? '+' : ''}{fmtNum(r.net)}
+                  </td>
+                  <td className="right muted">{fmtNum(r.inquiryCalls)}</td>
+                  <td className="right muted">{fmtNum(r.tours)}</td>
+                  <td className="right muted">{fmtPct(pct(r.admissions, r.tours), 0) || '—'}</td>
                 </tr>
               ))
             )}
@@ -402,11 +358,11 @@ export default function AlmOutreach() {
         </table>
       </div>
 
-      <div className="alm-section"><span>Recent Referrals</span></div>
+      <div className="alm-section"><span>Recent Discharges</span></div>
       <div className="alm-card alm-card--flush">
-        {recentReferrals.length === 0 ? (
+        {recentDischarges.length === 0 ? (
           <div style={{ padding: 20, fontSize: 13, color: 'var(--alm-ink-4)' }}>
-            No referrals in this window.
+            No discharges in this window.
           </div>
         ) : (
           <table className="alm-table">
@@ -414,35 +370,17 @@ export default function AlmOutreach() {
               <tr>
                 <th>Date</th>
                 <th>Facility</th>
-                <th>Source</th>
-                <th>Referrer</th>
-                <th>Resident</th>
-                <th>Comments</th>
+                <th>Cause</th>
+                <th>Detail</th>
               </tr>
             </thead>
             <tbody>
-              {recentReferrals.slice(0, 20).map((r, i) => (
+              {recentDischarges.slice(0, 30).map((d, i) => (
                 <tr key={i}>
-                  <td className="muted">{fmtDate(r.date)}</td>
-                  <td>{r.facility}</td>
-                  <td>{r.source}{r.other ? ` — ${r.other}` : ''}</td>
-                  <td>
-                    {r.referrerName || '—'}
-                    {(r.referrerPhone || r.referrerEmail) && (
-                      <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', marginTop: 2 }}>
-                        {[r.referrerPhone, r.referrerEmail].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {r.residentName || '—'}
-                    {(r.residentPhone || r.residentEmail) && (
-                      <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', marginTop: 2 }}>
-                        {[r.residentPhone, r.residentEmail].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                  </td>
-                  <td className="muted" style={{ whiteSpace: 'pre-wrap', maxWidth: 260 }}>{r.comments || '—'}</td>
+                  <td className="muted">{fmtDate(d.date)}</td>
+                  <td>{d.facility}</td>
+                  <td>{d.cause}</td>
+                  <td className="muted">{d.other || '—'}</td>
                 </tr>
               ))}
             </tbody>

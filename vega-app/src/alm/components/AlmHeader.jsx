@@ -11,9 +11,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 const NAV_ITEMS = [
   { label: 'Today',        path: '/alm' },
-  { label: 'Outreach',     path: '/alm/outreach' },
+  { label: 'Admissions',   path: '/alm/outreach' },
   { label: 'Trends',       path: '/alm/trends' },
-  { label: 'Directory',    path: '/alm/directory' },
   { label: 'Daily Report', path: '/alm/form' },
 ];
 
