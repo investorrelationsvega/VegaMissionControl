@@ -1,24 +1,12 @@
-// ═══════════════════════════════════════════════
-// ALM — Header
-// Vega · Assisted Living sub-brand lockup:
-//   [V-icon]  VEGA
-//             Assisted Living  (Source Serif italic)
-// Preserves icon integrity while giving the module
-// its own editorial voice.
-// ═══════════════════════════════════════════════
-
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const NAV_ITEMS = [
+const NAV = [
   { label: 'Today',        path: '/alm' },
   { label: 'Admissions',   path: '/alm/outreach' },
   { label: 'Trends',       path: '/alm/trends' },
   { label: 'Daily Report', path: '/alm/form' },
 ];
 
-// Inline Vega V + star-burst mark, sourced from /public/vega-icon.svg
-// so we can color via `fill: currentColor` and keep the element
-// scalable without another HTTP request.
 function VegaMark({ className }) {
   return (
     <svg
@@ -45,22 +33,23 @@ export default function AlmHeader() {
   return (
     <header
       style={{
+        background: 'rgba(245,245,247,0.8)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--alm-border)',
-        background: 'var(--alm-bg)',
         position: 'sticky',
         top: 0,
         zIndex: 100,
       }}
     >
       <div className="alm-header-inner">
-        {/* Left: back link + brand lockup */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <button
             onClick={() => navigate('/')}
             className="alm-header-back"
           >
-            <span aria-hidden="true">←</span>
-            <span className="alm-header-back-text"> Mission Control</span>
+            <span aria-hidden="true" style={{ fontSize: 16 }}>&#8249;</span>
+            <span className="alm-header-back-text">Mission Control</span>
           </button>
           <span className="alm-header-divider" />
           <div
@@ -73,35 +62,42 @@ export default function AlmHeader() {
             <VegaMark className="alm-header-lockup__icon" />
             <span className="alm-header-lockup__text">
               <span className="alm-header-lockup__wordmark">Vega</span>
-              <span className="alm-header-lockup__sub">Assisted Living Management</span>
+              <span className="alm-header-lockup__sub">Assisted Living</span>
             </span>
           </div>
         </div>
 
-        {/* Right: tabs */}
-        <nav style={{ display: 'flex', alignItems: 'stretch' }}>
-          {NAV_ITEMS.map((item) => {
+        <nav style={{ display: 'flex', alignItems: 'stretch', gap: 4 }}>
+          {NAV.map((item) => {
             const active = isActive(item.path);
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className="alm-serif"
                 style={{
-                  fontSize: 16,
-                  fontWeight: 500,
-                  letterSpacing: '-0.01em',
-                  background: 'transparent',
+                  fontSize: 14,
+                  fontWeight: active ? 600 : 400,
+                  background: active ? 'var(--alm-accent-soft)' : 'transparent',
                   border: 'none',
-                  borderBottom: active ? '2px solid var(--alm-accent)' : '2px solid transparent',
-                  color: active ? 'var(--alm-ink-1)' : 'var(--alm-ink-3)',
-                  padding: '0 16px',
-                  marginLeft: 4,
+                  borderRadius: 8,
+                  color: active ? 'var(--alm-accent)' : 'var(--alm-ink-3)',
+                  padding: '6px 14px',
+                  margin: 'auto 0',
                   cursor: 'pointer',
-                  transition: 'color 0.15s, border-color 0.15s',
+                  transition: 'all 0.15s',
                 }}
-                onMouseEnter={(e) => { if (!active) e.currentTarget.style.color = 'var(--alm-ink-1)'; }}
-                onMouseLeave={(e) => { if (!active) e.currentTarget.style.color = 'var(--alm-ink-3)'; }}
+                onMouseEnter={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.color = 'var(--alm-ink-1)';
+                    e.currentTarget.style.background = 'var(--alm-border)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!active) {
+                    e.currentTarget.style.color = 'var(--alm-ink-3)';
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
               >
                 {item.label}
               </button>

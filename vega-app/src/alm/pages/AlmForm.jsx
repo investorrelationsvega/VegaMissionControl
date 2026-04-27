@@ -49,23 +49,22 @@ export default function AlmForm() {
                 padding: 18,
                 textDecoration: 'none',
                 color: 'inherit',
-                transition: 'transform 120ms ease, border-color 120ms ease',
+                transition: 'transform 120ms ease, box-shadow 120ms ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.borderColor = 'var(--alm-accent, #3b82f6)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = '';
+                e.currentTarget.style.boxShadow = '';
               }}
             >
               <div
-                className="alm-serif"
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  letterSpacing: '0.1em',
+                  letterSpacing: '0.03em',
                   textTransform: 'uppercase',
                   color: 'var(--alm-ink-4)',
                 }}
@@ -73,7 +72,6 @@ export default function AlmForm() {
                 Daily Report Form
               </div>
               <div
-                className="alm-serif"
                 style={{
                   fontSize: 18,
                   fontWeight: 600,
@@ -84,7 +82,6 @@ export default function AlmForm() {
                 {f.name}
               </div>
               <div
-                className="alm-serif"
                 style={{
                   fontSize: 12,
                   color: 'var(--alm-ink-4)',
@@ -93,11 +90,10 @@ export default function AlmForm() {
                 Capacity · {f.capacity} rooms
               </div>
               <div
-                className="alm-serif"
                 style={{
                   marginTop: 'auto',
                   fontSize: 12,
-                  color: 'var(--alm-accent, #3b82f6)',
+                  color: 'var(--alm-accent)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 6,
@@ -111,7 +107,6 @@ export default function AlmForm() {
       </div>
 
       <p
-        className="alm-serif"
         style={{
           marginTop: 18,
           fontSize: 12,

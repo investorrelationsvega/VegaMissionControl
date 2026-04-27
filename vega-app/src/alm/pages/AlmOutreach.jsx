@@ -29,13 +29,12 @@ function KpiCard({ label, value, sub, tone }) {
   return (
     <div className="alm-card" style={{ padding: '18px 20px' }}>
       <div
-        className="alm-serif"
         style={{
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 600,
           color: 'var(--alm-ink-4)',
           textTransform: 'uppercase',
-          letterSpacing: '0.14em',
+          letterSpacing: '0.03em',
           marginBottom: 10,
         }}
       >
@@ -55,7 +54,6 @@ function KpiCard({ label, value, sub, tone }) {
       </div>
       {sub && (
         <div
-          className="alm-serif"
           style={{
             fontSize: 12,
             color: 'var(--alm-ink-4)',
@@ -76,11 +74,11 @@ function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst, sublabel }) {
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
+          <span style={{ fontSize: 11, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             {label}
           </span>
           {sublabel && (
-            <span className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-5)' }}>
+            <span style={{ fontSize: 11, color: 'var(--alm-ink-5)' }}>
               {sublabel}
             </span>
           )}
@@ -90,7 +88,7 @@ function FunnelStep({ label, value, pctOfPrev, pctOfTop, isFirst, sublabel }) {
             {fmtNum(value)}
           </span>
           {!isFirst && (
-            <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11, color: 'var(--alm-ink-5)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
               {fmtPct(pctOfPrev, 0) || '—'} of prev
             </span>
           )}
@@ -297,7 +295,7 @@ export default function AlmOutreach() {
                       <span className="alm-num" style={{ fontSize: 16, fontWeight: 600, color: 'var(--alm-ink-1)' }}>
                         {c.count}
                       </span>
-                      <span className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      <span style={{ fontSize: 11, color: 'var(--alm-ink-5)', letterSpacing: '0.03em', textTransform: 'uppercase' }}>
                         {fmtPct(pct(c.count, totals.discharges), 0)}
                       </span>
                     </span>

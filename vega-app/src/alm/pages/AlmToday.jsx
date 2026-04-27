@@ -158,10 +158,10 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
     <div className="alm-card alm-card--hover alm-card--p">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
         <div>
-          <div className="alm-serif" style={{ fontSize: 19, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em', lineHeight: 1.15 }}>
+          <div style={{ fontSize: 19, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
             {facility}
           </div>
-          <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', marginTop: 4, letterSpacing: '0.06em' }}>
+          <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', marginTop: 4, letterSpacing: '0.02em' }}>
             {latest ? `LAST REPORT · ${fmtDate(latest.date).toUpperCase()}` : 'NO SUBMISSIONS IN RANGE'}
           </div>
         </div>
@@ -169,7 +169,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           <div className="alm-display" style={{ fontSize: 32, lineHeight: 1 }}>
             {latest ? fmtNum(latest.census) : '—'}
           </div>
-          <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.03em', marginTop: 4 }}>
             {capacity ? `of ${capacity} · ${fmtPct(occupancy, 0) || '—'}` : 'Census'}
           </div>
         </div>
@@ -183,7 +183,7 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
           { label: 'Tours',      value: totals.tours },
         ].map((m) => (
           <div key={m.label}>
-            <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em', marginBottom: 4 }}>
+            <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 4 }}>
               {m.label}{isMultiDay ? ' Σ' : ''}
             </div>
             <div className="alm-num" style={{ fontSize: 20, fontWeight: 600, color: 'var(--alm-ink-1)', letterSpacing: '-0.01em', lineHeight: 1 }}>
@@ -194,11 +194,11 @@ function FacilityCard({ facility, latest, totals, isMultiDay }) {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="alm-serif" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: 'var(--alm-ink-3)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
           <span className="alm-dot" style={{ background: tone.dot }} />
           {tone.label}
         </div>
-        <div className="alm-serif" style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
           {totals.incidents > 0 && <span>{totals.incidents} Incident{totals.incidents === 1 ? '' : 's'}</span>}
           {totals.changes > 0 && <span>{totals.changes} Change{totals.changes === 1 ? '' : 's'}</span>}
           {totals.incidents === 0 && totals.changes === 0 && <span>No incidents</span>}

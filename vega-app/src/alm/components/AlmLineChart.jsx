@@ -22,7 +22,7 @@ const PALETTE = [
 ];
 const styleFor = (i) => PALETTE[i % PALETTE.length];
 
-const SERIF_FONT = '"Source Serif 4", Georgia, serif';
+const FONT = '"Inter", -apple-system, BlinkMacSystemFont, sans-serif';
 
 export default function AlmLineChart({
   series = [],  // [{ name, points: [{x: Date, y: number|null}] }]
@@ -42,16 +42,15 @@ export default function AlmLineChart({
   if (allPoints.length === 0 || series.length === 0) {
     return (
       <div
-        className="alm-serif"
         style={{
           height,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 11,
+          fontSize: 12,
+          fontWeight: 500,
           color: 'var(--alm-ink-5)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.18em',
+          letterSpacing: '0.02em',
         }}
       >
         {series.length === 0 ? 'Select one or more metrics' : 'No data in range'}
@@ -126,7 +125,7 @@ export default function AlmLineChart({
             x={lbl.x}
             y={H - 8}
             fontSize={9}
-            fontFamily={SERIF_FONT}
+            fontFamily={FONT}
             fill="var(--alm-ink-5)"
             textAnchor={lbl.anchor}
             style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}
@@ -138,8 +137,8 @@ export default function AlmLineChart({
         {/* Left axis hint — "relative" since scales differ */}
         {series.length > 1 && (
           <>
-            <text x={PAD_L - 6} y={PAD_T + 8} fontSize={8} fontFamily={SERIF_FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>HIGH</text>
-            <text x={PAD_L - 6} y={PAD_T + plotH} fontSize={8} fontFamily={SERIF_FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>LOW</text>
+            <text x={PAD_L - 6} y={PAD_T + 8} fontSize={8} fontFamily={FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>HIGH</text>
+            <text x={PAD_L - 6} y={PAD_T + plotH} fontSize={8} fontFamily={FONT} fill="var(--alm-ink-5)" textAnchor="end" style={{ letterSpacing: '0.12em' }}>LOW</text>
           </>
         )}
 
@@ -155,7 +154,7 @@ export default function AlmLineChart({
               x={PAD_L - 6}
               y={y + 3}
               fontSize={9}
-              fontFamily={SERIF_FONT}
+              fontFamily={FONT}
               fill="var(--alm-ink-4)"
               textAnchor="end"
             >
@@ -206,15 +205,14 @@ export default function AlmLineChart({
             return (
               <span
                 key={s.name}
-                className="alm-serif"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  fontSize: 10,
+                  fontSize: 11,
+                  fontWeight: 500,
                   color: 'var(--alm-ink-4)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.12em',
+                  letterSpacing: '0.01em',
                 }}
               >
                 <svg width="22" height="6" style={{ display: 'inline-block' }}>

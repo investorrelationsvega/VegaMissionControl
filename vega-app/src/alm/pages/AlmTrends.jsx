@@ -254,7 +254,7 @@ function ComparisonCard({ label, current, previous, baseline, mode }) {
       <div className="alm-stat-label">{label}</div>
       <div className="alm-stat-value" style={{ fontSize: 28 }}>{fmtNum(current)}</div>
       <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div className="alm-serif" style={{ fontSize: 12, color: 'var(--alm-ink-4)', display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 12, color: 'var(--alm-ink-4)', display: 'flex', justifyContent: 'space-between' }}>
           <span>vs prior period</span>
           {delta != null ? (
             <span style={{ color: isUp ? 'var(--alm-up)' : isDown ? 'var(--alm-down)' : 'var(--alm-ink-4)', fontWeight: 600 }}>
@@ -264,7 +264,7 @@ function ComparisonCard({ label, current, previous, baseline, mode }) {
             <span>--</span>
           )}
         </div>
-        <div className="alm-serif" style={{ fontSize: 12, color: 'var(--alm-ink-5)', display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 12, color: 'var(--alm-ink-5)', display: 'flex', justifyContent: 'space-between' }}>
           <span>90-day {mode === 'avg' ? 'avg' : 'total'}</span>
           <span>{fmtNum(baseline)}</span>
         </div>
@@ -280,7 +280,7 @@ function NetMovementBar({ item, maxAbs }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px dashed var(--alm-border)' }}>
-      <div className="alm-serif" style={{ fontSize: 13, fontWeight: 500, color: 'var(--alm-ink-2)', width: 180, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--alm-ink-2)', width: 180, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {item.facility}
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', height: 20 }}>
@@ -308,7 +308,7 @@ function NetMovementBar({ item, maxAbs }) {
           )}
         </div>
       </div>
-      <div className="alm-serif" style={{
+      <div style={{
         fontSize: 13,
         fontWeight: 600,
         width: 60,
@@ -319,7 +319,7 @@ function NetMovementBar({ item, maxAbs }) {
       }}>
         {item.net > 0 ? '+' : ''}{item.net}
       </div>
-      <div className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-5)', width: 80, textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', width: 80, textAlign: 'right', flexShrink: 0 }}>
         {item.admits}A / {item.discharges}D
       </div>
     </div>
@@ -330,16 +330,16 @@ function CauseBar({ cause, count, pct, maxCount }) {
   const barWidth = maxCount > 0 ? `${(count / maxCount) * 100}%` : '0%';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0' }}>
-      <div className="alm-serif" style={{ fontSize: 13, fontWeight: 500, color: 'var(--alm-ink-2)', width: 160, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--alm-ink-2)', width: 160, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {cause}
       </div>
       <div style={{ flex: 1, height: 14, background: 'var(--alm-surface-alt)', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: barWidth, background: 'var(--alm-accent)', borderRadius: 2, opacity: 0.7, transition: 'width 0.3s ease' }} />
       </div>
-      <div className="alm-serif" style={{ fontSize: 13, fontWeight: 600, color: 'var(--alm-ink-1)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--alm-ink-1)', width: 36, textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
         {count}
       </div>
-      <div className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-4)', width: 44, textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', width: 44, textAlign: 'right', flexShrink: 0 }}>
         {fmtPct(pct, 0)}
       </div>
     </div>
@@ -465,16 +465,16 @@ export default function AlmTrends() {
       <div className="alm-section"><span>Net Movement by Facility</span></div>
       <div className="alm-card alm-card--p">
         {netMovement.length === 0 ? (
-          <div className="alm-serif" style={{ fontSize: 13, color: 'var(--alm-ink-4)', textAlign: 'center', padding: 20 }}>
+          <div style={{ fontSize: 13, color: 'var(--alm-ink-4)', textAlign: 'center', padding: 20 }}>
             No admission or discharge data in this period.
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+              <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 Discharges ←
               </div>
-              <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+              <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 → Admissions
               </div>
             </div>
@@ -482,7 +482,7 @@ export default function AlmTrends() {
               <NetMovementBar key={item.facility} item={item} maxAbs={maxAbsNet} />
             ))}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, gap: 16 }}>
-              <div className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-4)' }}>
+              <div style={{ fontSize: 11, color: 'var(--alm-ink-4)' }}>
                 Portfolio net: <span style={{
                   fontWeight: 600,
                   color: netMovement.reduce((s, m) => s + m.net, 0) > 0 ? 'var(--alm-up)' :
@@ -502,11 +502,11 @@ export default function AlmTrends() {
 
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.18em' }}>
+          <div style={{ fontSize: 11, color: 'var(--alm-ink-4)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
             Metrics · {selectedMetrics.length}/{MAX_OVERLAY} selected
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <label className="alm-serif" style={{ fontSize: 11, color: 'var(--alm-ink-4)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <label style={{ fontSize: 11, color: 'var(--alm-ink-4)', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={showRolling}
@@ -518,15 +518,14 @@ export default function AlmTrends() {
             {selectedMetrics.length > 0 && (
               <button
                 onClick={() => setSelectedMetrics([])}
-                className="alm-serif"
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   background: 'transparent',
                   border: 'none',
                   color: 'var(--alm-ink-4)',
                   cursor: 'pointer',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.16em',
+                  letterSpacing: '0.03em',
                   padding: 0,
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--alm-ink-1)')}
@@ -558,13 +557,13 @@ export default function AlmTrends() {
       <div className="alm-section"><span>Discharge Causes</span></div>
       <div className="alm-card alm-card--p">
         {dischargeMix.causes.length === 0 ? (
-          <div className="alm-serif" style={{ fontSize: 13, color: 'var(--alm-ink-4)', textAlign: 'center', padding: 20 }}>
+          <div style={{ fontSize: 13, color: 'var(--alm-ink-4)', textAlign: 'center', padding: 20 }}>
             No discharge detail data in this period.
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-              <div className="alm-serif" style={{ fontSize: 10, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+              <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                 {dischargeMix.total} total discharge{dischargeMix.total === 1 ? '' : 's'} with cause data
               </div>
             </div>
@@ -595,21 +594,20 @@ export default function AlmTrends() {
                 <div key={f.facility} className="alm-card alm-card--hover alm-card--p">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
-                      <div className="alm-serif" style={{ fontSize: 17, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
+                      <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--alm-ink-1)', letterSpacing: '-0.005em' }}>
                         {f.facility}
                       </div>
-                      <div className="alm-serif" style={{ fontSize: 9, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--alm-ink-5)', textTransform: 'uppercase', letterSpacing: '0.03em', marginTop: 4 }}>
                         {primaryLabel}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div className="alm-display" style={{ fontSize: 24, lineHeight: 1 }}>{fmtNum(f.latest)}</div>
                       <div
-                        className="alm-serif"
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           marginTop: 4,
-                          letterSpacing: '0.08em',
+                          letterSpacing: '0.03em',
                           color: f.delta === 0 ? 'var(--alm-ink-5)' : f.delta > 0 ? 'var(--alm-up)' : 'var(--alm-down)',
                         }}
                       >
